@@ -349,9 +349,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 )}
                 <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[75%]`}>
                   <div className="flex items-center gap-2 mb-1 mx-1">
-                    <span className="text-[10px] text-gray-500 font-semibold">{msg.user}</span>
+                    <span className="text-[10px] text-gray-500 font-semibold">{msg.user === 'test' ? 'Anonyme' : msg.user}</span>
                     {isDeletedAccount && <span className="text-[10px] text-red-500 font-bold uppercase">Compte supprimé</span>}
-                    {isAdmin && !isMine && msg.user !== group.creator && !isDeletedAccount && (
+                    {isAdmin && !isMine && msg.user !== group.creator && !isDeletedAccount && msg.user !== 'test' && (
                       <button onClick={() => handleBanUser(msg.user)} className="text-[10px] text-red-500 hover:underline opacity-0 group-hover/msg:opacity-100 transition">Bannir</button>
                     )}
                   </div>
@@ -420,7 +420,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     {state.users[msg.user]?.avatar ? <img src={state.users[msg.user].avatar!} className="w-full h-full rounded-full object-cover" /> : msg.user[0].toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-gray-700 mb-0.5">@{msg.user}</p>
+                    <p className="text-xs font-bold text-gray-700 mb-0.5">@{msg.user === 'test' ? 'Anonyme' : msg.user}</p>
                     <p className="text-sm text-gray-600 truncate">{msg.text}</p>
                   </div>
                 </div>

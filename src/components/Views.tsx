@@ -5,7 +5,7 @@ import { User, Key, ImagePlus, Trash2 } from 'lucide-react';
 
 export function Profile({ state, updateState }: { state: AppState, updateState: any }) {
   const isTest = state.currentUser === 'test';
-  const user = isTest ? { username: 'Test User', password: '••••••••', avatar: null } : state.users[state.currentUser as string];
+  const user = isTest ? { username: 'Utilisateur Anonyme', password: '••••••••', avatar: null } : state.users[state.currentUser as string];
   const [username, setUsername] = useState(user?.username || '');
   const [password, setPassword] = useState(user?.password || '');
   const [avatar, setAvatar] = useState(user?.avatar || null);
