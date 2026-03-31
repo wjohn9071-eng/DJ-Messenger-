@@ -40,23 +40,6 @@ export default function App() {
     }
   };
 
-  if (!state.currentUser) {
-    return <Auth state={state} updateState={updateState} />;
-  }
-
-  const isTest = state.currentUser === 'test';
-  const user = isTest ? null : state.users[state.currentUser];
-
-  const navItems = [
-    { id: 'home', label: 'Accueil', icon: HomeIcon },
-    { id: 'discussions', label: 'Discussions', icon: MessageSquare },
-    { id: 'friends', label: 'Amis', icon: Users },
-    { id: 'djsociety', label: 'DJ Society', icon: Lightbulb },
-    { id: 'updates', label: 'Mises à jour', icon: Bell },
-    { id: 'settings', label: 'Paramètres', icon: SettingsIcon },
-    { id: 'tutorial', label: 'Tutoriel', icon: HelpCircle },
-  ];
-
   // Simulate incoming messages from Bot DJ every 10 minutes for demo
   useEffect(() => {
     if (!state.currentUser) return;
@@ -112,6 +95,23 @@ export default function App() {
     
     return () => clearInterval(interval);
   }, [updateState, state.currentUser]);
+
+  if (!state.currentUser) {
+    return <Auth state={state} updateState={updateState} />;
+  }
+
+  const isTest = state.currentUser === 'test';
+  const user = isTest ? null : state.users[state.currentUser];
+
+  const navItems = [
+    { id: 'home', label: 'Accueil', icon: HomeIcon },
+    { id: 'discussions', label: 'Discussions', icon: MessageSquare },
+    { id: 'friends', label: 'Amis', icon: Users },
+    { id: 'djsociety', label: 'DJ Society', icon: Lightbulb },
+    { id: 'updates', label: 'Mises à jour', icon: Bell },
+    { id: 'settings', label: 'Paramètres', icon: SettingsIcon },
+    { id: 'tutorial', label: 'Tutoriel', icon: HelpCircle },
+  ];
 
   const renderView = () => {
     switch (view) {
