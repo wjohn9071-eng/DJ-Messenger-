@@ -4,7 +4,8 @@ import { djStyleBg, djStyleText } from '../lib/utils';
 import { User, Key, ImagePlus, Trash2 } from 'lucide-react';
 
 export function Profile({ state, updateState }: { state: AppState, updateState: any }) {
-  const user = state.users[state.currentUser as string];
+  const isTest = state.currentUser === 'test';
+  const user = isTest ? { username: 'Test User', password: '••••••••', avatar: null } : state.users[state.currentUser as string];
   const [username, setUsername] = useState(user?.username || '');
   const [password, setPassword] = useState(user?.password || '');
   const [avatar, setAvatar] = useState(user?.avatar || null);
@@ -15,11 +16,8 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
     setTimeout(() => setToast(null), 3000);
   };
 
-  if (state.currentUser === 'test') {
-    return <div className="p-6 text-center text-gray-500">Le profil n'est pas disponible en mode test.</div>;
-  }
-
   const handleSave = () => {
+    if (isTest) return showToast("Connecte-toi pour modifier ton profil.");
     if (!username.trim() || !password.trim()) {
       return showToast("Les champs ne peuvent pas être vides.");
     }
@@ -90,9 +88,7 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
   const [toast, setToast] = useState<string | null>(null);
   
   const isTest = state.currentUser === 'test';
-  const currentUser = state.users[state.currentUser as string];
-
-  if (isTest) return <div className="p-6 text-center text-gray-500">Les amis ne sont pas disponibles en mode test.</div>;
+  const currentUser = isTest ? { friends: [] } : state.users[state.currentUser as string];
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -100,6 +96,7 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
   };
 
   const handleAddFriend = (friendName: string) => {
+    if (isTest) return showToast("Connecte-toi pour ajouter des amis.");
     if (currentUser.friends.includes(friendName)) return showToast("Déjà dans tes amis.");
     
     updateState((prev: AppState) => {
@@ -167,7 +164,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
   const [text, setText] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const isTest = state.currentUser === 'test';
-  const currentUser = state.users[state.currentUser as string];
+  const currentUser = isTest ? { isAdmin: false, proposalsToday: 0, lastProposalDate: '' } : state.users[state.currentUser as string];
 
   const showToast = (msg: string) => {
     setToast(msg);

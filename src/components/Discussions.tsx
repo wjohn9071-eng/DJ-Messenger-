@@ -46,7 +46,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeGroup || !messageInput.trim()) return;
-    if (isTest && state.groups[activeGroup].type === 'public') return showToast("Connecte-toi pour écrire.");
 
     const group = state.groups[activeGroup];
     if (group.banned.includes(state.currentUser as string)) return showToast("Tu es banni de ce groupe.");
@@ -265,8 +264,20 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const visibleGroups = Object.values(state.groups).filter(g => {
     if (activeTab === 'public') return g.type === 'public';
-    if (activeTab === 'private') return g.type === 'private' && (g.members.includes(state.currentUser as string) || currentUser?.isAdmin);
-    return false; // SMS and Recent handled separately
+    if (activeTab === 'private') {
+      // For private tab, show groups that are NOT direct messages (more than 2 members or has a code)
+      return g.type === 'private' && 
+             (g.members.includes(state.currentUser as string) || currentUser?.isAdmin) &&
+             (g.members.length > 2 || g.code);
+    }
+    if (activeTab === 'sms') {
+      // For SMS tab, show direct messages (exactly 2 members, no code)
+      return g.type === 'private' && 
+             g.members.includes(state.currentUser as string) &&
+             g.members.length === 2 &&
+             !g.code;
+    }
+    return false; // Recent handled separately
   }).sort((a, b) => {
     const aPinned = currentUser?.pinnedGroups?.includes(a.id) ? 1 : 0;
     const bPinned = currentUser?.pinnedGroups?.includes(b.id) ? 1 : 0;
@@ -278,14 +289,19 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     .flatMap(g => g.messages.map(m => ({ ...m, groupId: g.id, groupName: g.name })))
     .filter(m => !m.isSystem)
     .sort((a, b) => {
-      // Very basic sort by ID (timestamp-like)
-      return parseInt(b.id) - parseInt(a.id);
+      // Extract timestamp from ID if possible, or use a fallback
+      const timeA = a.id.split('-')[1] || '0';
+      const timeB = b.id.split('-')[1] || '0';
+      return parseInt(timeB) - parseInt(timeA);
     });
 
   if (activeGroup && state.groups[activeGroup]) {
     const group = state.groups[activeGroup];
     const isAdmin = group.admins.includes(state.currentUser as string) || currentUser?.isAdmin;
     const isPinned = currentUser?.pinnedGroups?.includes(activeGroup);
+    const isSMS = group.type === 'private' && group.members.length === 2 && !group.code;
+    const otherUser = isSMS ? group.members.find(m => m !== state.currentUser) : null;
+    const otherUserData = otherUser ? state.users[otherUser] : null;
 
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)] md:h-full bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
@@ -294,12 +310,16 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             <button onClick={() => setActiveGroup(null)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition text-gray-500">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             </button>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#007FFF] to-[#32CD32] flex items-center justify-center text-white font-bold shadow-md">
-              {group.name[0].toUpperCase()}
+            <div className={`w-10 h-10 rounded-full ${isSMS ? 'bg-gray-100' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center text-white font-bold shadow-md overflow-hidden`}>
+              {isSMS && otherUserData?.avatar ? (
+                <img src={otherUserData.avatar} className="w-full h-full object-cover" />
+              ) : (
+                <span>{(otherUser || group.name)[0].toUpperCase()}</span>
+              )}
             </div>
             <div>
-              <h3 className="font-bold text-gray-800 leading-tight">{group.name}</h3>
-              <p className="text-xs text-gray-500 font-medium">{group.members.length} membres</p>
+              <h3 className="font-bold text-gray-800 leading-tight">{isSMS ? otherUser : group.name}</h3>
+              <p className="text-xs text-gray-500 font-medium">{isSMS ? (otherUserData?.lastSeen ? `Vu ${otherUserData.lastSeen}` : 'En ligne') : `${group.members.length} membres`}</p>
             </div>
           </div>
           {!isTest && (
@@ -356,8 +376,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
         <div className="p-3 bg-white border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
           <form className="flex gap-2 items-center max-w-3xl mx-auto" onSubmit={handleSendMessage}>
-            <input type="text" value={messageInput} onChange={e => setMessageInput(e.target.value)} placeholder={isTest && group.type === 'public' ? "Lecture seule en mode test" : "Écris un message..."} disabled={isTest && group.type === 'public'} className="flex-1 px-5 py-3 rounded-full bg-gray-100 border-none focus:ring-2 focus:ring-[#0D98BA] outline-none transition-all disabled:opacity-50" />
-            <button type="submit" disabled={!messageInput.trim() || (isTest && group.type === 'public')} className={`p-3.5 rounded-full text-white shadow-md hover:scale-105 transition active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex-shrink-0 ${djStyleBg}`}>
+            <input type="text" value={messageInput} onChange={e => setMessageInput(e.target.value)} placeholder="Écris un message..." className="flex-1 px-5 py-3 rounded-full bg-gray-100 border-none focus:ring-2 focus:ring-[#0D98BA] outline-none transition-all disabled:opacity-50" />
+            <button type="submit" disabled={!messageInput.trim()} className={`p-3.5 rounded-full text-white shadow-md hover:scale-105 transition active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex-shrink-0 ${djStyleBg}`}>
               <Send size={20} className="ml-0.5" />
             </button>
           </form>
@@ -380,12 +400,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pb-6">
-        {activeTab === 'sms' ? (
-          <div className="text-center text-gray-500 py-12">
-            <MessageSquare size={48} className="mx-auto mb-4 opacity-20" />
-            <p>Les messages directs arrivent bientôt !</p>
-          </div>
-        ) : activeTab === 'recent' ? (
+        {activeTab === 'recent' ? (
           <div className="space-y-4">
             {allRecentMessages.map(msg => (
               <div 
@@ -422,25 +437,35 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             )}
 
-            {visibleGroups.map(g => (
-              <div key={g.id} onClick={() => setActiveGroup(g.id)} className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:border-blue-100 transition-all group relative">
-                {state.newMessages?.includes(g.id) && (
-                  <div className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse z-10" />
-                )}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#007FFF] to-[#32CD32] flex items-center justify-center text-white font-bold text-xl shadow-inner group-hover:scale-105 transition-transform">
-                  {g.name[0].toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-gray-900 truncate pr-2">{g.name}</h3>
-                    <span className="text-xs text-gray-400 whitespace-nowrap">{g.messages[g.messages.length - 1]?.time}</span>
+            {visibleGroups.map(g => {
+              const isSMS = activeTab === 'sms';
+              const otherUser = isSMS ? g.members.find(m => m !== state.currentUser) : null;
+              const otherUserData = otherUser ? state.users[otherUser] : null;
+
+              return (
+                <div key={g.id} onClick={() => setActiveGroup(g.id)} className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:border-blue-100 transition-all group relative">
+                  {state.newMessages?.includes(g.id) && (
+                    <div className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse z-10" />
+                  )}
+                  <div className={`w-14 h-14 rounded-2xl ${isSMS ? 'bg-gray-100' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center text-white font-bold text-xl shadow-inner group-hover:scale-105 transition-transform overflow-hidden`}>
+                    {isSMS && otherUserData?.avatar ? (
+                      <img src={otherUserData.avatar} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{(otherUser || g.name)[0].toUpperCase()}</span>
+                    )}
                   </div>
-                  <p className={`text-sm truncate ${state.newMessages?.includes(g.id) ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
-                    {g.messages[g.messages.length - 1]?.text || 'Aucun message'}
-                  </p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-bold text-gray-900 truncate pr-2">{isSMS ? otherUser : g.name}</h3>
+                      <span className="text-xs text-gray-400 whitespace-nowrap">{g.messages[g.messages.length - 1]?.time}</span>
+                    </div>
+                    <p className={`text-sm truncate ${state.newMessages?.includes(g.id) ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
+                      {g.messages[g.messages.length - 1]?.text || 'Aucun message'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {visibleGroups.length === 0 && <p className="text-center text-gray-500 py-8">Aucun groupe trouvé.</p>}
           </div>
         )}

@@ -7,7 +7,7 @@ import { Profile, Friends, DJSociety, Updates, Settings } from './components/Vie
 import { TutorialGame } from './components/TutorialGame';
 import { Menu, Home as HomeIcon, MessageSquare, Users, Lightbulb, Bell, Settings as SettingsIcon, HelpCircle, User } from 'lucide-react';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from './lib/utils';
-import { AppState, Message } from './types';
+import { AppState, Message, Group } from './types';
 
 export default function App() {
   const { state, updateState } = useAppStore();
@@ -57,8 +57,10 @@ export default function App() {
     { id: 'tutorial', label: 'Tutoriel', icon: HelpCircle },
   ];
 
-  // Simulate incoming messages from Bot DJ every 5 minutes for demo
+  // Simulate incoming messages from Bot DJ every 10 minutes for demo
   useEffect(() => {
+    if (!state.currentUser) return;
+
     const interval = setInterval(() => {
       const botMsg: Message = {
         id: `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -68,27 +70,48 @@ export default function App() {
       };
       
       updateState((prev: AppState) => {
-        const publicGroups = Object.keys(prev.groups).filter(id => prev.groups[id].type === 'public');
-        if (publicGroups.length === 0) return prev;
-        const randomGroup = publicGroups[Math.floor(Math.random() * publicGroups.length)];
+        // Find or create the private Bot DJ group (SMS)
+        const botGroupId = `bot-private-${prev.currentUser}`;
+        const botGroup = prev.groups[botGroupId];
         
+        if (!botGroup) {
+          const newBotGroup: Group = {
+            id: botGroupId,
+            type: 'private',
+            name: 'Bot DJ',
+            creator: 'system',
+            admins: ['system'],
+            members: [prev.currentUser as string, 'Bot DJ'],
+            banned: [],
+            muted: [],
+            messages: [
+              { id: 'sys-1', user: 'Système', text: 'Conversation privée avec Bot DJ', time: new Date().toLocaleTimeString(), isSystem: true },
+              botMsg
+            ]
+          };
+          return {
+            groups: { ...prev.groups, [botGroupId]: newBotGroup },
+            newMessages: prev.newMessages?.includes(botGroupId) ? prev.newMessages : [...(prev.newMessages || []), botGroupId]
+          };
+        }
+
         return { 
           groups: {
             ...prev.groups,
-            [randomGroup]: {
-              ...prev.groups[randomGroup],
-              messages: [...prev.groups[randomGroup].messages, botMsg]
+            [botGroupId]: {
+              ...prev.groups[botGroupId],
+              messages: [...prev.groups[botGroupId].messages, botMsg]
             }
           },
-          newMessages: prev.newMessages?.includes(randomGroup) 
+          newMessages: prev.newMessages?.includes(botGroupId) 
             ? prev.newMessages 
-            : [...(prev.newMessages || []), randomGroup]
+            : [...(prev.newMessages || []), botGroupId]
         };
       });
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 10 * 60 * 1000); // 10 minutes
     
     return () => clearInterval(interval);
-  }, [updateState]);
+  }, [updateState, state.currentUser]);
 
   const renderView = () => {
     switch (view) {
