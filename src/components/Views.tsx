@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AppState } from '../types';
 import { djStyleBg, djStyleText } from '../lib/utils';
-import { User, Key, ImagePlus, Trash2 } from 'lucide-react';
+import { User, Key, ImagePlus, Trash2, MessageSquare } from 'lucide-react';
+import { RestrictedActionPopup } from './RestrictedActionPopup';
 
 export function Profile({ state, updateState }: { state: AppState, updateState: any }) {
   const isTest = state.currentUser === 'test';
@@ -10,14 +11,22 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
   const [password, setPassword] = useState(user?.password || '');
   const [avatar, setAvatar] = useState(user?.avatar || null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handleSignUpRedirect = () => {
+    updateState({ currentUser: null });
+  };
+
   const handleSave = () => {
-    if (isTest) return showToast("Connecte-toi pour modifier ton profil.");
+    if (isTest) {
+      setShowRestrictedPopup(true);
+      return;
+    }
     if (!username.trim() || !password.trim()) {
       return showToast("Les champs ne peuvent pas être vides.");
     }
@@ -79,6 +88,13 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
       </div>
 
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
+      
+      {showRestrictedPopup && (
+        <RestrictedActionPopup 
+          onClose={() => setShowRestrictedPopup(false)} 
+          onSignUp={handleSignUpRedirect}
+        />
+      )}
     </div>
   );
 }
@@ -86,6 +102,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
 export function Friends({ state, updateState }: { state: AppState, updateState: any }) {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<string | null>(null);
+  const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
   
   const isTest = state.currentUser === 'test';
   const currentUser = isTest ? { friends: [] } : state.users[state.currentUser as string];
@@ -95,67 +112,124 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handleSignUpRedirect = () => {
+    updateState({ currentUser: null });
+  };
+
   const handleAddFriend = (friendName: string) => {
-    if (isTest) return showToast("Connecte-toi pour ajouter des amis.");
+    if (isTest) {
+      setShowRestrictedPopup(true);
+      return;
+    }
     if (currentUser.friends.includes(friendName)) return showToast("Déjà dans tes amis.");
     
     updateState((prev: AppState) => {
       const newUsers = { ...prev.users };
-      newUsers[prev.currentUser as string].friends.push(friendName);
-      newUsers[friendName].friends.push(prev.currentUser as string);
+      if (!newUsers[prev.currentUser as string].friends.includes(friendName)) {
+        newUsers[prev.currentUser as string].friends.push(friendName);
+      }
+      if (!newUsers[friendName].friends.includes(prev.currentUser as string)) {
+        newUsers[friendName].friends.push(prev.currentUser as string);
+      }
       return { users: newUsers };
     });
     showToast(`${friendName} ajouté aux amis !`);
   };
 
+  // The app "doesn't lie": it searches all registered users
   const searchResults = Object.keys(state.users).filter(u => 
     u !== state.currentUser && 
     u.toLowerCase().includes(search.toLowerCase()) &&
-    !currentUser.friends.includes(u)
+    !currentUser.friends.includes(u) &&
+    u !== 'DJ_Bot' // Don't show the bot in general search if we want it to be special
   );
 
   return (
-    <div className="p-6 max-w-2xl mx-auto animate-in fade-in duration-300">
+    <div className="p-6 max-w-2xl mx-auto animate-in fade-in duration-300 pb-20">
       <h2 className={`text-2xl font-bold mb-6 ${djStyleText}`}>Amis</h2>
       
       <div className="mb-8">
-        <input type="text" placeholder="Rechercher un utilisateur..." value={search} onChange={e => setSearch(e.target.value)} className="w-full px-5 py-3 rounded-2xl bg-white border border-gray-200 shadow-sm focus:ring-2 focus:ring-[#0D98BA] outline-none transition" />
-        
-        <div className="mt-4 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-3 bg-gray-50 border-b text-xs font-bold text-gray-500 uppercase tracking-wider">
-            {search ? 'Résultats' : 'Tous les utilisateurs'}
+        <div className="relative group">
+          <input 
+            type="text" 
+            placeholder="Rechercher un utilisateur par son nom..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            className="w-full px-6 py-4 rounded-[2rem] bg-white border border-gray-100 shadow-xl focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all text-lg font-medium"
+          />
+          <div className={`absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full ${djStyleBg}`}>
+            <User size={20} className="text-white" />
           </div>
-          {searchResults.length > 0 ? searchResults.map(u => (
-            <div key={u} className="flex items-center justify-between p-4 border-b last:border-0 hover:bg-gray-50 transition">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-500">
-                  {state.users[u].avatar ? <img src={state.users[u].avatar!} className="w-full h-full rounded-full object-cover" /> : u[0].toUpperCase()}
-                </div>
-                <span className="font-semibold">{u}</span>
-              </div>
-              <button onClick={() => handleAddFriend(u)} className={`px-4 py-2 rounded-full text-sm font-bold shadow-md hover:opacity-90 transition active:scale-95 text-white ${djStyleBg}`}>
-                Ajouter
-              </button>
-            </div>
-          )) : <div className="p-4 text-center text-gray-500">Aucun utilisateur trouvé.</div>}
         </div>
+        
+        {search && (
+          <div className="mt-4 bg-white rounded-3xl shadow-2xl border border-gray-50 overflow-hidden animate-in slide-in-from-top-4">
+            <div className="p-4 bg-gray-50 border-b text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              Résultats de la recherche
+            </div>
+            {searchResults.length > 0 ? searchResults.map(u => (
+              <div key={u} className="flex items-center justify-between p-5 border-b last:border-0 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden">
+                    {state.users[u].avatar ? <img src={state.users[u].avatar!} className="w-full h-full object-cover" /> : u[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <span className="font-bold text-gray-800 text-lg">@{u}</span>
+                    <p className="text-xs text-gray-400">Utilisateur DJ Messenger</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => handleAddFriend(u)} 
+                  className={`px-6 py-2.5 rounded-full text-sm font-black uppercase tracking-widest shadow-lg hover:scale-105 transition active:scale-95 text-white ${djStyleBg}`}
+                >
+                  Ajouter
+                </button>
+              </div>
+            )) : (
+              <div className="p-8 text-center">
+                <p className="text-gray-400 font-bold italic">Aucun utilisateur trouvé avec ce nom.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div>
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Mes amis ({currentUser.friends.length})</h3>
-        <div className="grid gap-3">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Mes amis ({currentUser.friends.length})</h3>
+        <div className="grid gap-4">
           {currentUser.friends.map(f => (
-            <div key={f} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-500">
-                {state.users[f]?.avatar ? <img src={state.users[f].avatar!} className="w-full h-full rounded-full object-cover" /> : f[0].toUpperCase()}
+            <div key={f} className="bg-white p-5 rounded-[2rem] shadow-lg border border-gray-50 flex items-center justify-between group hover:border-[#0D98BA]/30 transition-all">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
+                  {state.users[f]?.avatar ? <img src={state.users[f].avatar!} className="w-full h-full object-cover" /> : f[0].toUpperCase()}
+                </div>
+                <div>
+                  <span className="font-bold text-gray-800 text-xl">@{f}</span>
+                  <p className="text-xs text-green-500 font-bold uppercase tracking-tighter">Ami connecté</p>
+                </div>
               </div>
-              <span className="font-semibold text-lg">{f}</span>
+              <div className="flex gap-2">
+                <button className="p-3 rounded-full bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors">
+                  <MessageSquare size={20} />
+                </button>
+              </div>
             </div>
           ))}
-          {currentUser.friends.length === 0 && <p className="text-gray-500 italic">Tu n'as pas encore d'amis.</p>}
+          {currentUser.friends.length === 0 && (
+            <div className="bg-white/50 border-2 border-dashed border-gray-200 p-12 rounded-[2.5rem] text-center">
+              <p className="text-gray-400 font-bold italic">Ta liste d'amis est vide pour le moment.</p>
+            </div>
+          )}
         </div>
       </div>
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
+      
+      {showRestrictedPopup && (
+        <RestrictedActionPopup 
+          onClose={() => setShowRestrictedPopup(false)} 
+          onSignUp={handleSignUpRedirect}
+        />
+      )}
     </div>
   );
 }
@@ -163,6 +237,7 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
 export function DJSociety({ state, updateState }: { state: AppState, updateState: any }) {
   const [text, setText] = useState('');
   const [toast, setToast] = useState<string | null>(null);
+  const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
   const isTest = state.currentUser === 'test';
   const currentUser = isTest ? { isAdmin: false, proposalsToday: 0, lastProposalDate: '' } : state.users[state.currentUser as string];
 
@@ -171,8 +246,15 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handleSignUpRedirect = () => {
+    updateState({ currentUser: null });
+  };
+
   const handleSubmit = () => {
-    if (isTest) return showToast("Connecte-toi pour proposer.");
+    if (isTest) {
+      setShowRestrictedPopup(true);
+      return;
+    }
     if (!text.trim()) return;
     
     const today = new Date().toDateString();
@@ -270,12 +352,20 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
         {state.proposals.length === 0 && <p className="text-gray-500 italic text-center py-8">Aucune proposition pour le moment.</p>}
       </div>
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
+      
+      {showRestrictedPopup && (
+        <RestrictedActionPopup 
+          onClose={() => setShowRestrictedPopup(false)} 
+          onSignUp={handleSignUpRedirect}
+        />
+      )}
     </div>
   );
 }
 
 export function Updates() {
   const updates = [
+    { version: '2.0.0', date: '01/04/2026', desc: 'Refonte majeure des discussions : sous-onglets Publics, Privés et SMS. Nouveau système de création de groupe par étapes avec barre de progression. Recherche d\'amis améliorée et intégration d\'un assistant DJ (Bot) intelligent. Correction du tutoriel et isolation complète de la simulation.' },
     { version: '1.2.0', date: '29/03/2026', desc: 'Ajout des notifications, installation PWA, épinglage de groupes, tutoriel interactif, et refonte des paramètres.' },
     { version: '1.1.0', date: '28/03/2026', desc: 'Ajout des groupes privés, profils, amis et DJ Society.' },
     { version: '1.0.0', date: '28/03/2026', desc: 'Création de DJ Messenger. Chat public et authentification de base.' }
@@ -306,24 +396,21 @@ export function Updates() {
 
 export function Settings({ state, updateState, handleLogout }: { state: AppState, updateState: any, handleLogout: () => void }) {
   const isTest = state.currentUser === 'test';
-  const user = state.users[state.currentUser as string];
+  const user = isTest ? null : state.users[state.currentUser as string];
   const [bgColor, setBgColor] = useState(user?.bgColor || '#f0f2f5');
   const [notifications, setNotifications] = useState(user?.notificationsEnabled || false);
   const [autoHideSidebar, setAutoHideSidebar] = useState(user?.autoHideSidebar ?? false);
   const [adminCode, setAdminCode] = useState('');
   const [toast, setToast] = useState<string | null>(null);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  useEffect(() => {
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    });
-  }, []);
+  const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleSignUpRedirect = () => {
+    updateState({ currentUser: null });
   };
 
   const frenchColors: Record<string, string> = {
@@ -392,7 +479,10 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   };
 
   const saveSettings = () => {
-    if (isTest) return showToast("Non disponible en mode test.");
+    if (isTest) {
+      setShowRestrictedPopup(true);
+      return;
+    }
     const hexColor = colorNameToHex(bgColor);
     
     updateState((prev: AppState) => {
@@ -407,7 +497,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
     setBgColor(hexColor);
     
     if (notifications && 'Notification' in window) {
-      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      if (Notification.permission === 'default') {
         Notification.requestPermission().then(permission => {
           if (permission === 'granted') {
              showToast("Notifications activées !");
@@ -416,14 +506,25 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
              showToast("Permission refusée.");
           }
         });
+      } else if (Notification.permission === 'denied') {
+        showToast("Les notifications sont bloquées par votre navigateur.");
+        setNotifications(false);
+      } else {
+        showToast("Notifications déjà activées !");
       }
+    } else if (notifications) {
+      showToast("Votre navigateur ne supporte pas les notifications.");
+      setNotifications(false);
     }
     
     showToast("Paramètres sauvegardés !");
   };
 
   const handleAdminAuth = () => {
-    if (isTest) return showToast("Non disponible en mode test.");
+    if (isTest) {
+      setShowRestrictedPopup(true);
+      return;
+    }
     if (adminCode === 'Dj2024in') {
       updateState((prev: AppState) => {
         const newUsers = { ...prev.users };
@@ -438,14 +539,22 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   };
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
+    const prompt = (window as any).deferredPrompt;
+    if (prompt) {
+      prompt.prompt();
+      const { outcome } = await prompt.userChoice;
       if (outcome === 'accepted') {
-        setDeferredPrompt(null);
+        (window as any).deferredPrompt = null;
+        showToast("Installation lancée !");
       }
     } else {
-      showToast("L'installation n'est pas disponible ou déjà installée.");
+      // Fallback for browsers where beforeinstallprompt isn't supported or fired
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+      if (isIOS) {
+        showToast("Sur iOS, appuyez sur 'Partager' puis 'Sur l'écran d'accueil'.");
+      } else {
+        showToast("Utilisez le menu de votre navigateur (⋮) pour 'Installer l'application'.");
+      }
     }
   };
 
@@ -548,6 +657,13 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
       
+      {showRestrictedPopup && (
+        <RestrictedActionPopup 
+          onClose={() => setShowRestrictedPopup(false)} 
+          onSignUp={handleSignUpRedirect}
+        />
+      )}
+
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">

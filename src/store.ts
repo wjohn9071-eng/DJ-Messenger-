@@ -1,8 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppState, User, Group, Proposal } from './types';
 
 const defaultState: AppState = {
-  users: {},
+  users: {
+    'DJ Help': {
+      username: 'DJ Help',
+      isAdmin: true,
+      friends: [],
+      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=help'
+    }
+  },
   groups: {
     'public-main': {
       id: 'public-main',
@@ -14,7 +21,14 @@ const defaultState: AppState = {
       banned: [],
       muted: [],
       messages: [
-        { id: '1', user: 'Système', text: 'Bienvenue dans le groupe public général !', time: new Date().toLocaleTimeString(), isSystem: true }
+        { 
+          id: '1', 
+          user: 'Système', 
+          text: 'Bienvenue dans le groupe public général !', 
+          time: new Date().toLocaleTimeString(), 
+          timestamp: new Date().toISOString(),
+          isSystem: true 
+        }
       ]
     }
   },
@@ -61,8 +75,19 @@ export function useAppStore() {
             // Very basic notification logic: check if total messages increased
             let oldTotal = 0;
             let newTotal = 0;
-            Object.values(state.groups).forEach((g: any) => oldTotal += g.messages?.length || 0);
-            Object.values(newState.groups).forEach((g: any) => newTotal += g.messages?.length || 0);
+            
+            Object.entries(state.groups).forEach(([id, g]: [string, any]) => {
+              if (!id.startsWith('sms-dj-help-')) {
+                oldTotal += g.messages?.length || 0;
+              }
+            });
+            
+            Object.entries(newState.groups).forEach(([id, g]: [string, any]) => {
+              // Exclude DJ Help from notifications
+              if (!id.startsWith('sms-dj-help-')) {
+                newTotal += g.messages?.length || 0;
+              }
+            });
             
             if (newTotal > oldTotal && 'Notification' in window && Notification.permission === 'granted') {
               new Notification("DJ Messenger", {
@@ -80,12 +105,12 @@ export function useAppStore() {
     return () => window.removeEventListener('storage', handleStorage);
   }, [state]);
 
-  const updateState = (updates: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => {
+  const updateState = useCallback((updates: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => {
     setState(prev => {
       const newValues = typeof updates === 'function' ? updates(prev) : updates;
       return { ...prev, ...newValues };
     });
-  };
+  }, []);
 
   return { state, updateState };
 }

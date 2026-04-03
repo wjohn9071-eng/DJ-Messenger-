@@ -1,11 +1,9 @@
 import React from 'react';
-import { djStyleText, djStyleBg, DJ_LOGO_SVG } from '../lib/utils';
-import { AppState } from '../types';
+import { djStyleText, djStyleBg, DJ_LOGO_SVG } from '../../lib/utils';
+import { AppState } from '../../types';
 
-export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string) => void, updateState: any, startSimulation: () => void }) {
-  const isTest = state.currentUser === 'test';
-  const username = isTest ? 'Anonyme' : state.currentUser;
-  const isNewUser = !isTest && (state.users && state.currentUser) && state.users[state.currentUser as string]?.friends?.length === 0;
+export default function SimulatedHome({ state, setView, updateState }: { state: AppState, setView: (v: string) => void, updateState: any }) {
+  const username = 'Anonyme (Simulation)';
   
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -13,12 +11,6 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     if (hour >= 12 && hour < 18) return "Bon après-midi";
     return "Bonsoir";
   };
-
-  const welcomeMessage = isTest 
-    ? `Bienvenue ${username}` 
-    : isNewUser 
-      ? `Bienvenue ${username}` 
-      : `Content de te revoir, ${username}`;
 
   const tips = [
     "Astuce : Tu peux épingler tes groupes préférés pour les retrouver plus vite !",
@@ -31,15 +23,11 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     "Astuce : Tu peux changer ton avatar à tout moment dans ton profil."
   ];
   
-  // Change tip every 25 minutes
   const tipIndex = Math.floor(Date.now() / (25 * 60 * 1000)) % tips.length;
   const currentTip = tips[tipIndex];
 
   const handleNotificationClick = () => {
-    updateState({ 
-      discussionTab: 'recent',
-      newMessages: []
-    });
+    updateState({ discussionTab: 'recent' });
     setView('discussions');
   };
 
@@ -55,10 +43,10 @@ export default function Home({ state, setView, updateState, startSimulation }: {
         </h1>
         
         <p className={`text-2xl font-bold mb-8 w-full ${djStyleText}`}>
-          {welcomeMessage}
+          Bienvenue dans la Simulation
         </p>
 
-        {state.newMessages && state.newMessages.filter(id => !id.startsWith('sms-dj-help-') && id !== 'simulated-group').length > 0 && (
+        {state.newMessages && state.newMessages.length > 0 && (
           <button 
             onClick={handleNotificationClick}
             className="bg-red-50 p-4 rounded-2xl shadow-sm border border-red-100 w-full mb-8 animate-bounce hover:bg-red-100 transition"
@@ -70,15 +58,6 @@ export default function Home({ state, setView, updateState, startSimulation }: {
         <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-100 w-full mb-12 animate-in slide-in-from-bottom-4">
           <p className="text-sm font-semibold text-gray-600 italic">💡 {currentTip}</p>
         </div>
-
-        {(isTest || isNewUser) && (
-          <button 
-            onClick={startSimulation}
-            className={`px-10 py-5 rounded-full font-black uppercase tracking-widest text-lg shadow-2xl hover:scale-105 transition-transform active:scale-95 mb-12 w-full max-w-xs ${djStyleBg}`}
-          >
-            Découvrir le tutoriel
-          </button>
-        )}
       </div>
 
       <div className="mt-auto pb-6 w-full">
@@ -88,7 +67,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             <span className="text-gray-400">une application créé par la</span>
             <span className={djStyleText}>DJ Society</span>
             <span className="text-gray-300 font-light">|</span>
-            <span className={djStyleText}>DJ MESSENGER</span>
+            <span className={djStyleText}>DJ MESSENGER (SIMULATION)</span>
             <span className="text-gray-300 font-light">|</span>
             <span className={djStyleText}>DJ Society</span>
           </p>

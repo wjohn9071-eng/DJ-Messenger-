@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppState, Group, Message } from '../types';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from '../lib/utils';
-import Home from './Home';
-import { Discussions } from './Discussions';
-import { Profile, Friends, DJSociety, Updates, Settings } from './Views';
+import { SimulatedApp } from './tutorial/SimulatedApp';
 import { 
   MessageSquare, 
   User, 
@@ -30,11 +28,9 @@ interface TutorialStep {
 
 export function TutorialGame({ 
   state, 
-  updateState, 
   onComplete 
 }: { 
   state: AppState, 
-  updateState: (s: any) => void, 
   onComplete: () => void 
 }) {
   const [gameState, setGameState] = useState<'intro' | 'playing' | 'outro'>('intro');
@@ -43,50 +39,95 @@ export function TutorialGame({
   const [showBotMessage, setShowBotMessage] = useState(false);
   const [actionCompleted, setActionCompleted] = useState(false);
 
+  // Local state for the simulation to avoid touching the real database
+  const [simulatedAppState, setSimulatedAppState] = useState<AppState>(() => ({
+    ...state,
+    currentUser: state.currentUser || 'test',
+    groups: { ...state.groups },
+    proposals: [...state.proposals],
+    newMessages: [],
+    users: { 
+      ...state.users,
+      'Simulateur DJ (IA)': {
+        username: 'Simulateur DJ (IA)',
+        isAdmin: true,
+        friends: [],
+        avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=sim-ia'
+      }
+    }
+  }));
+
+  const updateSimulatedState = (updater: any) => {
+    setSimulatedAppState(prev => {
+      const result = typeof updater === 'function' ? updater(prev) : updater;
+      return { ...prev, ...result };
+    });
+  };
+
   const steps: TutorialStep[] = [
     { 
       id: 'welcome',
       title: "Bienvenue dans l'Aventure !", 
       description: "Salut ! Je suis ton assistant DJ. Je vais te montrer comment utiliser cette application incroyable. On commence par l'accueil !", 
-      view: 'home' 
+      view: 'home',
+      action: (updateState) => {
+        // Ensure a new message exists for the next step
+        updateState((prev: AppState) => ({
+          newMessages: ['public-main']
+        }));
+      }
     },
     { 
       id: 'home_info',
       title: "Ton Tableau de Bord", 
-      description: "Ici, tu retrouves tes notifications, des conseils et les dernières nouvelles. Clique sur le bouton de notification pour voir les messages récents !", 
+      description: "Ici, tu retrouves tes notifications, des conseils et les dernières nouvelles. Clique sur le bouton de notification rouge pour voir les messages récents !", 
       view: 'home',
       requiredAction: 'click_discussions'
     },
     { 
       id: 'discussions_intro',
-      title: "Le Cœur de l'App : Discussions", 
-      description: "C'est ici que tout se passe ! Regarde, je t'envoie un message. Réponds-moi pour continuer !", 
+      title: "LE CŒUR DE L'APP : DISCUSSIONS (IA)", 
+      description: "C'est ici que tout se passe ! Regarde, je t'envoie un message dans le groupe 'DJ Crew'. Clique sur l'onglet 'RÉCENTS', sélectionne le groupe et écris 'Salut' pour me répondre et continuer ! (Note : Ceci est une simulation, tout ce qui est dit ici est faux et différent de la réalité de l'application).", 
       view: 'discussions',
       requiredAction: 'send_message',
       action: (updateState) => {
         const botMsg: Message = {
-          id: 'bot-msg-1',
-          user: 'Bot DJ',
-          text: "Salut ! Bienvenue dans la simulation. Je t'ai invité dans le groupe 'DJ Crew' !",
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          id: `msg-${Date.now()}`,
+          user: 'Simulateur DJ (IA)',
+          text: "[SIMULATION IA] Salut ! Je suis ton assistant virtuel pour ce tutoriel. Je t'ai invité dans le groupe 'DJ Crew'. Réponds-moi pour voir comment ça marche !",
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: new Date().toISOString()
         };
         const simulatedGroup: Group = {
           id: 'simulated-group',
-          name: 'DJ Crew',
+          name: 'DJ Crew (SIMULATION)',
           type: 'public',
-          creator: 'Bot DJ',
-          admins: ['Bot DJ'],
-          members: [state.currentUser as string, 'Bot DJ'],
+          creator: 'Simulateur DJ (IA)',
+          admins: ['Simulateur DJ (IA)'],
+          members: [state.currentUser as string, 'Simulateur DJ (IA)'],
           banned: [],
           muted: [],
           messages: [
-            { id: '0', user: 'Système', text: "Bienvenue dans le groupe DJ Crew !", time: '10:00', isSystem: true },
+            { 
+              id: '0', 
+              user: 'Système', 
+              text: "[SIMULATION] Bienvenue dans le groupe DJ Crew !", 
+              time: '10:00', 
+              timestamp: new Date(Date.now() - 10000).toISOString(),
+              isSystem: true 
+            },
             botMsg
           ]
         };
         updateState((prev: AppState) => ({
           ...prev,
-          groups: { ...prev.groups, 'simulated-group': simulatedGroup },
+          groups: { 
+            ...prev.groups, 
+            'simulated-group': {
+              ...simulatedGroup,
+              members: [prev.currentUser as string, 'Simulateur DJ (IA)']
+            }
+          },
           newMessages: [...(prev.newMessages || []), 'simulated-group'],
           discussionTab: 'recent'
         }));
@@ -127,7 +168,7 @@ export function TutorialGame({
   useEffect(() => {
     if (gameState === 'playing') {
       setCurrentView(currentStep.view);
-      if (currentStep.action) currentStep.action(updateState);
+      if (currentStep.action) currentStep.action(updateSimulatedState);
       setActionCompleted(!currentStep.requiredAction);
     }
   }, [stepIndex, gameState]);
@@ -140,29 +181,29 @@ export function TutorialGame({
       setActionCompleted(true);
     }
     if (currentStep.requiredAction === 'send_message') {
-      const group = state.groups['simulated-group'];
-      if (group && group.messages.length > 2) {
+      const group = simulatedAppState.groups?.['simulated-group'];
+      if (group && (group.messages || []).length > 2) {
         setActionCompleted(true);
       }
     }
     if (currentStep.requiredAction === 'submit_proposal') {
-      if (state.proposals.length > 1) {
+      if (simulatedAppState.proposals.length > state.proposals.length) {
         setActionCompleted(true);
       }
     }
     if (currentStep.requiredAction === 'add_friend') {
-      const user = state.users[state.currentUser as string];
+      const user = simulatedAppState.users[simulatedAppState.currentUser as string];
       if (user && user.friends.length > 0) {
         setActionCompleted(true);
       }
     }
     if (currentStep.requiredAction === 'change_color') {
-      const user = state.users[state.currentUser as string];
+      const user = simulatedAppState.users[simulatedAppState.currentUser as string];
       if (user && user.bgColor && user.bgColor !== '#f0f2f5') {
         setActionCompleted(true);
       }
     }
-  }, [state, currentView, currentStep, gameState]);
+  }, [simulatedAppState, currentView, currentStep, gameState]);
 
   const handleNext = () => {
     if (stepIndex < steps.length - 1) {
@@ -170,20 +211,6 @@ export function TutorialGame({
       setShowBotMessage(false);
     } else {
       setGameState('outro');
-    }
-  };
-
-  const renderSimulatedView = () => {
-    const simulatedState = { ...state, currentUser: state.currentUser || 'test' };
-    switch (currentView) {
-      case 'home': return <Home state={simulatedState} setView={setCurrentView} updateState={updateState} />;
-      case 'discussions': return <Discussions state={simulatedState} updateState={updateState} />;
-      case 'profile': return <Profile state={simulatedState} updateState={updateState} />;
-      case 'friends': return <Friends state={simulatedState} updateState={updateState} />;
-      case 'djsociety': return <DJSociety state={simulatedState} updateState={updateState} />;
-      case 'updates': return <Updates />;
-      case 'settings': return <Settings state={simulatedState} updateState={updateState} handleLogout={() => {}} />;
-      default: return <Home state={simulatedState} setView={setCurrentView} updateState={updateState} />;
     }
   };
 
@@ -295,33 +322,15 @@ export function TutorialGame({
   }
 
   return (
-    <div className="fixed inset-0 z-[150] bg-gray-100 flex flex-col md:flex-row overflow-hidden">
-      {/* Sidebar Simulation */}
-      <aside className="w-full md:w-24 bg-black/90 backdrop-blur-xl border-b md:border-b-0 md:border-r border-white/10 flex md:flex-col items-center justify-between p-4 md:py-8 z-20">
-        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center p-2 shadow-lg overflow-hidden">
-          <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
-        </div>
-        
-        <nav className="flex md:flex-col gap-4 md:gap-6">
-          <div className={`p-3 rounded-2xl transition-all ${currentView === 'home' ? 'bg-white/10 text-white' : 'text-white/40'}`}><HomeIcon size={24} /></div>
-          <div className={`p-3 rounded-2xl transition-all ${currentView === 'discussions' ? 'bg-white/10 text-white' : 'text-white/40'}`}><MessageSquare size={24} /></div>
-          <div className={`p-3 rounded-2xl transition-all ${currentView === 'djsociety' ? 'bg-white/10 text-white' : 'text-white/40'}`}><Zap size={24} /></div>
-          <div className={`p-3 rounded-2xl transition-all ${currentView === 'friends' ? 'bg-white/10 text-white' : 'text-white/40'}`}><Users size={24} /></div>
-        </nav>
-        
-        <div className="hidden md:flex flex-col gap-6">
-          <div className={`p-3 rounded-2xl transition-all ${currentView === 'profile' ? 'bg-white/10 text-white' : 'text-white/40'}`}><User size={24} /></div>
-          <div className={`p-3 rounded-2xl transition-all ${currentView === 'settings' ? 'bg-white/10 text-white' : 'text-white/40'}`}><SettingsIcon size={24} /></div>
-        </div>
-      </aside>
+    <div className="fixed inset-0 z-[150] bg-gray-100 flex flex-col overflow-hidden">
+      <SimulatedApp 
+        state={simulatedAppState} 
+        updateState={updateSimulatedState} 
+        currentView={currentView} 
+        setCurrentView={setCurrentView} 
+      />
 
-      {/* Main Content Simulation */}
-      <main className="flex-1 relative overflow-hidden bg-white">
-        <div className="h-full overflow-y-auto">
-          {renderSimulatedView()}
-        </div>
-
-        {/* Tutorial Overlay Layer */}
+      {/* Tutorial Overlay Layer */}
         <AnimatePresence mode="wait">
           <motion.div 
             key={stepIndex}
@@ -371,14 +380,13 @@ export function TutorialGame({
               className="absolute top-4 right-4 z-[60] bg-white p-4 rounded-2xl shadow-xl border border-blue-100 max-w-[250px]"
             >
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">B</div>
-                <span className="font-bold text-sm text-gray-800">Bot DJ</span>
+                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">A</div>
+                <span className="font-bold text-sm text-gray-800">Assistant DJ</span>
               </div>
               <p className="text-xs text-gray-600">Salut ! Je viens de t'inviter dans le groupe DJ Crew. Va voir dans Discussions !</p>
             </motion.div>
           )}
         </AnimatePresence>
-      </main>
     </div>
   );
 }

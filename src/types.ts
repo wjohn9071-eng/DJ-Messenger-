@@ -13,6 +13,9 @@ export interface User {
   autoHideSidebar?: boolean;
   lastSeen?: string;
   tutorialCompleted?: boolean;
+  botQuestionsToday?: number;
+  lastBotQuestionDate?: string;
+  lastReadTimestamps?: Record<string, string>; // groupId -> ISO timestamp
 }
 
 export interface Message {
@@ -20,6 +23,7 @@ export interface Message {
   user: string;
   text: string;
   time: string;
+  timestamp: string; // ISO string for comparison
   isSystem?: boolean;
 }
 

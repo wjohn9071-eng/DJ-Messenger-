@@ -20,6 +20,16 @@ export default function App() {
     }
   }, [state.currentUser, state.users]);
 
+  // PWA Install Prompt handling
+  useEffect(() => {
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      (window as any).deferredPrompt = e;
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
   const handleLogout = () => {
     updateState({ currentUser: null });
     setView('home');
@@ -40,61 +50,231 @@ export default function App() {
     }
   };
 
-  // Simulate incoming messages from Bot DJ every 10 minutes for demo
+  // Cleanup and Initialization: Remove Bot DJ, clean messages, and setup DJ Help
   useEffect(() => {
     if (!state.currentUser) return;
+    
+    const botGroupId = `bot-private-${state.currentUser}`;
+    const simulatedGroupId = 'simulated-group';
+    const helpGroupId = `sms-dj-bot-${state.currentUser}`;
+    
+    const hasBotGroup = !!state.groups[botGroupId];
+    const hasSimulatedGroup = !!state.groups[simulatedGroupId];
+    const hasHelpGroup = !!state.groups[helpGroupId];
+    const hasDJBotUser = !!state.users['DJ Bot'];
+    
+    // Check if any group has messages from 'Bot DJ' or 'DJ Help'
+    const hasBotMessages = (Object.values(state.groups) as Group[]).some(g => 
+      g.messages.some(m => m.user === 'Bot DJ' || m.user === 'DJ Help')
+    );
 
-    const interval = setInterval(() => {
-      const botMsg: Message = {
-        id: `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        user: 'Bot DJ',
-        text: "Hé ! N'oublie pas de consulter les dernières propositions dans DJ Society !",
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      
-      updateState((prev: AppState) => {
-        // Find or create the private Bot DJ group (SMS)
-        const botGroupId = `bot-private-${prev.currentUser}`;
-        const botGroup = prev.groups[botGroupId];
+    if (hasBotGroup || hasSimulatedGroup || hasBotMessages || !hasHelpGroup || !hasDJBotUser) {
+      setTimeout(() => {
+        updateState((prev: AppState) => {
+          const newGroups = { ...prev.groups };
+        const newUsers = { ...prev.users };
         
-        if (!botGroup) {
-          const newBotGroup: Group = {
-            id: botGroupId,
-            type: 'private',
-            name: 'Bot DJ',
-            creator: 'system',
-            admins: ['system'],
-            members: [prev.currentUser as string, 'Bot DJ'],
-            banned: [],
-            muted: [],
-            messages: [
-              { id: 'sys-1', user: 'Système', text: 'Conversation privée avec Bot DJ', time: new Date().toLocaleTimeString(), isSystem: true },
-              botMsg
-            ]
-          };
-          return {
-            groups: { ...prev.groups, [botGroupId]: newBotGroup },
-            newMessages: prev.newMessages?.includes(botGroupId) ? prev.newMessages : [...(prev.newMessages || []), botGroupId]
+        // 0. Ensure DJ Bot user exists
+        if (!newUsers['DJ Bot']) {
+          newUsers['DJ Bot'] = {
+            username: 'DJ Bot',
+            isAdmin: true,
+            friends: [],
+            avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=dj-bot'
           };
         }
 
-        return { 
-          groups: {
-            ...prev.groups,
-            [botGroupId]: {
-              ...prev.groups[botGroupId],
-              messages: [...prev.groups[botGroupId].messages, botMsg]
-            }
-          },
-          newMessages: prev.newMessages?.includes(botGroupId) 
-            ? prev.newMessages 
-            : [...(prev.newMessages || []), botGroupId]
+        // 1. Remove old bot groups and simulation artifacts
+        delete newGroups[botGroupId];
+        delete newGroups[simulatedGroupId];
+        delete newGroups[`sms-dj-help-${state.currentUser}`];
+        
+        // 2. Remove all messages from 'Bot DJ', 'DJ Help' or 'Simulateur DJ (Faux)' in all groups
+        Object.keys(newGroups).forEach(id => {
+          newGroups[id] = {
+            ...newGroups[id],
+            messages: newGroups[id].messages.filter(m => m.user !== 'Bot DJ' && m.user !== 'DJ Help' && m.user !== 'Simulateur DJ (Faux)')
+          };
+        });
+
+        // 3. Ensure DJ Bot SMS exists
+        if (!newGroups[helpGroupId]) {
+          newGroups[helpGroupId] = {
+            id: helpGroupId,
+            type: 'private',
+            name: 'DJ Bot (IA)',
+            creator: 'system',
+            admins: ['system'],
+            members: [prev.currentUser as string, 'DJ Bot'],
+            banned: [],
+            muted: [],
+            messages: [
+              { 
+                id: `sys-bot-${Date.now()}`, 
+                user: 'Système', 
+                text: 'Bienvenue dans votre discussion avec DJ Bot ! Posez-moi vos questions sur l\'application.', 
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), 
+                timestamp: new Date().toISOString(),
+                isSystem: true 
+              },
+              {
+                id: `bot-msg-init`,
+                user: 'DJ Bot',
+                text: "Bonjour ! Je suis DJ Bot, votre assistant intelligent. Je peux répondre à 5 questions par jour pour vous aider à maîtriser l'application. Que souhaitez-vous savoir ?",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                timestamp: new Date().toISOString()
+              }
+            ]
+          };
+        }
+
+        return {
+          groups: newGroups,
+          users: newUsers,
+          newMessages: prev.currentUser === 'test' && view === 'home' 
+            ? [] 
+            : prev.newMessages?.filter(id => id !== botGroupId && id !== simulatedGroupId) || []
         };
       });
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 0);
+  }
+}, [state.currentUser, state.groups, state.users, updateState, view]);
+
+  // DJ Bot: Auto-tips every 20 minutes and Response logic
+  useEffect(() => {
+    if (!state.currentUser || state.currentUser === 'test') return;
     
+    const helpGroupId = `sms-dj-bot-${state.currentUser}`;
+    
+    const tips = [
+      "Astuce : Les groupes publics sont accessibles à tous, mais les groupes privés nécessitent un code d'invitation ou une invitation directe.",
+      "Astuce : Vous pouvez désormais créer des groupes en 4 étapes avec une barre de progression pour mieux définir l'utilité du groupe.",
+      "Astuce : L'onglet SMS est réservé aux discussions privées en tête-à-tête avec vos amis.",
+      "Astuce : Dans les paramètres, vous pouvez changer la couleur de l'application pour qu'elle corresponde à votre style DJ.",
+      "Astuce : Les administrateurs de groupes privés peuvent bannir des membres ou supprimer des messages inappropriés.",
+      "Astuce : Si vous êtes en mode test, vous pouvez lire les messages des groupes publics mais pas y participer.",
+      "Astuce : Dans les discussions publiques, vous pouvez voir qui a envoyé un message et même bannir des utilisateurs si vous êtes admin.",
+      "Astuce : Votre profil vous permet de changer votre avatar et votre mot de passe à tout moment.",
+      "Astuce : Consultez l'onglet 'Mises à jour' pour découvrir les dernières nouveautés de DJ Messenger.",
+      "Astuce : Si un utilisateur est supprimé, vous pouvez choisir de supprimer tous ses messages passés pour nettoyer la discussion.",
+      "Astuce : Pour devenir administrateur, utilisez le code 'Dj2024in' dans la section Compte des paramètres.",
+      "Astuce : Les groupes privés sont protégés par un code de 5 caractères que seul le créateur connaît au départ.",
+      "Astuce : L'onglet 'Récents' dans les discussions vous montre les derniers messages de tous vos groupes en un coup d'œil.",
+      "Astuce : Vous pouvez proposer jusqu'à 3 idées par jour dans la DJ Society si vous n'êtes pas admin."
+    ];
+
+    const sendTip = () => {
+      const randomTip = tips[Math.floor(Math.random() * tips.length)];
+      const newMsg: Message = {
+        id: `bot-tip-${Date.now()}`,
+        user: 'DJ Bot',
+        text: randomTip,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date().toISOString()
+      };
+      
+      updateState((prev: AppState) => {
+        if (!prev.groups[helpGroupId]) return prev;
+        return {
+          groups: {
+            ...prev.groups,
+            [helpGroupId]: {
+              ...prev.groups[helpGroupId],
+              messages: [...prev.groups[helpGroupId].messages, newMsg]
+            }
+          }
+        };
+      });
+    };
+
+    // Send a tip every 20 minutes
+    const interval = setInterval(sendTip, 20 * 60 * 1000);
+    
+    // Response logic: Check for new user messages in DJ Bot group
+    const helpGroup = state.groups[helpGroupId];
+    const currentUserData = state.users[state.currentUser as string];
+
+    if (helpGroup) {
+      const lastMsg = helpGroup.messages[helpGroup.messages.length - 1];
+      if (lastMsg && lastMsg.user === state.currentUser && !lastMsg.isSystem) {
+        // User just sent a message, respond after 1 second
+        const timer = setTimeout(() => {
+          const today = new Date().toLocaleDateString();
+          const questionsToday = currentUserData?.lastBotQuestionDate === today ? (currentUserData?.botQuestionsToday || 0) : 0;
+
+          if (questionsToday >= 5) {
+            const response = "Désolé, vous avez atteint votre limite de 5 questions pour aujourd'hui. Revenez demain pour plus de conseils !";
+            const botResponse: Message = {
+              id: `bot-resp-${Date.now()}`,
+              user: 'DJ Bot',
+              text: response,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              timestamp: new Date().toISOString()
+            };
+            updateState((prev: AppState) => ({
+              groups: {
+                ...prev.groups,
+                [helpGroupId]: {
+                  ...prev.groups[helpGroupId],
+                  messages: [...prev.groups[helpGroupId].messages, botResponse]
+                }
+              }
+            }));
+            return;
+          }
+
+          let response = "Je ne suis pas sûr de comprendre, mais je peux vous aider sur les groupes, les amis, la DJ Society ou les paramètres !";
+          const text = lastMsg.text.toLowerCase();
+          
+          if (text.includes('groupe')) {
+            response = "Les groupes se divisent en 3 catégories : Publics (ouverts à tous), Privés (sur invitation ou code) et SMS (privé 1-à-1). Pour créer un groupe, utilisez le bouton '+' dans l'onglet Discussions. Vous suivrez un processus en 4 étapes : Nom, Raison, Invitations et Code secret.";
+          } else if (text.includes('ami')) {
+            response = "Pour ajouter un ami, allez dans l'onglet 'Amis' et utilisez la barre de recherche. Une fois ajouté, vous pourrez démarrer une discussion SMS privée avec lui.";
+          } else if (text.includes('paramètre') || text.includes('couleur')) {
+            response = "Dans les 'Paramètres', vous pouvez changer la couleur de fond de l'application, modifier votre mot de passe, ou activer les notifications. C'est aussi là que vous pouvez devenir administrateur avec le code secret.";
+          } else if (text.includes('society') || text.includes('idée')) {
+            response = "La DJ Society est un espace communautaire où vous pouvez proposer des idées d'amélioration. Les administrateurs peuvent répondre à vos suggestions et même les valider.";
+          } else if (text.includes('test')) {
+            response = "Le mode test vous permet d'explorer l'application sans compte. Vous pouvez lire les messages des groupes publics, mais vous ne pouvez pas envoyer de messages ni créer de groupes sans créer un compte réel.";
+          } else if (text.includes('code')) {
+            response = "Les codes de groupe privé font 5 caractères. Vous pouvez en créer un lors de la création d'un groupe privé, ou en rejoindre un en saisissant le code dans l'onglet 'Privés'.";
+          }
+
+          const botResponse: Message = {
+            id: `bot-resp-${Date.now()}`,
+            user: 'DJ Bot',
+            text: response,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: new Date().toISOString()
+          };
+
+          updateState((prev: AppState) => ({
+            groups: {
+              ...prev.groups,
+              [helpGroupId]: {
+                ...prev.groups[helpGroupId],
+                messages: [...prev.groups[helpGroupId].messages, botResponse]
+              }
+            },
+            users: {
+              ...prev.users,
+              [state.currentUser as string]: {
+                ...prev.users[state.currentUser as string],
+                botQuestionsToday: questionsToday + 1,
+                lastBotQuestionDate: today
+              }
+            }
+          }));
+        }, 1000);
+        return () => {
+          clearTimeout(timer);
+          clearInterval(interval);
+        };
+      }
+    }
+
     return () => clearInterval(interval);
-  }, [updateState, state.currentUser]);
+  }, [state.currentUser, state.groups, state.users, updateState]);
 
   if (!state.currentUser) {
     return <Auth state={state} updateState={updateState} />;
@@ -115,15 +295,14 @@ export default function App() {
 
   const renderView = () => {
     switch (view) {
-      case 'home': return <Home state={state} setView={setView} updateState={updateState} />;
+      case 'home': return <Home state={state} setView={setView} updateState={updateState} startSimulation={startSimulation} />;
       case 'discussions': return <Discussions state={state} updateState={updateState} />;
       case 'friends': return <Friends state={state} updateState={updateState} />;
       case 'djsociety': return <DJSociety state={state} updateState={updateState} />;
       case 'updates': return <Updates />;
       case 'settings': return <Settings state={state} updateState={updateState} handleLogout={handleLogout} />;
-      case 'tutorial': return <TutorialGame state={state} updateState={updateState} onComplete={completeSimulation} />;
       case 'profile': return <Profile state={state} updateState={updateState} />;
-      default: return <Home state={state} setView={setView} updateState={updateState} />;
+      default: return <Home state={state} setView={setView} updateState={updateState} startSimulation={startSimulation} />;
     }
   };
 
@@ -143,6 +322,15 @@ export default function App() {
   const toggleMenu = () => {
     updateState({ menuOpen: !state.menuOpen });
   };
+
+  if (simulationMode) {
+    return (
+      <TutorialGame 
+        state={state} 
+        onComplete={completeSimulation} 
+      />
+    );
+  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden transition-colors duration-500" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
@@ -217,14 +405,6 @@ export default function App() {
         <div 
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden" 
           onClick={toggleMenu}
-        />
-      )}
-
-      {simulationMode && (
-        <TutorialGame 
-          state={state} 
-          updateState={updateState}
-          onComplete={completeSimulation} 
         />
       )}
     </div>
