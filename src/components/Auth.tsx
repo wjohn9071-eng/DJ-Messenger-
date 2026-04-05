@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowLeft, ImagePlus } from 'lucide-react';
 import { djStyleBg, djStyleText, DJ_LOGO_SVG } from '../lib/utils';
 import { AppState } from '../types';
-import { auth, googleProvider, signInWithPopup, db, doc, setDoc, getDoc } from '../lib/firebase';
+import { auth, googleProviderWithPrompt as googleProvider, signInWithPopup, db, doc, setDoc, getDoc } from '../lib/firebase';
 import { GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 export default function Auth({ state, updateState }: { state: AppState, updateState: any }) {

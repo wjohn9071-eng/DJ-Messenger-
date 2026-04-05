@@ -15,6 +15,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
+  ignoreUndefinedProperties: true,
 }, "ai-studio-5df211c0-97ca-437b-9459-24e04efe73d4");
 
 // Connection test as per critical instructions

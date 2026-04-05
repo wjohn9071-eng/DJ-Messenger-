@@ -71,7 +71,13 @@ const defaultState: AppState = {
 
 export function useAppStore() {
   const [state, setState] = useState<AppState>(defaultState);
+  const stateRef = useRef<AppState>(state);
   const isInitialMount = useRef(true);
+
+  // Update ref whenever state changes
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Auth Listener
   useEffect(() => {
@@ -148,7 +154,7 @@ export function useAppStore() {
       const groups: Record<string, Group> = {};
       snapshot.forEach(groupDoc => {
         const groupData = groupDoc.data() as Group;
-        groups[groupDoc.id] = { ...groupData, id: groupDoc.id, messages: state.groups[groupDoc.id]?.messages || [] };
+        groups[groupDoc.id] = { ...groupData, id: groupDoc.id, messages: stateRef.current.groups[groupDoc.id]?.messages || [] };
         
         // Sub-collection listener for messages if not already listening
         if (!unsubMessages[groupDoc.id]) {
@@ -209,7 +215,7 @@ export function useAppStore() {
         privateMessages[chatDoc.id] = { 
           ...chatData, 
           id: chatDoc.id, 
-          messages: state.privateMessages[chatDoc.id]?.messages || [] 
+          messages: stateRef.current.privateMessages[chatDoc.id]?.messages || [] 
         };
         
         // Sub-collection listener for messages if not already listening

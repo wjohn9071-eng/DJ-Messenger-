@@ -141,6 +141,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     if (!activeGroup || !messageInput.trim()) return;
 
     const isSMS = activeGroup.startsWith('sms_');
+    const group = !isSMS ? state.groups?.[activeGroup] : null;
+    if (!isSMS && !group) return;
+    
     const msgText = messageInput.trim();
     setMessageInput('');
 
@@ -152,22 +155,21 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
 
     try {
+      const msgData = {
+        text: msgText,
+        user: state.currentUser,
+        senderId: state.currentUser,
+        senderName: currentUser?.name || state.currentUser,
+        timestamp: new Date().toISOString(),
+        isSystem: false,
+        groupName: isSMS ? otherUser : (group?.name || 'Groupe'),
+        groupType: isSMS ? 'SMS' : (group?.type === 'public' ? 'PUBLIC' : 'PRIVÉ')
+      };
+      
       if (isSMS) {
         const msgRef = collection(db, 'private_messages', activeGroup, 'messages');
-        await addDoc(msgRef, {
-          text: msgText,
-          user: state.currentUser,
-          senderId: state.currentUser,
-          senderName: currentUser?.name || state.currentUser,
-          timestamp: new Date().toISOString(),
-          isSystem: false,
-          groupName: otherUser,
-          groupType: 'SMS'
-        });
+        await addDoc(msgRef, msgData);
       } else {
-        const group = state.groups?.[activeGroup];
-        if (!group) return;
-        
         // Check permissions
         if (group.banned?.includes(state.currentUser as string)) return showToast("Tu es banni de ce groupe.");
         if (group.muted?.includes(state.currentUser as string)) return showToast("Tu es muet dans ce groupe.");
@@ -179,16 +181,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         }
 
         const msgRef = collection(db, 'groups', activeGroup, 'messages');
-        await addDoc(msgRef, {
-          text: msgText,
-          user: state.currentUser,
-          senderId: state.currentUser,
-          senderName: currentUser?.name || state.currentUser,
-          timestamp: new Date().toISOString(),
-          isSystem: false,
-          groupName: group.name,
-          groupType: group.type === 'public' ? 'PUBLIC' : 'PRIVÉ'
-        });
+        await addDoc(msgRef, msgData);
 
         // Update group last activity
         await updateDoc(doc(db, 'groups', activeGroup), {
@@ -197,7 +190,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      showToast("Erreur lors de l'envoi du message.");
+      showToast("Erreur lors de l'envoi du message. Vérifie ta connexion.");
     }
   };
 
@@ -277,8 +270,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         senderName: currentUser?.name || state.currentUser || 'Utilisateur',
         timestamp: new Date().toISOString(),
         isSystem: false,
-        groupName: isSMS ? otherUser : (state.groups[activeGroup]?.name || 'Groupe'),
-        groupType: isSMS ? 'SMS' : (state.groups[activeGroup]?.type === 'public' ? 'PUBLIC' : 'PRIVÉ')
+        groupName: isSMS ? otherUser : (state.groups?.[activeGroup]?.name || 'Groupe'),
+        groupType: isSMS ? 'SMS' : (state.groups?.[activeGroup]?.type === 'public' ? 'PUBLIC' : 'PRIVÉ')
       };
 
       const path = isSMS ? 'private_messages' : 'groups';
@@ -444,6 +437,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleCreateGroup = async () => {
+    if (!state.currentUser) return;
     if (isTest) {
       setShowRestrictedPopup(true);
       return;
@@ -472,13 +466,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       await setDoc(doc(db, 'groups', groupId), newGroup);
       
       // Add initial system message
-      await addDoc(collection(db, 'groups', groupId, 'messages'), {
-        text: `Groupe ${newGroup.name} créé par ${currentUser?.name || state.currentUser}`,
-        senderId: 'system',
-        senderName: 'Système',
-        timestamp: new Date().toISOString(),
-        isSystem: true
-      });
+      try {
+        await addDoc(collection(db, 'groups', groupId, 'messages'), {
+          text: `Groupe ${newGroup.name} créé par ${currentUser?.name || state.currentUser}`,
+          senderId: 'system',
+          senderName: 'Système',
+          timestamp: new Date().toISOString(),
+          isSystem: true
+        });
+      } catch (msgError) {
+        console.warn("Could not send initial system message:", msgError);
+        // Not a fatal error, continue
+      }
 
       setShowCreateGroup(false);
       setWizardStep(1);
@@ -489,9 +488,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       setNewGroupCode('');
       setActiveGroup(groupId);
       showToast("Groupe créé avec succès !");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating group:", error);
-      showToast("Erreur lors de la création du groupe.");
+      showToast("Erreur lors de la création du groupe: " + (error.message || "Inconnue"));
     }
   };
 
@@ -571,7 +570,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </div>
             <div className="flex gap-3">
               <button onClick={() => setWizardStep(1)} className="flex-1 py-4 rounded-2xl bg-gray-100 text-gray-500 font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all">Retour</button>
-              <button onClick={() => setWizardStep(activeTab === 'private' ? 3 : 4)} className={`flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-white shadow-xl hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}>Suivant</button>
+              <button onClick={() => setWizardStep(3)} className={`flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-white shadow-xl hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}>Suivant</button>
             </div>
           </div>
         )}
@@ -646,7 +645,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     );
   };
 
-  const handleJoinPrivateGroup = () => {
+  const handleJoinPrivateGroup = async () => {
     if (isTest) {
       setShowRestrictedPopup(true);
       return;
@@ -656,17 +655,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     if (group.members.includes(state.currentUser as string)) return showToast("Déjà membre.");
     if (group.banned.includes(state.currentUser as string)) return showToast("Tu es banni de ce groupe.");
 
-    updateState((prev: AppState) => {
-      const newGroups = { ...prev.groups };
-      newGroups[group.id] = {
-        ...newGroups[group.id],
-        members: [...newGroups[group.id].members, prev.currentUser as string]
-      };
-      return { groups: newGroups };
-    });
-    setJoinCode('');
-    setActiveGroup(group.id);
-    showToast(`Bienvenue dans ${group.name} !`);
+    try {
+      const groupRef = doc(db, 'groups', group.id);
+      await updateDoc(groupRef, {
+        members: arrayUnion(state.currentUser)
+      });
+      setJoinCode('');
+      setActiveGroup(group.id);
+      showToast(`Bienvenue dans ${group.name} !`);
+    } catch (error) {
+      console.error("Error joining private group:", error);
+      showToast("Erreur lors de l'adhésion.");
+    }
   };
 
   const handleJoinPublicGroup = async (groupId: string) => {
@@ -687,7 +687,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleLeaveGroup = async (groupId: string) => {
-    if (!window.confirm("Es-tu sûr de vouloir quitter ce groupe ?")) return;
     try {
       const groupRef = doc(db, 'groups', groupId);
       await updateDoc(groupRef, {
@@ -702,7 +701,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleDeleteGroup = async (groupId: string) => {
-    if (!window.confirm("Es-tu sûr de vouloir supprimer ce groupe ? Cette action est irréversible.")) return;
     try {
       await deleteDoc(doc(db, 'groups', groupId));
       setActiveGroup(null);
@@ -936,8 +934,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       <div className="absolute inset-0 z-40 flex flex-col bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
         <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-10">
           <div className="flex items-center gap-3">
-            <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition text-gray-500">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className="p-2.5 -ml-2 hover:bg-gray-100 rounded-xl transition text-gray-700 bg-gray-50 shadow-sm border border-gray-100 mr-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             </button>
             <div className={`w-10 h-10 rounded-full ${isSMS ? 'bg-gray-100' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center text-white font-bold shadow-md overflow-hidden`}>
               {isSMS && otherUserData?.avatar ? (
@@ -962,7 +960,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
               </button>
             )}
-            {isCreator && (
+            {!isSMS && isMember && (
               <button onClick={() => setShowGroupSettings(!showGroupSettings)} className={`p-2 rounded-full transition ${showGroupSettings ? djStyleText + ' bg-blue-50' : 'text-gray-400 hover:bg-gray-100'}`} title="Paramètres du groupe">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
@@ -970,80 +968,108 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           </div>
         </div>
 
-        {showGroupSettings && isCreator && (
+        {showGroupSettings && (
           <div className="bg-white border-b p-6 space-y-6 animate-in slide-in-from-top-4">
-            <h4 className="font-black uppercase tracking-widest text-xs text-gray-400">Paramètres de {group.name}</h4>
+            <div className="flex justify-between items-center">
+              <h4 className="font-black uppercase tracking-widest text-xs text-gray-400">Paramètres de {group.name}</h4>
+              {!isCreator && <span className="text-[10px] font-black uppercase text-blue-500 bg-blue-50 px-2 py-1 rounded-full">Lecture seule</span>}
+            </div>
             
             {group.type === 'private' && (
               <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <span className="text-[10px] font-black uppercase text-gray-400 block mb-1">Code du groupe</span>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-[10px] font-black uppercase text-gray-400 block">Code du groupe</span>
+                  {isCreator && (
+                    <button 
+                      onClick={async () => {
+                        const newCode = prompt("Nouveau code (5-7 caractères) :", group.code);
+                        if (newCode && newCode !== group.code) {
+                          if (newCode.length < 5 || newCode.length > 7) return showToast("Code invalide (5-7 caractères).");
+                          try {
+                            await updateDoc(doc(db, 'groups', activeGroup), { code: newCode });
+                            showToast("Code mis à jour !");
+                          } catch (e) {
+                            showToast("Erreur lors de la mise à jour du code.");
+                          }
+                        }
+                      }}
+                      className="text-[10px] font-black uppercase text-[#0D98BA] hover:underline"
+                    >
+                      Modifier
+                    </button>
+                  )}
+                </div>
                 <code className="text-xl font-black tracking-[0.3em] text-[#0D98BA]">{group.code}</code>
               </div>
             )}
 
-            {group.type === 'private' && (
-              <div className="space-y-4">
-                <label className="flex items-center justify-between cursor-pointer group">
-                  <span className="text-sm font-bold text-gray-700">Autoriser les autres à parler</span>
-                  <div className="relative">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only" 
-                      checked={group.allowOthersToSpeak ?? true} 
-                      onChange={e => updateState((prev: AppState) => ({
-                        groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToSpeak: e.target.checked } }
-                      }))} 
-                    />
-                    <div className={`block w-12 h-7 rounded-full transition-colors ${group.allowOthersToSpeak ?? true ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
-                    <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${group.allowOthersToSpeak ?? true ? 'transform translate-x-5' : ''}`}></div>
-                  </div>
-                </label>
+            <div className="space-y-4">
+              <label className="flex items-center justify-between cursor-pointer group">
+                <span className="text-sm font-bold text-gray-700">Autoriser les autres à parler</span>
+                <div className="relative">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only" 
+                    disabled={!isCreator}
+                    checked={group.allowOthersToSpeak ?? true} 
+                    onChange={e => updateState((prev: AppState) => ({
+                      groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToSpeak: e.target.checked } }
+                    }))} 
+                  />
+                  <div className={`block w-12 h-7 rounded-full transition-colors ${group.allowOthersToSpeak ?? true ? 'bg-[#32CD32]' : 'bg-gray-300'} ${!isCreator ? 'opacity-50' : ''}`}></div>
+                  <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${group.allowOthersToSpeak ?? true ? 'transform translate-x-5' : ''}`}></div>
+                </div>
+              </label>
 
-                <label className="flex items-center justify-between cursor-pointer group">
-                  <span className="text-sm font-bold text-gray-700">Autoriser les autres à ajouter des membres</span>
-                  <div className="relative">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only" 
-                      checked={group.allowOthersToInvite ?? true} 
-                      onChange={e => updateState((prev: AppState) => ({
-                        groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToInvite: e.target.checked } }
-                      }))} 
-                    />
-                    <div className={`block w-12 h-7 rounded-full transition-colors ${group.allowOthersToInvite ?? true ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
-                    <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${group.allowOthersToInvite ?? true ? 'transform translate-x-5' : ''}`}></div>
-                  </div>
-                </label>
-              </div>
-            )}
+              <label className="flex items-center justify-between cursor-pointer group">
+                <span className="text-sm font-bold text-gray-700">Autoriser les autres à ajouter des membres</span>
+                <div className="relative">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only" 
+                    disabled={!isCreator}
+                    checked={group.allowOthersToInvite ?? true} 
+                    onChange={e => updateState((prev: AppState) => ({
+                      groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToInvite: e.target.checked } }
+                    }))} 
+                  />
+                  <div className={`block w-12 h-7 rounded-full transition-colors ${group.allowOthersToInvite ?? true ? 'bg-[#32CD32]' : 'bg-gray-300'} ${!isCreator ? 'opacity-50' : ''}`}></div>
+                  <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${group.allowOthersToInvite ?? true ? 'transform translate-x-5' : ''}`}></div>
+                </div>
+              </label>
+            </div>
 
             <div className="pt-4 border-t space-y-3">
-              <button 
-                onClick={() => {
-                  const friend = prompt("Nom de l'ami à ajouter :");
-                  if (friend && state.users[friend]) {
-                    updateState((prev: AppState) => {
-                      const newGroups = { ...prev.groups };
-                      if (!newGroups[activeGroup].members.includes(friend)) {
-                        newGroups[activeGroup].members.push(friend);
-                      }
-                      return { groups: newGroups };
-                    });
-                    showToast(`${friend} ajouté !`);
-                  } else if (friend) {
-                    showToast("Utilisateur introuvable.");
-                  }
-                }}
-                className="w-full py-3 rounded-xl bg-blue-50 text-[#0D98BA] font-bold text-sm hover:bg-blue-100 transition"
-              >
-                Ajouter un membre
-              </button>
-              <button 
-                onClick={() => handleDeleteGroup(activeGroup)}
-                className="w-full py-3 rounded-xl bg-red-50 text-red-500 font-bold text-sm hover:bg-red-100 transition"
-              >
-                Supprimer le groupe
-              </button>
+              {(isCreator || (group.allowOthersToInvite ?? true)) && (
+                <button 
+                  onClick={() => {
+                    const friend = prompt("Nom de l'ami à ajouter :");
+                    if (friend && state.users[friend]) {
+                      updateState((prev: AppState) => {
+                        const newGroups = { ...prev.groups };
+                        if (!newGroups[activeGroup].members.includes(friend)) {
+                          newGroups[activeGroup].members.push(friend);
+                        }
+                        return { groups: newGroups };
+                      });
+                      showToast(`${friend} ajouté !`);
+                    } else if (friend) {
+                      showToast("Utilisateur introuvable.");
+                    }
+                  }}
+                  className="w-full py-3 rounded-xl bg-blue-50 text-[#0D98BA] font-bold text-sm hover:bg-blue-100 transition"
+                >
+                  Ajouter un membre
+                </button>
+              )}
+              {isCreator && (
+                <button 
+                  onClick={() => handleDeleteGroup(activeGroup)}
+                  className="w-full py-3 rounded-xl bg-red-50 text-red-500 font-bold text-sm hover:bg-red-100 transition"
+                >
+                  Supprimer le groupe
+                </button>
+              )}
             </div>
           </div>
         )}

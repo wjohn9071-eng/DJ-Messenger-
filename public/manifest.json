@@ -19,6 +19,20 @@
       "description": "Voir mes amis",
       "url": "/?view=friends",
       "icons": [{ "src": "/icon.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "DJ Society",
+      "short_name": "Society",
+      "description": "Proposer des idées",
+      "url": "/?view=djsociety",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Paramètres",
+      "short_name": "Settings",
+      "description": "Modifier mes préférences",
+      "url": "/?view=settings",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192", "type": "image/svg+xml" }]
     }
   ],
   "background_color": "#f0f2f5",

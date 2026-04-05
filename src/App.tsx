@@ -21,10 +21,12 @@ export default function App() {
   }, [state.currentUser, state.users]);
 
   // PWA Install Prompt handling
+  const [canInstall, setCanInstall] = useState(false);
   useEffect(() => {
     const handleBeforeInstall = (e: any) => {
       e.preventDefault();
       (window as any).deferredPrompt = e;
+      setCanInstall(true);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
@@ -343,7 +345,7 @@ export default function App() {
   return (
     <div className="flex h-screen w-full overflow-hidden transition-colors duration-500 overscroll-none" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)', touchAction: 'pan-x pan-y' }}>
       {/* Sidebar / Hamburger Menu */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-[70] w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden p-1.5 bg-white">
@@ -387,20 +389,25 @@ export default function App() {
           ))}
           
           {/* Install Button */}
-          <button
-            onClick={async () => {
-              const prompt = (window as any).deferredPrompt;
-              if (prompt) {
-                prompt.prompt();
-                const { outcome } = await prompt.userChoice;
-                if (outcome === 'accepted') (window as any).deferredPrompt = null;
-              }
-            }}
-            className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-green-400 hover:bg-white/5 transition-all font-bold uppercase text-xs tracking-widest mt-4 border border-green-400/20"
-          >
-            <Plus size={18} />
-            Installer l'App
-          </button>
+          {((window as any).deferredPrompt || canInstall) && (
+            <button
+              onClick={async () => {
+                const prompt = (window as any).deferredPrompt;
+                if (prompt) {
+                  prompt.prompt();
+                  const { outcome } = await prompt.userChoice;
+                  if (outcome === 'accepted') {
+                    (window as any).deferredPrompt = null;
+                    setCanInstall(false);
+                  }
+                }
+              }}
+              className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-green-400 hover:bg-white/5 transition-all font-bold uppercase text-xs tracking-widest mt-4 border border-green-400/20"
+            >
+              <Plus size={18} />
+              Installer l'App
+            </button>
+          )}
         </nav>
         
         <div className="p-4 border-t border-white/10">
@@ -410,7 +417,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className={`flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300 ${state.menuOpen ? 'lg:ml-72 ml-0' : 'ml-0'}`}>
-        <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-30">
+        <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[60]">
           <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2">
             <Menu size={24} className="text-gray-600" />
           </button>
@@ -427,7 +434,7 @@ export default function App() {
       {/* Overlay for mobile when menu is open */}
       {state.menuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden" 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[65] lg:hidden" 
           onClick={toggleMenu}
         />
       )}

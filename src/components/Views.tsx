@@ -4,7 +4,7 @@ import { djStyleBg, djStyleText } from '../lib/utils';
 import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
-import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc } from '../lib/firebase';
+import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, arrayUnion, arrayRemove } from '../lib/firebase';
 import { updateProfile, updatePassword } from 'firebase/auth';
 
 export function Profile({ state, updateState }: { state: AppState, updateState: any }) {
@@ -178,14 +178,8 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
       const userRef = doc(db, 'users', state.currentUser as string);
       const friendRef = doc(db, 'users', friendId);
       
-      const newFriends = [...currentUser.friends, friendId];
-      await updateDoc(userRef, { friends: newFriends });
-      
-      const friendData = state.users[friendId];
-      if (friendData) {
-        const friendNewFriends = [...(friendData.friends || []), state.currentUser as string];
-        await updateDoc(friendRef, { friends: friendNewFriends });
-      }
+      await updateDoc(userRef, { friends: arrayUnion(friendId) });
+      await updateDoc(friendRef, { friends: arrayUnion(state.currentUser as string) });
       
       showToast(`${state.users[friendId]?.name || friendId} ajouté aux amis !`);
     } catch (error) {
@@ -196,20 +190,13 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
 
   const handleRemoveFriend = async (friendId: string) => {
     const friendName = state.users[friendId]?.name || friendId;
-    if (!window.confirm(`Es-tu sûr de vouloir retirer ${friendName} de tes amis ?`)) return;
     
     try {
       const userRef = doc(db, 'users', state.currentUser as string);
       const friendRef = doc(db, 'users', friendId);
       
-      const newFriends = currentUser.friends.filter((f: string) => f !== friendId);
-      await updateDoc(userRef, { friends: newFriends });
-      
-      const friendData = state.users[friendId];
-      if (friendData) {
-        const friendNewFriends = (friendData.friends || []).filter((f: string) => f !== state.currentUser);
-        await updateDoc(friendRef, { friends: friendNewFriends });
-      }
+      await updateDoc(userRef, { friends: arrayRemove(friendId) });
+      await updateDoc(friendRef, { friends: arrayRemove(state.currentUser as string) });
       
       showToast(`${friendName} retiré des amis.`);
     } catch (error) {
@@ -820,7 +807,11 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
     } else {
       // Fallback for browsers where beforeinstallprompt isn't supported or fired
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-      if (isIOS) {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+      
+      if (isStandalone) {
+        showToast("L'application est déjà installée !");
+      } else if (isIOS) {
         showToast("Sur iOS, appuyez sur 'Partager' puis 'Sur l'écran d'accueil'.");
       } else {
         showToast("Utilisez le menu de votre navigateur (⋮) pour 'Installer l'application'.");
@@ -839,25 +830,31 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     try {
-      // Remove from friends' lists
+      // Remove from friends' lists using arrayRemove
       const userDoc = state.users[uid];
       if (userDoc && userDoc.friends) {
         for (const friendId of userDoc.friends) {
           const friendRef = doc(db, 'users', friendId);
-          const friendData = state.users[friendId];
-          if (friendData && friendData.friends) {
-            const updatedFriends = friendData.friends.filter(f => f !== uid);
-            await updateDoc(friendRef, { friends: updatedFriends });
-          }
+          await updateDoc(friendRef, { friends: arrayRemove(uid) });
         }
       }
 
+      // Delete user documents
       await deleteDoc(doc(db, 'users', uid));
+      await deleteDoc(doc(db, 'users_public', uid));
+      
+      // Delete from Auth
       await auth.currentUser.delete();
       handleLogout();
     } catch (error: any) {
       console.error("Error deleting account:", error);
-      showToast("Erreur lors de la suppression: " + error.message);
+      if (error.code === 'auth/requires-recent-login') {
+        showToast("Sécurité : Reconnecte-toi avant de supprimer ton compte.");
+        await signOut(auth);
+        handleLogout();
+      } else {
+        showToast("Erreur lors de la suppression: " + error.message);
+      }
     }
   };
 
