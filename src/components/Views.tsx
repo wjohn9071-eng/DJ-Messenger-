@@ -146,7 +146,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
   );
 }
 
-export function Friends({ state, updateState }: { state: AppState, updateState: any }) {
+export function Friends({ state, updateState, setView }: { state: AppState, updateState: any, setView?: (v: string) => void }) {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
@@ -178,8 +178,8 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
       const userRef = doc(db, 'users', state.currentUser as string);
       const friendRef = doc(db, 'users', friendId);
       
-      await updateDoc(userRef, { friends: arrayUnion(friendId) });
-      await updateDoc(friendRef, { friends: arrayUnion(state.currentUser as string) });
+      await setDoc(userRef, { friends: arrayUnion(friendId) }, { merge: true });
+      await setDoc(friendRef, { friends: arrayUnion(state.currentUser as string) }, { merge: true });
       
       showToast(`${state.users[friendId]?.name || friendId} ajouté aux amis !`);
     } catch (error) {
@@ -195,8 +195,8 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
       const userRef = doc(db, 'users', state.currentUser as string);
       const friendRef = doc(db, 'users', friendId);
       
-      await updateDoc(userRef, { friends: arrayRemove(friendId) });
-      await updateDoc(friendRef, { friends: arrayRemove(state.currentUser as string) });
+      await setDoc(userRef, { friends: arrayRemove(friendId) }, { merge: true });
+      await setDoc(friendRef, { friends: arrayRemove(state.currentUser as string) }, { merge: true });
       
       showToast(`${friendName} retiré des amis.`);
     } catch (error) {
@@ -295,7 +295,8 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
                           createdAt: new Date().toISOString()
                         });
                       }
-                      updateState({ activeGroup: smsId, activeView: 'discussions', discussionTab: 'sms' });
+                      updateState({ activeGroup: smsId, discussionTab: 'sms' });
+                      if (setView) setView('discussions');
                     } catch (error) {
                       console.error("Error starting SMS from friends list:", error);
                       showToast("Erreur lors du lancement de la discussion.");
@@ -852,7 +853,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       if (userDoc && userDoc.friends) {
         for (const friendId of userDoc.friends) {
           const friendRef = doc(db, 'users', friendId);
-          await updateDoc(friendRef, { friends: arrayRemove(uid) });
+          await setDoc(friendRef, { friends: arrayRemove(uid) }, { merge: true });
         }
       }
 

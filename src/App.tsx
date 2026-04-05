@@ -302,7 +302,7 @@ export default function App() {
     switch (view) {
       case 'home': return <Home state={state} setView={setView} updateState={updateState} startSimulation={startSimulation} />;
       case 'discussions': return <Discussions state={state} updateState={updateState} />;
-      case 'friends': return <Friends state={state} updateState={updateState} />;
+      case 'friends': return <Friends state={state} updateState={updateState} setView={setView} />;
       case 'djsociety': return <DJSociety state={state} updateState={updateState} />;
       case 'updates': return <Updates />;
       case 'settings': return <Settings state={state} updateState={updateState} handleLogout={handleLogout} />;

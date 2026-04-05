@@ -188,9 +188,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         await addDoc(msgRef, msgData);
 
         // Update group last activity
-        await updateDoc(doc(db, 'groups', activeGroup), {
+        await setDoc(doc(db, 'groups', activeGroup), {
           lastActivity: new Date().toISOString()
-        });
+        }, { merge: true });
       }
     } catch (error: any) {
       console.error("Error sending message:", error);
@@ -282,9 +282,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       await addDoc(collection(db, path, activeGroup, 'messages'), msgData);
 
       if (!isSMS) {
-        await updateDoc(doc(db, 'groups', activeGroup), {
+        await setDoc(doc(db, 'groups', activeGroup), {
           lastActivity: new Date().toISOString()
-        });
+        }, { merge: true });
       }
     } catch (error) {
       console.error("Error sending multimedia message:", error);
