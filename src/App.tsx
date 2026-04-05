@@ -5,7 +5,7 @@ import Home from './components/Home';
 import { Discussions } from './components/Discussions';
 import { Profile, Friends, DJSociety, Updates, Settings } from './components/Views';
 import { TutorialGame } from './components/TutorialGame';
-import { Menu, Home as HomeIcon, MessageSquare, Users, Lightbulb, Bell, Settings as SettingsIcon, HelpCircle, User } from 'lucide-react';
+import { Menu, Home as HomeIcon, MessageSquare, Users, Lightbulb, Bell, Settings as SettingsIcon, HelpCircle, User, Plus } from 'lucide-react';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from './lib/utils';
 import { AppState, Message, Group } from './types';
 
@@ -77,7 +77,10 @@ export default function App() {
         // 0. Ensure DJ Bot user exists
         if (!newUsers['DJ Bot']) {
           newUsers['DJ Bot'] = {
-            username: 'DJ Bot',
+            id: 'dj-bot',
+            uid: 'dj-bot',
+            name: 'DJ Bot',
+            email: 'bot@djsociety.com',
             isAdmin: true,
             friends: [],
             avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=dj-bot'
@@ -313,8 +316,13 @@ export default function App() {
     }
     setView(id);
     
-    // Auto-hide menu if enabled
-    if (user?.autoHideSidebar) {
+    // Clear active group if navigating away from discussions
+    if (id !== 'discussions') {
+      updateState({ activeGroup: null });
+    }
+    
+    // Always close menu on mobile, or if autoHideSidebar is enabled
+    if (window.innerWidth < 1024 || user?.autoHideSidebar) {
       updateState({ menuOpen: false });
     }
   };
@@ -333,7 +341,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden transition-colors duration-500" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
+    <div className="flex h-screen w-full overflow-hidden transition-colors duration-500 overscroll-none" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)', touchAction: 'pan-x pan-y' }}>
       {/* Sidebar / Hamburger Menu */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center justify-between border-b border-white/10">
@@ -357,7 +365,7 @@ export default function App() {
               {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <User size={24} className="text-gray-400" />}
             </div>
             <div className="text-left flex-1 min-w-0">
-              <p className="font-black text-sm uppercase tracking-tight truncate">{isTest ? 'Mode Test' : user?.username}</p>
+              <p className="font-black text-sm uppercase tracking-tight truncate">{isTest ? 'Mode Test' : user?.name}</p>
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{isTest ? 'Anonyme' : 'En ligne'}</p>
@@ -377,6 +385,22 @@ export default function App() {
               {item.label}
             </button>
           ))}
+          
+          {/* Install Button */}
+          <button
+            onClick={async () => {
+              const prompt = (window as any).deferredPrompt;
+              if (prompt) {
+                prompt.prompt();
+                const { outcome } = await prompt.userChoice;
+                if (outcome === 'accepted') (window as any).deferredPrompt = null;
+              }
+            }}
+            className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-green-400 hover:bg-white/5 transition-all font-bold uppercase text-xs tracking-widest mt-4 border border-green-400/20"
+          >
+            <Plus size={18} />
+            Installer l'App
+          </button>
         </nav>
         
         <div className="p-4 border-t border-white/10">
@@ -385,7 +409,7 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300 ${state.menuOpen ? 'ml-72' : 'ml-0'}`}>
+      <main className={`flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300 ${state.menuOpen ? 'lg:ml-72 ml-0' : 'ml-0'}`}>
         <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-30">
           <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2">
             <Menu size={24} className="text-gray-600" />

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { AppState } from '../types';
 import { djStyleBg, djStyleText } from '../lib/utils';
-import { User, Key, ImagePlus, Trash2, MessageSquare } from 'lucide-react';
+import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
+
+import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc } from '../lib/firebase';
+import { updateProfile, updatePassword } from 'firebase/auth';
 
 export function Profile({ state, updateState }: { state: AppState, updateState: any }) {
   const isTest = state.currentUser === 'test';
-  const user = isTest ? { username: 'Utilisateur Anonyme', password: '••••••••', avatar: null } : state.users[state.currentUser as string];
-  const [username, setUsername] = useState(user?.username || '');
-  const [password, setPassword] = useState(user?.password || '');
+  const user = isTest ? null : state.users[state.currentUser as string];
+  const [username, setUsername] = useState(user?.name || '');
+  const [password, setPassword] = useState('••••••••');
   const [avatar, setAvatar] = useState(user?.avatar || null);
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
@@ -22,30 +25,45 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
     updateState({ currentUser: null });
   };
 
-  const handleSave = () => {
-    if (isTest) {
+  const handleSave = async () => {
+    if (isTest || !auth.currentUser) {
       setShowRestrictedPopup(true);
       return;
     }
-    if (!username.trim() || !password.trim()) {
-      return showToast("Les champs ne peuvent pas être vides.");
+    if (!username.trim()) {
+      return showToast("Le nom ne peut pas être vide.");
     }
     
-    updateState((prev: AppState) => {
-      const newUsers = { ...prev.users };
-      if (username !== prev.currentUser && newUsers[username]) {
-        showToast("Ce nom d'utilisateur est déjà pris.");
-        return prev;
+    try {
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: username,
+          photoURL: avatar
+        });
+
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const publicRef = doc(db, 'users_public', auth.currentUser.uid);
+
+        try {
+          await updateDoc(userRef, {
+            name: username,
+            avatar: avatar || ''
+          });
+          
+          await updateDoc(publicRef, {
+            name: username,
+            avatar: avatar || ''
+          });
+        } catch (e: any) {
+          console.error("Erreur Firestore lors de la mise à jour du profil:", e);
+          throw new Error("Profil mis à jour localement mais erreur de synchronisation avec la base de données.");
+        }
       }
-      
-      const oldUser = newUsers[prev.currentUser as string];
-      delete newUsers[prev.currentUser as string];
-      
-      newUsers[username] = { ...oldUser, username, password, avatar };
-      
-      return { users: newUsers, currentUser: username };
-    });
-    showToast("Profil mis à jour !");
+
+      showToast("Profil mis à jour !");
+    } catch (error: any) {
+      showToast("Erreur: " + error.message);
+    }
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,33 +76,62 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
   };
 
   return (
-    <div className="p-6 max-w-lg mx-auto animate-in fade-in duration-300 pb-20">
-      <h2 className={`text-2xl font-bold mb-6 ${djStyleText}`}>Mon Profil</h2>
+    <div className="p-4 md:p-8 max-w-xl mx-auto animate-in fade-in duration-300 pb-24">
+      <div className="flex items-center gap-4 mb-8">
+        <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg`}>
+          <User className="text-white" size={24} />
+        </div>
+        <h2 className={`text-3xl font-black uppercase tracking-tighter ${djStyleText}`}>Mon Profil</h2>
+      </div>
       
-      <div className="flex flex-col items-center mb-8">
+      <div className="flex flex-col items-center mb-10">
         <label className="relative cursor-pointer group">
-          <div className="w-32 h-32 rounded-full bg-gray-100 border-4 border-white shadow-xl flex items-center justify-center overflow-hidden group-hover:ring-4 ring-[#0D98BA]/30 transition-all">
-            {avatar ? <img src={avatar} alt="Avatar" className="w-full h-full object-cover" /> : <User size={48} className="text-gray-400" />}
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <ImagePlus className="text-white" />
+          <div className="w-40 h-40 rounded-[2.5rem] bg-white border-8 border-white shadow-2xl flex items-center justify-center overflow-hidden group-hover:ring-8 ring-[#0D98BA]/20 transition-all relative">
+            {avatar ? <img src={avatar} alt="Avatar" className="w-full h-full object-cover" /> : <User size={64} className="text-gray-200" />}
+            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <ImagePlus className="text-white mb-2" size={32} />
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">Changer</span>
             </div>
           </div>
           <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
         </label>
       </div>
 
-      <div className="space-y-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-8">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Nom d'utilisateur</label>
-          <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none transition bg-gray-50" />
+      <div className="space-y-6 bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/50 mb-8">
+        <div className="space-y-2">
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Nom d'utilisateur</label>
+          <input 
+            type="text" 
+            value={username} 
+            onChange={e => setUsername(e.target.value)} 
+            className="w-full px-6 py-4 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all bg-gray-50/50 font-bold text-gray-800" 
+            placeholder="Ton nom de scène..."
+          />
         </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Mot de passe</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none transition bg-gray-50" />
+        <div className="space-y-2">
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Mot de passe</label>
+          <div className="relative">
+            <input 
+              type="password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              className="w-full px-6 py-4 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all bg-gray-50/50 font-bold text-gray-800" 
+              placeholder="••••••••"
+            />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300">
+              <Key size={18} />
+            </div>
+          </div>
         </div>
-        <button onClick={handleSave} className={`w-full py-3 mt-4 rounded-xl font-bold shadow-lg hover:opacity-90 transition active:scale-95 ${djStyleBg}`}>
-          Enregistrer les modifications
-        </button>
+        
+        <div className="pt-4">
+          <button 
+            onClick={handleSave} 
+            className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition active:scale-95 text-white ${djStyleBg}`}
+          >
+            Enregistrer les modifications
+          </button>
+        </div>
       </div>
 
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
@@ -105,7 +152,11 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
   
   const isTest = state.currentUser === 'test';
-  const currentUser = isTest ? { friends: [] } : state.users[state.currentUser as string];
+  const currentUserData = (isTest || !state.currentUser) ? null : state.users[state.currentUser as string];
+  const currentUser = {
+    ...currentUserData,
+    friends: currentUserData?.friends || []
+  };
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -116,32 +167,63 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
     updateState({ currentUser: null });
   };
 
-  const handleAddFriend = (friendName: string) => {
+  const handleAddFriend = async (friendId: string) => {
     if (isTest) {
       setShowRestrictedPopup(true);
       return;
     }
-    if (currentUser.friends.includes(friendName)) return showToast("Déjà dans tes amis.");
+    if (currentUser.friends.includes(friendId)) return showToast("Déjà dans tes amis.");
     
-    updateState((prev: AppState) => {
-      const newUsers = { ...prev.users };
-      if (!newUsers[prev.currentUser as string].friends.includes(friendName)) {
-        newUsers[prev.currentUser as string].friends.push(friendName);
+    try {
+      const userRef = doc(db, 'users', state.currentUser as string);
+      const friendRef = doc(db, 'users', friendId);
+      
+      const newFriends = [...currentUser.friends, friendId];
+      await updateDoc(userRef, { friends: newFriends });
+      
+      const friendData = state.users[friendId];
+      if (friendData) {
+        const friendNewFriends = [...(friendData.friends || []), state.currentUser as string];
+        await updateDoc(friendRef, { friends: friendNewFriends });
       }
-      if (!newUsers[friendName].friends.includes(prev.currentUser as string)) {
-        newUsers[friendName].friends.push(prev.currentUser as string);
+      
+      showToast(`${state.users[friendId]?.name || friendId} ajouté aux amis !`);
+    } catch (error) {
+      console.error("Error adding friend:", error);
+      showToast("Erreur lors de l'ajout de l'ami.");
+    }
+  };
+
+  const handleRemoveFriend = async (friendId: string) => {
+    const friendName = state.users[friendId]?.name || friendId;
+    if (!window.confirm(`Es-tu sûr de vouloir retirer ${friendName} de tes amis ?`)) return;
+    
+    try {
+      const userRef = doc(db, 'users', state.currentUser as string);
+      const friendRef = doc(db, 'users', friendId);
+      
+      const newFriends = currentUser.friends.filter((f: string) => f !== friendId);
+      await updateDoc(userRef, { friends: newFriends });
+      
+      const friendData = state.users[friendId];
+      if (friendData) {
+        const friendNewFriends = (friendData.friends || []).filter((f: string) => f !== state.currentUser);
+        await updateDoc(friendRef, { friends: friendNewFriends });
       }
-      return { users: newUsers };
-    });
-    showToast(`${friendName} ajouté aux amis !`);
+      
+      showToast(`${friendName} retiré des amis.`);
+    } catch (error) {
+      console.error("Error removing friend:", error);
+      showToast("Erreur lors du retrait de l'ami.");
+    }
   };
 
   // The app "doesn't lie": it searches all registered users
-  const searchResults = Object.keys(state.users).filter(u => 
-    u !== state.currentUser && 
-    u.toLowerCase().includes(search.toLowerCase()) &&
-    !currentUser.friends.includes(u) &&
-    u !== 'DJ_Bot' // Don't show the bot in general search if we want it to be special
+  const searchResults = Object.values(state.users).filter(u => 
+    u.id !== state.currentUser && 
+    (search === '' || u.name.toLowerCase().includes(search.toLowerCase())) &&
+    !currentUser.friends.includes(u.id) &&
+    u.id !== 'dj-bot' && u.id !== 'DJ_Bot'
   );
 
   return (
@@ -162,59 +244,68 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
           </div>
         </div>
         
-        {search && (
-          <div className="mt-4 bg-white rounded-3xl shadow-2xl border border-gray-50 overflow-hidden animate-in slide-in-from-top-4">
-            <div className="p-4 bg-gray-50 border-b text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Résultats de la recherche
-            </div>
-            {searchResults.length > 0 ? searchResults.map(u => (
-              <div key={u} className="flex items-center justify-between p-5 border-b last:border-0 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden">
-                    {state.users[u].avatar ? <img src={state.users[u].avatar!} className="w-full h-full object-cover" /> : u[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <span className="font-bold text-gray-800 text-lg">@{u}</span>
-                    <p className="text-xs text-gray-400">Utilisateur DJ Messenger</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => handleAddFriend(u)} 
-                  className={`px-6 py-2.5 rounded-full text-sm font-black uppercase tracking-widest shadow-lg hover:scale-105 transition active:scale-95 text-white ${djStyleBg}`}
-                >
-                  Ajouter
-                </button>
-              </div>
-            )) : (
-              <div className="p-8 text-center">
-                <p className="text-gray-400 font-bold italic">Aucun utilisateur trouvé avec ce nom.</p>
-              </div>
-            )}
+        <div className="mt-4 bg-white rounded-3xl shadow-2xl border border-gray-50 overflow-hidden animate-in slide-in-from-top-4">
+          <div className="p-4 bg-gray-50 border-b text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            {search ? 'Résultats de la recherche' : 'Tous les utilisateurs'}
           </div>
-        )}
+          {searchResults.length > 0 ? searchResults.map((u, i) => (
+            <div key={u.id || `user-${i}`} className="flex items-center justify-between p-5 border-b last:border-0 hover:bg-gray-50 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden">
+                  {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : u.name[0].toUpperCase()}
+                </div>
+                <div>
+                  <span className="font-bold text-gray-800 text-lg">@{u.name}</span>
+                  <p className="text-xs text-gray-400">Utilisateur DJ Messenger</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => handleAddFriend(u.id)} 
+                className={`px-6 py-2.5 rounded-full text-sm font-black uppercase tracking-widest shadow-lg hover:scale-105 transition active:scale-95 text-white ${djStyleBg}`}
+              >
+                Ajouter
+              </button>
+            </div>
+          )) : (
+            <div className="p-8 text-center">
+              <p className="text-gray-400 font-bold italic">Aucun utilisateur trouvé.</p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div>
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Mes amis ({currentUser.friends.length})</h3>
         <div className="grid gap-4">
-          {currentUser.friends.map(f => (
-            <div key={f} className="bg-white p-5 rounded-[2rem] shadow-lg border border-gray-50 flex items-center justify-between group hover:border-[#0D98BA]/30 transition-all">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
-                  {state.users[f]?.avatar ? <img src={state.users[f].avatar!} className="w-full h-full object-cover" /> : f[0].toUpperCase()}
+          {currentUser.friends.filter(f => f !== 'dj-bot' && f !== 'DJ_Bot').map((f, i) => {
+            const friendData = state.users[f];
+            const friendName = friendData?.name || f;
+            return (
+              <div key={`${f}-${i}`} className="bg-white p-5 rounded-[2rem] shadow-lg border border-gray-50 flex items-center justify-between group hover:border-[#0D98BA]/30 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
+                    {friendData?.avatar ? <img src={friendData.avatar} className="w-full h-full object-cover" /> : friendName[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <span className="font-bold text-gray-800 text-xl">@{friendName}</span>
+                    <p className="text-xs text-green-500 font-bold uppercase tracking-tighter">Ami connecté</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="font-bold text-gray-800 text-xl">@{f}</span>
-                  <p className="text-xs text-green-500 font-bold uppercase tracking-tighter">Ami connecté</p>
+                <div className="flex gap-2">
+                  <button onClick={() => {
+                    // Start SMS
+                    const chatId = [state.currentUser, f].sort().join('_');
+                    updateState({ activeGroup: `sms_${chatId}`, activeView: 'discussions', discussionTab: 'sms' });
+                  }} className="p-3 rounded-full bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors">
+                    <MessageSquare size={20} />
+                  </button>
+                  <button onClick={() => handleRemoveFriend(f)} className="p-3 rounded-full bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+                    <Trash2 size={20} />
+                  </button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button className="p-3 rounded-full bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors">
-                  <MessageSquare size={20} />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {currentUser.friends.length === 0 && (
             <div className="bg-white/50 border-2 border-dashed border-gray-200 p-12 rounded-[2.5rem] text-center">
               <p className="text-gray-400 font-bold italic">Ta liste d'amis est vide pour le moment.</p>
@@ -238,6 +329,10 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
   const [text, setText] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
+  const [showPollCreator, setShowPollCreator] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+  
   const isTest = state.currentUser === 'test';
   const currentUser = isTest ? { isAdmin: false, proposalsToday: 0, lastProposalDate: '' } : state.users[state.currentUser as string];
 
@@ -250,50 +345,109 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
     updateState({ currentUser: null });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (isTest) {
       setShowRestrictedPopup(true);
       return;
     }
-    if (!text.trim()) return;
+    if (!text.trim() && !pollQuestion.trim()) return;
     
     const today = new Date().toDateString();
     if (!currentUser.isAdmin && currentUser.lastProposalDate === today && (currentUser.proposalsToday || 0) >= 3) {
       return showToast("Limite de 3 propositions par jour atteinte.");
     }
 
-    updateState((prev: AppState) => {
-      const newUsers = { ...prev.users };
-      const user = newUsers[prev.currentUser as string];
-      user.lastProposalDate = today;
-      if (!user.isAdmin) {
-        user.proposalsToday = (user.proposalsToday || 0) + 1;
+    const pollData = pollQuestion.trim() && pollOptions.filter(o => o.trim()).length >= 2 ? {
+      question: pollQuestion.trim(),
+      options: pollOptions.filter(o => o.trim()).map((optText, i) => ({
+        id: `opt-${i}-${Date.now()}`,
+        text: optText.trim(),
+        votes: []
+      })),
+      closed: false
+    } : null;
+
+    try {
+      const proposalData = {
+        user: state.currentUser as string,
+        text: text.trim() || (pollData ? `📊 Sondage : ${pollQuestion.trim()}` : ''),
+        date: new Date().toLocaleString(),
+        status: currentUser.isAdmin ? 'accepted' : 'pending',
+        isAdminAnnouncement: currentUser.isAdmin,
+        poll: pollData
+      };
+
+      await addDoc(collection(db, 'proposals'), proposalData);
+
+      if (!currentUser.isAdmin) {
+        await updateDoc(doc(db, 'users', state.currentUser as string), {
+          lastProposalDate: today,
+          proposalsToday: (currentUser.proposalsToday || 0) + 1
+        });
       }
 
-      return {
-        users: newUsers,
-        proposals: [...prev.proposals, {
-          id: `prop-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          user: prev.currentUser as string,
-          text,
-          date: new Date().toLocaleString(),
-          status: user.isAdmin ? 'accepted' : 'pending',
-          isAdminAnnouncement: user.isAdmin
-        }]
-      };
-    });
-    setText('');
-    showToast(currentUser.isAdmin ? "Annonce publiée !" : "Proposition envoyée !");
+      setText('');
+      setPollQuestion('');
+      setPollOptions(['', '']);
+      setShowPollCreator(false);
+      showToast(currentUser.isAdmin ? "Annonce publiée !" : "Proposition envoyée !");
+    } catch (error) {
+      console.error("Error submitting proposal:", error);
+      showToast("Erreur lors de l'envoi.");
+    }
   };
 
-  const handleReply = (id: string, status: 'accepted' | 'rejected', reply: string) => {
-    updateState((prev: AppState) => ({
-      proposals: prev.proposals.map(p => p.id === id ? { ...p, status, adminReply: reply } : p)
-    }));
+  const handleReply = async (id: string, status: 'accepted' | 'rejected', reply: string) => {
+    try {
+      await updateDoc(doc(db, 'proposals', id), { status, adminReply: reply });
+    } catch (error) {
+      console.error("Error replying to proposal:", error);
+    }
+  };
+
+  const handleVote = async (proposalId: string, optionId: string) => {
+    if (isTest) return setShowRestrictedPopup(true);
+    try {
+      const propRef = doc(db, 'proposals', proposalId);
+      let propSnap;
+      try {
+        propSnap = await getDoc(propRef);
+      } catch (e: any) {
+        console.error("Erreur lors de la récupération du sondage:", e);
+        return;
+      }
+      if (!propSnap.exists()) return;
+      
+      const proposal = propSnap.data() as any;
+      if (!proposal.poll || proposal.poll.closed) return;
+
+      const newPoll = { ...proposal.poll };
+      newPoll.options = newPoll.options.map((opt: any) => {
+        const newVotes = (opt.votes || []).filter((v: string) => v !== state.currentUser);
+        if (opt.id === optionId) {
+          newVotes.push(state.currentUser!);
+        }
+        return { ...opt, votes: newVotes };
+      });
+
+      await updateDoc(propRef, { poll: newPoll });
+    } catch (error) {
+      console.error("Error voting on proposal poll:", error);
+    }
+  };
+
+  const handleClosePoll = async (proposalId: string) => {
+    if (isTest) return setShowRestrictedPopup(true);
+    try {
+      await updateDoc(doc(db, 'proposals', proposalId), { 'poll.closed': true });
+      showToast("Sondage clôturé.");
+    } catch (error) {
+      console.error("Error closing proposal poll:", error);
+    }
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto animate-in fade-in duration-300">
+    <div className="p-6 max-w-3xl mx-auto animate-in fade-in duration-300 pb-20">
       <div className="flex justify-between items-center mb-6">
         <h2 className={`text-2xl font-bold ${djStyleText}`}>DJ Society</h2>
       </div>
@@ -305,9 +459,66 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
       </div>
 
       {!isTest && (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-8">
-          <h3 className="font-bold text-gray-800 mb-2">{currentUser?.isAdmin ? 'Faire une annonce' : 'Nouvelle proposition'}</h3>
-          <textarea value={text} onChange={e => setText(e.target.value)} placeholder={currentUser?.isAdmin ? "Écris une annonce pour tous les utilisateurs..." : "Décris ton idée pour l'application..."} className="w-full p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none resize-none h-24 mb-3 bg-gray-50" />
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-8 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-gray-800">{currentUser?.isAdmin ? 'Faire une annonce' : 'Nouvelle proposition'}</h3>
+            {currentUser?.isAdmin && (
+              <button 
+                onClick={() => setShowPollCreator(!showPollCreator)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${showPollCreator ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+              >
+                {showPollCreator ? <X size={14} /> : <BarChart2 size={14} />}
+                {showPollCreator ? 'Annuler Sondage' : 'Ajouter Sondage'}
+              </button>
+            )}
+          </div>
+
+          {showPollCreator ? (
+            <div className="space-y-4 animate-in zoom-in-95 duration-200">
+              <input 
+                type="text"
+                placeholder="Question du sondage..."
+                value={pollQuestion}
+                onChange={e => setPollQuestion(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-100 focus:ring-2 focus:ring-[#0D98BA] outline-none font-bold"
+              />
+              <div className="space-y-2">
+                {pollOptions.map((opt, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input 
+                      type="text"
+                      placeholder={`Option ${i + 1}`}
+                      value={opt}
+                      onChange={e => {
+                        const newOpts = [...pollOptions];
+                        newOpts[i] = e.target.value;
+                        setPollOptions(newOpts);
+                      }}
+                      className="flex-1 px-4 py-2 rounded-xl bg-gray-50 border border-gray-100 focus:ring-2 focus:ring-[#0D98BA] text-sm outline-none"
+                    />
+                    {pollOptions.length > 2 && (
+                      <button onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))} className="p-2 text-red-500 hover:bg-red-50 rounded-xl">
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {pollOptions.length < 6 && (
+                  <button onClick={() => setPollOptions([...pollOptions, ''])} className="flex items-center gap-2 text-[10px] font-black uppercase text-[#0D98BA] hover:underline px-2">
+                    <Plus size={12} /> Ajouter une option
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <textarea 
+              value={text} 
+              onChange={e => setText(e.target.value)} 
+              placeholder={currentUser?.isAdmin ? "Écris une annonce pour tous les utilisateurs..." : "Décris ton idée pour l'application..."} 
+              className="w-full p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none resize-none h-24 bg-gray-50" 
+            />
+          )}
+
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-500">{!currentUser?.isAdmin ? `${(currentUser?.proposalsToday || 0)}/3 aujourd'hui` : 'Annonce Admin'}</span>
             <button onClick={handleSubmit} className={`px-6 py-2 rounded-xl font-bold text-white shadow-md hover:opacity-90 transition active:scale-95 ${djStyleBg}`}>
@@ -319,11 +530,11 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
       <div className="space-y-4">
         <h3 className="font-bold text-gray-800">Propositions et Annonces</h3>
-        {state.proposals.slice().reverse().map(p => (
-          <div key={p.id} className={`p-5 rounded-2xl shadow-sm border ${p.isAdminAnnouncement ? 'bg-gradient-to-r from-blue-50 to-green-50 border-blue-100' : 'bg-white border-gray-100'}`}>
+        {state.proposals.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(p => (
+          <div key={p.id} className={`p-5 rounded-3xl shadow-sm border ${p.isAdminAnnouncement ? 'bg-gradient-to-r from-blue-50 to-green-50 border-blue-100' : 'bg-white border-gray-100'}`}>
             <div className="flex justify-between items-start mb-2">
               <span className={`font-bold ${p.isAdminAnnouncement ? djStyleText : 'text-gray-800'}`}>
-                @{p.user} {p.isAdminAnnouncement && ' (Admin)'}
+                @{state.users[p.user]?.name || p.user} {p.isAdminAnnouncement && ' (Admin)'}
               </span>
               {!p.isAdminAnnouncement && (
                 <span className={`text-xs px-2 py-1 rounded-full font-bold ${p.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : p.status === 'accepted' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -332,6 +543,64 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
               )}
             </div>
             <p className={`${p.isAdminAnnouncement ? 'text-gray-800 font-medium' : 'text-gray-600'} mb-3`}>{p.text}</p>
+            
+            {p.poll && (
+              <div className="mb-4 p-4 bg-black/5 rounded-2xl border border-black/5 space-y-3">
+                <div className="flex justify-between items-start gap-2">
+                  <h4 className="font-black text-sm uppercase tracking-tight text-gray-800">{p.poll.question}</h4>
+                  {p.poll.closed && (
+                    <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-red-500 text-white rounded-full">Clôturé</span>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {p.poll.options.map((opt: any) => {
+                    const totalVotes = p.poll!.options.reduce((acc: number, o: any) => acc + (o.votes?.length || 0), 0);
+                    const votes = opt.votes?.length || 0;
+                    const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                    const hasVoted = opt.votes?.includes(state.currentUser);
+                    
+                    return (
+                      <button 
+                        key={opt.id}
+                        onClick={() => !p.poll?.closed && handleVote(p.id, opt.id)}
+                        disabled={p.poll?.closed}
+                        className={`w-full relative h-10 rounded-xl overflow-hidden border border-black/10 transition-all ${!p.poll?.closed ? 'active:scale-[0.98] bg-gray-50' : 'bg-gray-100 cursor-default'}`}
+                      >
+                        <div 
+                          className={`absolute inset-y-0 left-0 transition-all duration-500 ${p.poll?.closed ? 'bg-gray-300' : 'bg-[#32CD32] shadow-[2px_0_10px_rgba(50,205,50,0.3)]'}`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-between px-4 z-10">
+                          <span className="text-xs font-black uppercase tracking-widest text-black">
+                            {opt.text}
+                          </span>
+                          <span className="text-[10px] font-black text-black">
+                            {percentage}%
+                          </span>
+                        </div>
+                        {hasVoted && (
+                          <div className="absolute right-1 top-1 w-2 h-2 rounded-full bg-black shadow-sm z-20" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest">
+                    {p.poll.options.reduce((acc: number, o: any) => acc + (o.votes?.length || 0), 0)} votes
+                  </p>
+                  {currentUser?.isAdmin && !p.poll.closed && (
+                    <button 
+                      onClick={() => handleClosePoll(p.id)}
+                      className="text-[9px] font-black uppercase text-red-500 hover:underline tracking-widest"
+                    >
+                      Clôturer
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="text-xs text-gray-400 mb-3">{p.date}</div>
             
             {p.adminReply && (
@@ -365,6 +634,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
+    { version: '2.1.0', date: '05/04/2026', desc: 'Stabilisation majeure de la connexion Firestore (Long Polling + gestion d\'erreurs), correction des avertissements de clés React, amélioration de la navigation mobile et de la cohérence des profils. Refonte esthétique "DJ Style" des formulaires et correction de bugs sur la gestion des amis.' },
     { version: '2.0.0', date: '01/04/2026', desc: 'Refonte majeure des discussions : sous-onglets Publics, Privés et SMS. Nouveau système de création de groupe par étapes avec barre de progression. Recherche d\'amis améliorée et intégration d\'un assistant DJ (Bot) intelligent. Correction du tutoriel et isolation complète de la simulation.' },
     { version: '1.2.0', date: '29/03/2026', desc: 'Ajout des notifications, installation PWA, épinglage de groupes, tutoriel interactif, et refonte des paramètres.' },
     { version: '1.1.0', date: '28/03/2026', desc: 'Ajout des groupes privés, profils, amis et DJ Society.' },
@@ -565,12 +835,30 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
     setShowDeleteConfirm(true);
   };
 
-  const confirmDeleteAccount = () => {
-    updateState((prev: AppState) => {
-      const newUsers = { ...prev.users };
-      delete newUsers[prev.currentUser as string];
-      return { users: newUsers, currentUser: null };
-    });
+  const confirmDeleteAccount = async () => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    try {
+      // Remove from friends' lists
+      const userDoc = state.users[uid];
+      if (userDoc && userDoc.friends) {
+        for (const friendId of userDoc.friends) {
+          const friendRef = doc(db, 'users', friendId);
+          const friendData = state.users[friendId];
+          if (friendData && friendData.friends) {
+            const updatedFriends = friendData.friends.filter(f => f !== uid);
+            await updateDoc(friendRef, { friends: updatedFriends });
+          }
+        }
+      }
+
+      await deleteDoc(doc(db, 'users', uid));
+      await auth.currentUser.delete();
+      handleLogout();
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      showToast("Erreur lors de la suppression: " + error.message);
+    }
   };
 
   return (
@@ -646,7 +934,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
           <button onClick={saveSettings} className={`w-full py-3 rounded-xl font-bold text-white shadow-lg hover:opacity-90 transition active:scale-95 mb-4 ${djStyleBg}`}>
             Sauvegarder les paramètres
           </button>
-          <button onClick={handleLogout} className="w-full py-3 rounded-xl text-gray-700 font-bold bg-gray-100 hover:bg-gray-200 transition active:scale-95 mb-4">
+          <button onClick={async () => { try { await signOut(auth); handleLogout(); } catch(e) { console.error(e); } }} className="w-full py-3 rounded-xl text-gray-700 font-bold bg-gray-100 hover:bg-gray-200 transition active:scale-95 mb-4">
             Se déconnecter
           </button>
           <button onClick={deleteAccount} className="w-full py-3 rounded-xl text-red-600 font-bold bg-red-50 hover:bg-red-100 transition active:scale-95 flex items-center justify-center gap-2">

@@ -40,22 +40,49 @@ export function TutorialGame({
   const [actionCompleted, setActionCompleted] = useState(false);
 
   // Local state for the simulation to avoid touching the real database
-  const [simulatedAppState, setSimulatedAppState] = useState<AppState>(() => ({
-    ...state,
-    currentUser: state.currentUser || 'test',
-    groups: { ...state.groups },
-    proposals: [...state.proposals],
-    newMessages: [],
-    users: { 
-      ...state.users,
-      'Simulateur DJ (IA)': {
-        username: 'Simulateur DJ (IA)',
-        isAdmin: true,
+  const [simulatedAppState, setSimulatedAppState] = useState<AppState>(() => {
+    const currentUid = state.currentUser || 'test';
+    const users = { ...state.users };
+    
+    // Ensure current user exists in simulation
+    if (!users[currentUid]) {
+      users[currentUid] = {
+        id: currentUid,
+        uid: currentUid,
+        name: 'Utilisateur Test',
+        email: 'test@example.com',
+        avatar: '',
         friends: [],
-        avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=sim-ia'
-      }
+        lastSeen: new Date().toISOString(),
+        lastReadTimestamps: {},
+        pinnedGroups: [],
+        isAdmin: false
+      };
     }
-  }));
+
+    return {
+      ...state,
+      currentUser: currentUid,
+      groups: { ...state.groups },
+      proposals: [...state.proposals],
+      newMessages: [],
+      users: { 
+        ...users,
+        'Simulateur DJ (IA)': {
+          id: 'Simulateur DJ (IA)',
+          uid: 'Simulateur DJ (IA)',
+          name: 'Simulateur DJ (IA)',
+          isAdmin: true,
+          friends: [],
+          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=sim-ia',
+          email: 'bot@dj.com',
+          lastSeen: new Date().toISOString(),
+          lastReadTimestamps: {},
+          pinnedGroups: []
+        }
+      }
+    };
+  });
 
   const updateSimulatedState = (updater: any) => {
     setSimulatedAppState(prev => {

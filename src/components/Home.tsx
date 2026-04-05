@@ -4,8 +4,9 @@ import { AppState } from '../types';
 
 export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string) => void, updateState: any, startSimulation: () => void }) {
   const isTest = state.currentUser === 'test';
-  const username = isTest ? 'Anonyme' : state.currentUser;
-  const isNewUser = !isTest && (state.users && state.currentUser) && state.users[state.currentUser as string]?.friends?.length === 0;
+  const currentUserData = !isTest && state.users && state.currentUser ? state.users[state.currentUser as string] : null;
+  const username = isTest ? 'Anonyme' : (currentUserData?.name || state.currentUser);
+  const isNewUser = !isTest && currentUserData && currentUserData.friends?.length === 0;
   
   const getGreeting = () => {
     const hour = new Date().getHours();

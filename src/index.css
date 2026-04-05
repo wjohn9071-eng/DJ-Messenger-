@@ -8,6 +8,11 @@
 body {
     font-family: 'Inter', sans-serif;
     background-color: #f0f2f5;
+    overscroll-behavior-y: contain;
+}
+
+html {
+    overscroll-behavior-y: contain;
 }
 
 .gradient-bg {

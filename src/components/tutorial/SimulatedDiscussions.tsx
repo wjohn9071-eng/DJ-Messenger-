@@ -1,14 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AppState, Message, Group } from '../../types';
 import { djStyleBg, djStyleText } from '../../lib/utils';
-import { Send, Trash2, Plus } from 'lucide-react';
+import { Send, Trash2, Plus, Paperclip, Smile, X, BarChart2, Download } from 'lucide-react';
 
 export function SimulatedDiscussions({ state, updateState }: { state: AppState, updateState: any }) {
   const [activeTab, setActiveTab] = useState<'public' | 'private' | 'sms' | 'recent'>(state.discussionTab || (state.newMessages && state.newMessages.length > 0 ? 'recent' : 'public'));
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [smsSearch, setSmsSearch] = useState('');
   const [toast, setToast] = useState<string | null>(null);
+  const [showStickers, setShowStickers] = useState(false);
+  const [showPollCreator, setShowPollCreator] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const stickers = [
+    { id: 'cool', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=cool' },
+    { id: 'love', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=love' },
+    { id: 'party', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=party' },
+    { id: 'rock', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=rock' },
+  ];
 
   const currentUser = (state.users && state.currentUser) ? state.users[state.currentUser as string] : { pinnedGroups: [], lastReadTimestamps: {} as Record<string, string> };
 
@@ -73,9 +85,164 @@ export function SimulatedDiscussions({ state, updateState }: { state: AppState, 
     setMessageInput('');
   };
 
+  const handleSendSimulatedSticker = (url: string) => {
+    if (!activeGroup || !state.groups || !state.groups[activeGroup]) return;
+
+    const newMsg: Message = {
+      id: `msg-${Date.now()}`,
+      user: state.currentUser as string,
+      text: "✨ Sticker",
+      fileUrl: url,
+      fileType: 'sticker',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toISOString()
+    };
+
+    updateState((prev: AppState) => ({
+      groups: {
+        ...prev.groups,
+        [activeGroup]: {
+          ...prev.groups[activeGroup],
+          messages: [...(prev.groups[activeGroup].messages || []), newMsg]
+        }
+      }
+    }));
+    setShowStickers(false);
+  };
+
+  const handleCreateSimulatedPoll = () => {
+    if (!activeGroup || !pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2) return;
+
+    const pollData = {
+      question: pollQuestion.trim(),
+      options: pollOptions.filter(o => o.trim()).map((text, i) => ({
+        id: `opt-${i}-${Date.now()}`,
+        text: text.trim(),
+        votes: []
+      }))
+    };
+
+    const newMsg: Message = {
+      id: `msg-${Date.now()}`,
+      user: state.currentUser as string,
+      text: `📊 Sondage : ${pollQuestion.trim()}`,
+      poll: pollData,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toISOString()
+    };
+
+    updateState((prev: AppState) => ({
+      groups: {
+        ...prev.groups,
+        [activeGroup]: {
+          ...prev.groups[activeGroup],
+          messages: [...(prev.groups[activeGroup].messages || []), newMsg]
+        }
+      }
+    }));
+    setShowPollCreator(false);
+    setPollQuestion('');
+    setPollOptions(['', '']);
+  };
+
+  const handleSimulatedVote = (messageId: string, optionId: string) => {
+    updateState((prev: AppState) => {
+      const group = prev.groups[activeGroup!];
+      const messages = group.messages.map(m => {
+        if (m.id === messageId && m.poll) {
+          const newPoll = { ...m.poll };
+          newPoll.options = newPoll.options.map(opt => {
+            const newVotes = opt.votes.filter(v => v !== state.currentUser);
+            if (opt.id === optionId) {
+              newVotes.push(state.currentUser!);
+            }
+            return { ...opt, votes: newVotes };
+          });
+          return { ...m, poll: newPoll };
+        }
+        return m;
+      });
+      return {
+        groups: {
+          ...prev.groups,
+          [activeGroup!]: { ...group, messages }
+        }
+      };
+    });
+  };
+
+  const renderMessageText = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a 
+            key={i} 
+            href={part} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="bg-[#007FFF]/20 text-[#F0FFFF] font-bold underline decoration-[#007FFF] decoration-2 underline-offset-2 transition-all px-1 rounded"
+            style={{ 
+              textShadow: '0 0 8px rgba(0, 127, 255, 0.8)',
+              boxShadow: '0 0 10px rgba(0, 127, 255, 0.3)'
+            }}
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
   const handleTabChange = (tab: 'public' | 'private' | 'sms' | 'recent') => {
     setActiveTab(tab);
     updateState({ discussionTab: tab });
+  };
+
+  const handleStartSMS = (otherUser: string) => {
+    // Check if SMS group already exists
+    const existingGroup = Object.values(state.groups || {}).find(g => 
+      g && g.type === 'private' && 
+      g.members && g.members.length === 2 && 
+      g.members.includes(state.currentUser as string) && 
+      g.members.includes(otherUser) &&
+      !g.code
+    );
+
+    if (existingGroup) {
+      setActiveGroup(existingGroup.id);
+      setSmsSearch('');
+      return;
+    }
+
+    // Create new SMS group
+    const groupId = `sms-${Date.now()}`;
+    const newGroup: Group = {
+      id: groupId,
+      type: 'private',
+      name: `SMS avec ${otherUser}`,
+      creator: state.currentUser as string,
+      admins: [state.currentUser as string, otherUser],
+      members: [state.currentUser as string, otherUser],
+      banned: [],
+      muted: [],
+      messages: [{ 
+        id: `sys-${Date.now()}`, 
+        user: 'Système', 
+        text: `[SIMULATION] Début de conversation avec ${otherUser}`, 
+        time: new Date().toLocaleTimeString(), 
+        timestamp: new Date().toISOString(),
+        isSystem: true 
+      }]
+    };
+
+    updateState((prev: AppState) => ({
+      groups: { ...(prev.groups || {}), [groupId]: newGroup }
+    }));
+    setActiveGroup(groupId);
+    setSmsSearch('');
   };
 
   const visibleGroups = Object.values(state.groups || {}).filter(g => {
@@ -161,7 +328,66 @@ export function SimulatedDiscussions({ state, updateState }: { state: AppState, 
                     <span className="text-[10px] text-gray-500 font-semibold">{msg.user}</span>
                   </div>
                   <div className={`relative px-4 py-2.5 shadow-sm rounded-2xl ${isMine ? `rounded-br-sm text-white ${djStyleBg}` : 'rounded-bl-sm bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.3)]' : ''}`}>
-                    <p className="text-sm break-words leading-relaxed">{msg.text}</p>
+                    {msg.fileUrl && (
+                      <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
+                        {msg.fileType === 'image' || msg.fileType === 'sticker' ? (
+                          <img 
+                            src={msg.fileUrl} 
+                            alt="Media" 
+                            className={`max-w-full h-auto object-contain ${msg.fileType === 'sticker' ? 'w-20 h-20' : 'max-h-40'}`}
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : msg.fileType === 'video' ? (
+                          <div className="w-full h-32 bg-black flex items-center justify-center">
+                            <span className="text-white text-[10px] font-bold">LECTEUR VIDÉO (SIMULATION)</span>
+                          </div>
+                        ) : null}
+                        <button 
+                          onClick={() => showToast("Téléchargement non disponible en simulation.")}
+                          className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover/file:opacity-100 transition shadow-lg backdrop-blur-sm"
+                        >
+                          <Download size={14} />
+                        </button>
+                      </div>
+                    )}
+                    {msg.poll && (
+                      <div className="mb-3 p-4 bg-black/5 rounded-2xl border border-black/5 space-y-3">
+                        <h4 className="font-black text-sm uppercase tracking-tight text-gray-800">{msg.poll.question}</h4>
+                        <div className="space-y-2">
+                          {msg.poll.options.map((opt: any) => {
+                            const totalVotes = msg.poll!.options.reduce((acc: number, o: any) => acc + (o.votes?.length || 0), 0);
+                            const votes = opt.votes?.length || 0;
+                            const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                            const hasVoted = opt.votes?.includes(state.currentUser);
+                            
+                            return (
+                              <button 
+                                key={opt.id}
+                                onClick={() => handleSimulatedVote(msg.id, opt.id)}
+                                className="w-full relative h-10 rounded-xl overflow-hidden border border-black/10 group/opt transition-all active:scale-[0.98] bg-gray-50"
+                              >
+                                <div 
+                                  className="absolute inset-y-0 left-0 bg-[#32CD32] transition-all duration-500 shadow-[2px_0_10px_rgba(50,205,50,0.3)]"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                                <div className="absolute inset-0 flex items-center justify-between px-4 z-10">
+                                  <span className="text-xs font-black uppercase tracking-widest text-black">
+                                    {opt.text}
+                                  </span>
+                                  <span className="text-[10px] font-black text-black">
+                                    {percentage}%
+                                  </span>
+                                </div>
+                                {hasVoted && (
+                                  <div className="absolute right-1 top-1 w-2 h-2 rounded-full bg-black shadow-sm z-20" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-sm break-words leading-relaxed">{renderMessageText(msg.text)}</p>
                   </div>
                   <span className="text-[9px] text-gray-400 mt-1 mx-1 font-medium">{msg.time}</span>
                 </div>
@@ -172,7 +398,88 @@ export function SimulatedDiscussions({ state, updateState }: { state: AppState, 
         </div>
 
         <div className="p-3 bg-white border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
-          <form className="flex gap-2 items-center max-w-3xl mx-auto" onSubmit={handleSendMessage}>
+          <form className="flex gap-2 items-center max-w-3xl mx-auto relative" onSubmit={handleSendMessage}>
+            <button 
+              type="button"
+              onClick={() => showToast("Upload non disponible en simulation.")}
+              className="p-2 text-gray-400 hover:text-[#0D98BA] transition"
+            >
+              <Paperclip size={20} />
+            </button>
+            <div className="relative">
+              <button 
+                type="button"
+                onClick={() => setShowStickers(!showStickers)}
+                className={`p-2 transition ${showStickers ? 'text-[#0D98BA]' : 'text-gray-400 hover:text-[#0D98BA]'}`}
+              >
+                <Smile size={20} />
+              </button>
+              {showStickers && (
+                <div className="absolute bottom-full left-0 mb-4 bg-white p-4 rounded-3xl shadow-2xl border border-gray-100 grid grid-cols-4 gap-3 w-64 animate-in zoom-in-95 duration-200 origin-bottom-left z-50">
+                  <div className="col-span-4 flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Stickers</span>
+                    <button onClick={() => setShowStickers(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                  </div>
+                  {stickers.map(s => (
+                    <button 
+                      key={s.id} 
+                      type="button"
+                      onClick={() => handleSendSimulatedSticker(s.url)}
+                      className="hover:scale-110 transition active:scale-95"
+                    >
+                      <img src={s.url} alt={s.id} className="w-10 h-10" referrerPolicy="no-referrer" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <button 
+                type="button"
+                onClick={() => setShowPollCreator(!showPollCreator)}
+                className={`p-2 transition ${showPollCreator ? 'text-[#0D98BA]' : 'text-gray-400 hover:text-[#0D98BA]'}`}
+              >
+                <BarChart2 size={20} />
+              </button>
+              {showPollCreator && (
+                <div className="absolute bottom-full left-0 mb-4 bg-white p-6 rounded-3xl shadow-2xl border border-gray-100 w-72 animate-in zoom-in-95 duration-200 origin-bottom-left z-50 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Créer un sondage</span>
+                    <button onClick={() => setShowPollCreator(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                  </div>
+                  <input 
+                    type="text"
+                    placeholder="Question du sondage..."
+                    value={pollQuestion}
+                    onChange={e => setPollQuestion(e.target.value)}
+                    className="w-full px-4 py-2 rounded-xl bg-gray-50 border-none focus:ring-2 focus:ring-[#0D98BA] text-sm outline-none"
+                  />
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                    {pollOptions.map((opt, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input 
+                          type="text"
+                          placeholder={`Option ${i + 1}`}
+                          value={opt}
+                          onChange={e => {
+                            const newOpts = [...pollOptions];
+                            newOpts[i] = e.target.value;
+                            setPollOptions(newOpts);
+                          }}
+                          className="flex-1 px-4 py-2 rounded-xl bg-gray-50 border-none focus:ring-2 focus:ring-[#0D98BA] text-xs outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={handleCreateSimulatedPoll}
+                    className={`w-full py-3 rounded-2xl font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-95 ${djStyleBg}`}
+                  >
+                    Lancer le sondage
+                  </button>
+                </div>
+              )}
+            </div>
             <input 
               type="text" 
               value={messageInput} 
@@ -243,6 +550,38 @@ export function SimulatedDiscussions({ state, updateState }: { state: AppState, 
           </div>
         ) : (
           <div className="space-y-3">
+            {activeTab === 'sms' && (
+              <div className="relative group mb-4">
+                <input 
+                  type="text" 
+                  placeholder="Rechercher un utilisateur (Simulation)..." 
+                  value={smsSearch} 
+                  onChange={e => setSmsSearch(e.target.value)} 
+                  className="w-full px-6 py-4 rounded-2xl bg-white border border-gray-100 shadow-lg focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all text-sm font-medium"
+                />
+              </div>
+            )}
+
+            {activeTab === 'sms' && smsSearch && (
+              <div className="bg-white rounded-3xl shadow-xl border border-gray-50 overflow-hidden animate-in slide-in-from-top-4 mb-4">
+                <div className="p-3 bg-gray-50 border-b text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  Résultats de la recherche (Simulation)
+                </div>
+                {Object.keys(state.users || {})
+                  .filter(u => u !== state.currentUser && u.toLowerCase().includes(smsSearch.toLowerCase()) && u !== 'DJ_Bot')
+                  .map(u => (
+                    <div key={u} onClick={() => handleStartSMS(u)} className="flex items-center justify-between p-4 border-b last:border-0 hover:bg-gray-50 cursor-pointer transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden text-xs">
+                          {state.users[u].avatar ? <img src={state.users[u].avatar!} className="w-full h-full object-cover" /> : u[0].toUpperCase()}
+                        </div>
+                        <span className="font-bold text-gray-800">@{u}</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+
             {visibleGroups.map(g => {
               const isSMS = activeTab === 'sms';
               const otherUser = isSMS ? (g.members || []).find(m => m !== state.currentUser) : null;

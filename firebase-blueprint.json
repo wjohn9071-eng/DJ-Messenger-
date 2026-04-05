@@ -1,0 +1,131 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Profil utilisateur de DJ Messenger",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "ID unique Firebase Auth" },
+        "name": { "type": "string", "description": "Pseudo de l'utilisateur" },
+        "email": { "type": "string", "format": "email", "description": "Email de l'utilisateur" },
+        "avatar": { "type": "string", "description": "URL ou base64 de l'avatar" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Rôle de l'utilisateur" },
+        "friends": { "type": "array", "items": { "type": "string" }, "description": "Liste des UIDs des amis" },
+        "lastSeen": { "type": "string", "format": "date-time", "description": "Dernière connexion" },
+        "lastReadTimestamps": { "type": "object", "description": "Horodatages de lecture par groupe" },
+        "pinnedGroups": { "type": "array", "items": { "type": "string" }, "description": "Groupes épinglés" },
+        "isAdmin": { "type": "boolean", "description": "Indique si l'utilisateur est admin" },
+        "bgColor": { "type": "string", "description": "Couleur d'arrière-plan personnalisée" },
+        "notificationsEnabled": { "type": "boolean", "description": "Notifications activées" },
+        "autoHideSidebar": { "type": "boolean", "description": "Masquer le menu automatiquement" }
+      },
+      "required": ["uid", "name", "email"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "Groupe de discussion public ou privé",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["public", "private"] },
+        "creator": { "type": "string" },
+        "admins": { "type": "array", "items": { "type": "string" } },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "banned": { "type": "array", "items": { "type": "string" } },
+        "muted": { "type": "array", "items": { "type": "string" } },
+        "code": { "type": "string" },
+        "lastActivity": { "type": "string", "format": "date-time" },
+        "allowOthersToSpeak": { "type": "boolean" },
+        "allowOthersToInvite": { "type": "boolean" }
+      },
+      "required": ["id", "name", "type", "creator", "members"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Message dans un groupe ou SMS",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "isSystem": { "type": "boolean" },
+        "groupName": { "type": "string" },
+        "groupType": { "type": "string" },
+        "fileUrl": { "type": "string", "description": "URL du fichier multimédia" },
+        "fileType": { "type": "string", "enum": ["image", "video", "sticker"], "description": "Type de fichier" },
+        "fileName": { "type": "string", "description": "Nom original du fichier" },
+        "poll": {
+          "type": "object",
+          "properties": {
+            "question": { "type": "string" },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "text": { "type": "string" },
+                  "votes": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            },
+            "closed": { "type": "boolean" }
+          }
+        }
+      },
+      "required": ["text", "senderId", "timestamp"]
+    },
+    "PrivateChat": {
+      "title": "PrivateChat",
+      "description": "Discussion privée SMS entre deux utilisateurs",
+      "type": "object",
+      "properties": {
+        "members": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["members"]
+    },
+    "Proposal": {
+      "title": "Proposal",
+      "description": "Proposition ou annonce DJ Society",
+      "type": "object",
+      "properties": {
+        "user": { "type": "string" },
+        "text": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "adminReply": { "type": "string" },
+        "isAdminAnnouncement": { "type": "boolean" },
+        "poll": {
+          "type": "object",
+          "properties": {
+            "question": { "type": "string" },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "text": { "type": "string" },
+                  "votes": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            },
+            "closed": { "type": "boolean" }
+          }
+        }
+      },
+      "required": ["user", "text", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "Profils utilisateurs" },
+    "/groups/{groupId}": { "schema": "Group", "description": "Groupes de discussion" },
+    "/groups/{groupId}/messages/{msgId}": { "schema": "Message", "description": "Messages des groupes" },
+    "/private_messages/{chatId}": { "schema": "PrivateChat", "description": "Sessions SMS" },
+    "/private_messages/{chatId}/messages/{msgId}": { "schema": "Message", "description": "Messages SMS" },
+    "/proposals/{propId}": { "schema": "Proposal", "description": "Propositions DJ Society" }
+  }
+}

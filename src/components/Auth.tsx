@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowLeft, ImagePlus } from 'lucide-react';
 import { djStyleBg, djStyleText, DJ_LOGO_SVG } from '../lib/utils';
 import { AppState } from '../types';
+import { auth, googleProvider, signInWithPopup, db, doc, setDoc, getDoc } from '../lib/firebase';
+import { GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 export default function Auth({ state, updateState }: { state: AppState, updateState: any }) {
   const [authMode, setAuthMode] = useState<'select' | 'login' | 'register'>('select');
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
@@ -16,54 +19,127 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      
+      // Ensure user document exists in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      let snap;
+      try {
+        snap = await getDoc(userRef);
+      } catch (e: any) {
+        console.error("Erreur lors de la récupération de l'utilisateur:", e);
+        throw new Error("Impossible de vérifier l'utilisateur en base de données.");
+      }
+
+      if (!snap.exists()) {
+        const userData = {
+          uid: user.uid,
+          name: user.displayName || 'Anonyme',
+          email: user.email || '',
+          avatar: user.photoURL || '',
+          role: 'user',
+          friends: [],
+          lastSeen: new Date().toISOString(),
+          lastReadTimestamps: {},
+          pinnedGroups: [],
+          isAdmin: false
+        };
+        
+        try {
+          await setDoc(userRef, userData);
+          
+          // Also create public profile
+          await setDoc(doc(db, 'users_public', user.uid), {
+            uid: user.uid,
+            name: userData.name,
+            avatar: userData.avatar,
+            role: userData.role,
+            isAdmin: userData.isAdmin
+          });
+        } catch (e: any) {
+          console.error("Erreur lors de la création du profil:", e);
+          throw new Error("Erreur lors de l'initialisation de votre profil.");
+        }
+      }
+    } catch (error: any) {
+      showToast("Erreur de connexion Google: " + error.message);
+    }
+  };
+
+  const handleLogin = async () => {
+    const emailInp = email.trim();
+    const passInp = password.trim();
+    if (!emailInp || !passInp) return showToast("Remplis tous les champs !");
+    
+    // If it doesn't look like an email, assume it's a username
+    const finalEmail = emailInp.includes('@') ? emailInp : `${emailInp.toLowerCase()}@djsociety.com`;
+    
+    try {
+      await signInWithEmailAndPassword(auth, finalEmail, passInp);
+    } catch (error: any) {
+      showToast("Identifiants incorrects ou erreur.");
+    }
+  };
+
+  const handleRegister = async () => {
+    const userInp = username.trim();
+    const emailInp = email.trim();
+    const passInp = password.trim();
+    if (!userInp || !passInp) return showToast("Remplis au moins le pseudo et le mot de passe !");
+    
+    if (userInp.length < 3) return showToast("Le nom d'utilisateur doit contenir au moins 3 caractères.");
+    if (passInp.length < 7) return showToast("Le mot de passe doit contenir au moins 7 caractères.");
+    
+    const finalEmail = emailInp.includes('@') ? emailInp : `${userInp.toLowerCase()}@djsociety.com`;
+    
+    try {
+      const result = await createUserWithEmailAndPassword(auth, finalEmail, passInp);
+      const user = result.user;
+      
+      await updateProfile(user, { displayName: userInp, photoURL: avatarBase64 });
+      
+      const userData = {
+        uid: user.uid,
+        name: userInp,
+        email: finalEmail,
+        avatar: avatarBase64 || '',
+        role: 'user',
+        friends: [],
+        lastSeen: new Date().toISOString(),
+        lastReadTimestamps: {},
+        pinnedGroups: [],
+        isAdmin: false
+      };
+      
+      try {
+        await setDoc(doc(db, 'users', user.uid), userData);
+        
+        // Also create public profile
+        await setDoc(doc(db, 'users_public', user.uid), {
+          uid: user.uid,
+          name: userData.name,
+          avatar: userData.avatar,
+          role: userData.role,
+          isAdmin: userData.isAdmin
+        });
+      } catch (e: any) {
+        console.error("Erreur lors de la création du profil (inscription):", e);
+        throw new Error("Compte créé mais erreur lors de l'initialisation du profil.");
+      }
+    } catch (error: any) {
+      showToast("Erreur d'inscription: " + error.message);
+    }
+  };
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => setAvatarBase64(reader.result as string);
       reader.readAsDataURL(file);
-    }
-  };
-
-  const handleLogin = () => {
-    const userInp = username.trim();
-    const passInp = password.trim();
-    if (!userInp || !passInp) return showToast("Remplis tous les champs !");
-    
-    if (state.users[userInp] && state.users[userInp].password === passInp) {
-      updateState({ currentUser: userInp });
-    } else {
-      showToast("Identifiants incorrects.");
-    }
-  };
-
-  const handleRegister = () => {
-    const userInp = username.trim();
-    const passInp = password.trim();
-    if (!userInp || !passInp) return showToast("Remplis tous les champs !");
-    
-    if (userInp.length < 3) return showToast("Le nom d'utilisateur doit contenir au moins 3 caractères.");
-    if (passInp.length < 7) return showToast("Le mot de passe doit contenir au moins 7 caractères.");
-    
-    const hasUpper = /[A-Z]/.test(passInp);
-    const hasLower = /[a-z]/.test(passInp);
-    const hasNumber = /[0-9]/.test(passInp);
-    const hasSpecial = /[/., ?!;:'"*@#€_&\-+()}{><\][=|%¡»«]/.test(passInp);
-    
-    if (!hasUpper || !hasLower || !hasNumber || !hasSpecial) {
-      return showToast("Le mot de passe doit contenir majuscule, minuscule, chiffre et caractère spécial.");
-    }
-
-    if (state.users[userInp]) {
-      showToast("Ce nom est déjà pris.");
-    } else {
-      updateState((prev: AppState) => ({
-        users: {
-          ...prev.users,
-          [userInp]: { username: userInp, password: passInp, avatar: avatarBase64, isAdmin: false, friends: [] }
-        },
-        currentUser: userInp
-      }));
     }
   };
 
@@ -85,41 +161,70 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
         {authMode === 'select' ? (
           <div className="flex flex-col gap-4">
             <button 
-              onClick={() => updateState({ currentUser: 'test' })} 
-              className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg hover:scale-[1.02] transition active:scale-95 text-lg ${djStyleBg}`}
-            >
-              Test
-            </button>
-            <button 
               onClick={() => setAuthMode('login')} 
-              className="w-full py-4 rounded-2xl text-gray-700 font-bold bg-gray-100 hover:bg-gray-200 transition active:scale-95 text-lg"
+              className={`w-full py-4 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition active:scale-95 text-lg ${djStyleBg}`}
             >
               Se connecter
             </button>
             <button 
               onClick={() => setAuthMode('register')} 
-              className="w-full py-4 rounded-2xl text-blue-600 font-bold bg-blue-50 border border-blue-100 shadow-sm hover:bg-blue-100 transition active:scale-95 text-lg"
+              className="w-full py-4 rounded-2xl text-gray-700 font-bold bg-gray-100 hover:bg-gray-200 transition active:scale-95 text-lg border border-gray-200"
             >
               S'inscrire
+            </button>
+            
+            <div className="flex items-center gap-4 my-2">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Ou</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
+            <button 
+              onClick={() => updateState({ currentUser: 'test' })} 
+              className="w-full py-4 rounded-2xl text-blue-600 font-bold bg-blue-50 border border-blue-100 shadow-sm hover:bg-blue-100 transition active:scale-95 text-lg flex items-center justify-center gap-2"
+            >
+              <Eye size={20} /> Mode Test (Anonyme)
+            </button>
+
+            <button 
+              onClick={handleGoogleLogin} 
+              className="w-full py-3 rounded-2xl font-bold bg-white text-gray-500 border border-gray-100 hover:bg-gray-50 transition active:scale-95 text-sm flex items-center justify-center gap-2 mt-2"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
+              Continuer avec Google
             </button>
           </div>
         ) : (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
             {authMode === 'register' && (
-              <div className="flex flex-col items-center gap-2 mb-6">
-                <label className="relative cursor-pointer group">
-                  <div className="w-24 h-24 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden group-hover:border-[#00CED1] transition shadow-inner">
-                    {avatarBase64 ? <img src={avatarBase64} alt="Avatar" className="w-full h-full object-cover" /> : <ImagePlus className="text-gray-400 group-hover:text-[#00CED1] transition w-8 h-8" />}
-                  </div>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                </label>
-                <span className="text-xs font-medium text-gray-500">Photo de profil (optionnel)</span>
-              </div>
+              <>
+                <div className="flex flex-col items-center gap-2 mb-6">
+                  <label className="relative cursor-pointer group">
+                    <div className="w-24 h-24 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden group-hover:border-[#00CED1] transition shadow-inner">
+                      {avatarBase64 ? <img src={avatarBase64} alt="Avatar" className="w-full h-full object-cover" /> : <ImagePlus className="text-gray-400 group-hover:text-[#00CED1] transition w-8 h-8" />}
+                    </div>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                  </label>
+                  <span className="text-xs font-medium text-gray-500">Photo de profil (optionnel)</span>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Nom d'utilisateur</label>
+                  <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Ex: DJ_Champion" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00CED1] transition bg-gray-50 focus:bg-white" />
+                </div>
+              </>
             )}
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Nom d'utilisateur</label>
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Ex: DJ_Champion" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00CED1] transition bg-gray-50 focus:bg-white" />
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                {authMode === 'login' ? "Nom d'utilisateur ou Email" : "Email (Optionnel)"}
+              </label>
+              <input 
+                type="text" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                placeholder={authMode === 'login' ? "Pseudo ou email" : "votre@email.com"} 
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00CED1] transition bg-gray-50 focus:bg-white" 
+              />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Mot de passe</label>

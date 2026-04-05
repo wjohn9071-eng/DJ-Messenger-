@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      // ON OUVRE TOUT : Pas besoin d'être connecté pour lire ou écrire
+      allow read, write: if true;
+    }
+  }
+}
