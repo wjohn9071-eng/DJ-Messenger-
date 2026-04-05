@@ -70,7 +70,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   }, [state.discussionTab]);
   const [messageInput, setMessageInput] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [creationType, setCreationType] = useState<'public' | 'private'>('public');
   const [wizardStep, setWizardStep] = useState(1);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupReason, setNewGroupReason] = useState('informer');
@@ -451,7 +450,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     const groupId = `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newGroup = {
       id: groupId,
-      type: creationType,
+      type: activeTab === 'public' ? 'public' : 'private',
       name: newGroupName.trim(),
       reason: newGroupReason,
       reasonDetail: newGroupReasonDetail,
@@ -460,7 +459,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       members: [state.currentUser as string, ...newGroupInvite],
       banned: [],
       muted: [],
-      code: creationType === 'private' ? newGroupCode : null,
+      code: activeTab === 'private' ? newGroupCode : null,
       allowOthersToSpeak: true,
       allowOthersToInvite: true,
       lastActivity: new Date().toISOString()
@@ -511,7 +510,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     return (
       <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl border border-gray-100 animate-in slide-in-from-bottom-8 duration-500 max-w-md mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h3 className={`text-xl font-black uppercase tracking-tighter ${djStyleText}`}>Créer un groupe {creationType === 'public' ? 'Public' : 'Privé'}</h3>
+          <h3 className={`text-xl font-black uppercase tracking-tighter ${djStyleText}`}>Créer un groupe {activeTab === 'public' ? 'Public' : 'Privé'}</h3>
           <button onClick={() => { setShowCreateGroup(false); setWizardStep(1); }} className="text-gray-400 hover:text-gray-600">
             <Plus size={24} className="rotate-45" />
           </button>
@@ -575,10 +574,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             <div className="flex gap-3">
               <button onClick={() => setWizardStep(1)} className="flex-1 py-4 rounded-2xl bg-gray-100 text-gray-500 font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all">Retour</button>
               <button 
-                onClick={() => creationType === 'public' ? handleCreateGroup() : setWizardStep(3)} 
+                onClick={() => activeTab === 'public' ? handleCreateGroup() : setWizardStep(3)} 
                 className={`flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-white shadow-xl hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
               >
-                {creationType === 'public' ? 'Créer le groupe' : 'Suivant'}
+                {activeTab === 'public' ? 'Créer le groupe' : 'Suivant'}
               </button>
             </div>
           </div>
@@ -982,13 +981,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             <div className="flex justify-between items-center">
               <h4 className="font-black uppercase tracking-widest text-xs text-gray-400">Paramètres de {group.name}</h4>
               <div className="flex gap-2">
-                {isCreator && (
+                {isMember && (
                   <button 
                     onClick={async () => {
                       const newName = prompt("Nouveau nom du groupe :", group.name);
                       if (newName && newName !== group.name) {
                         try {
-                          await updateDoc(doc(db, 'groups', activeGroup), { name: newName });
+                          await setDoc(doc(db, 'groups', activeGroup), { name: newName }, { merge: true });
                           showToast("Groupe renommé !");
                         } catch (err) {
                           showToast("Erreur lors du renommage.");
@@ -1015,7 +1014,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                         if (newCode && newCode !== group.code) {
                           if (newCode.length < 5 || newCode.length > 7) return showToast("Code invalide (5-7 caractères).");
                           try {
-                            await updateDoc(doc(db, 'groups', activeGroup), { code: newCode });
+                            await setDoc(doc(db, 'groups', activeGroup), { code: newCode }, { merge: true });
                             showToast("Code mis à jour !");
                           } catch (e) {
                             showToast("Erreur lors de la mise à jour du code.");
