@@ -207,6 +207,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isTest) {
+      setShowRestrictedPopup(true);
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file || !activeGroup) return;
 
@@ -252,7 +256,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const sendMultimediaMessage = async (url: string, type: 'image' | 'video' | 'sticker', fileName?: string) => {
-    if (!activeGroup) return;
+    if (!activeGroup || !state.currentUser) return;
     const isSMS = activeGroup.startsWith('sms_');
     
     let otherUser = '';
@@ -270,10 +274,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         fileType: type,
         fileName: fileName || '',
         senderId: state.currentUser,
-        senderName: currentUser?.name || state.currentUser,
+        senderName: currentUser?.name || state.currentUser || 'Utilisateur',
         timestamp: new Date().toISOString(),
         isSystem: false,
-        groupName: isSMS ? otherUser : state.groups[activeGroup]?.name,
+        groupName: isSMS ? otherUser : (state.groups[activeGroup]?.name || 'Groupe'),
         groupType: isSMS ? 'SMS' : (state.groups[activeGroup]?.type === 'public' ? 'PUBLIC' : 'PRIVÉ')
       };
 
@@ -292,6 +296,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleSendSticker = (url: string) => {
+    if (isTest) {
+      setShowRestrictedPopup(true);
+      return;
+    }
     sendMultimediaMessage(url, 'sticker');
     setShowStickers(false);
   };
@@ -710,9 +718,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       setShowRestrictedPopup(true);
       return;
     }
-    if (!state.currentUser || !otherUid) return;
+    if (!state.currentUser || !otherUid || typeof otherUid !== 'string' || !otherUid.trim()) return;
     
-    const chatId = [state.currentUser, otherUid].sort().join('_');
+    const chatId = [state.currentUser, otherUid.trim()].sort().join('_');
     const smsId = `sms_${chatId}`;
     
     try {
@@ -904,7 +912,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const visibleSMS = [
     ...Object.values(state.privateMessages || {}).filter(chat => {
-      return chat.members.includes(state.currentUser as string) && !chat.members.includes('dj-bot');
+      return chat.members.includes(state.currentUser as string) && (!chat.members.includes('dj-bot') || !isTest);
     }),
     ...(botGroup && !isTest ? [botGroup] : [])
   ];
@@ -1546,10 +1554,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 </div>
 
                 {visibleSMS.map((chat, i) => {
-                  const otherUid = chat.members.find(m => m !== state.currentUser);
+                  const otherUid = chat.members?.find(m => m !== state.currentUser);
                   const otherUserData = (otherUid && state.users) ? state.users[otherUid] : null;
-                  const otherName = otherUserData?.name || otherUid;
-                  const lastMsg = chat.messages[chat.messages.length - 1];
+                  const otherName = otherUid === 'dj-bot' ? 'DJ Bot' : (otherUserData?.name || otherUid || 'Inconnu');
+                  const lastMsg = chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null;
                   
                   return (
                     <div key={chat.id || `sms-chat-${i}`} onClick={() => setActiveGroup(chat.id)} className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:border-blue-100 transition-all group relative">
