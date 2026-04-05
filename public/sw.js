@@ -4,7 +4,11 @@ const ASSETS = [
   '/index.html',
   '/manifest.json',
   '/icon.svg',
-  '/sw.js'
+  '/sw.js',
+  '/?view=discussions',
+  '/?view=friends',
+  '/?view=djsociety',
+  '/?view=settings'
 ];
 
 self.addEventListener('install', (e) => {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowLeft, ImagePlus } from 'lucide-react';
 import { djStyleBg, djStyleText, DJ_LOGO_SVG } from '../lib/utils';
 import { AppState } from '../types';
-import { auth, googleProviderWithPrompt as googleProvider, signInWithPopup, db, doc, setDoc, getDoc } from '../lib/firebase';
+import { auth, googleProviderWithPrompt, signInWithPopup, db, doc, setDoc, getDoc } from '../lib/firebase';
 import { GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 export default function Auth({ state, updateState }: { state: AppState, updateState: any }) {
@@ -21,7 +21,8 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
 
   const handleGoogleLogin = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      // Use the provider with prompt to ensure account selection works in iframes
+      const result = await signInWithPopup(auth, googleProviderWithPrompt);
       const user = result.user;
       
       // Ensure user document exists in Firestore

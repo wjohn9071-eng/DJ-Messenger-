@@ -367,18 +367,27 @@ export function TutorialGame({
             className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-50"
           >
             <div className="bg-white/95 backdrop-blur-md p-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white ${djStyleBg}`}>
-                  <Bot size={20} />
-                </div>
-                <div>
-                  <h3 className="font-black text-gray-900 uppercase tracking-tight">{currentStep.title}</h3>
-                  <div className="flex gap-1">
-                    {steps.map((_, i) => (
-                      <div key={i} className={`h-1 rounded-full transition-all ${i === stepIndex ? `w-4 ${djStyleBg}` : 'w-1 bg-gray-200'}`} />
-                    ))}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white ${djStyleBg}`}>
+                    <Bot size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-gray-900 uppercase tracking-tight">{currentStep.title}</h3>
+                    <div className="flex gap-1">
+                      {steps.map((_, i) => (
+                        <div key={i} className={`h-1 rounded-full transition-all ${i === stepIndex ? `w-4 ${djStyleBg}` : 'w-1 bg-gray-200'}`} />
+                      ))}
+                    </div>
                   </div>
                 </div>
+                <button 
+                  onClick={onComplete}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                  title="Quitter le tutoriel"
+                >
+                  <RefreshCw size={18} />
+                </button>
               </div>
               
               <p className="text-gray-600 text-sm leading-relaxed mb-6">

@@ -345,7 +345,7 @@ export default function App() {
   return (
     <div className="flex h-screen w-full overflow-hidden transition-colors duration-500 overscroll-none" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)', touchAction: 'pan-x pan-y' }}>
       {/* Sidebar / Hamburger Menu */}
-      <aside className={`fixed inset-y-0 left-0 z-[70] w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-[100] w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden p-1.5 bg-white">
@@ -417,7 +417,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className={`flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300 ${state.menuOpen ? 'lg:ml-72 ml-0' : 'ml-0'}`}>
-        <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[60]">
+        <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[90]">
           <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2">
             <Menu size={24} className="text-gray-600" />
           </button>
@@ -434,7 +434,7 @@ export default function App() {
       {/* Overlay for mobile when menu is open */}
       {state.menuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[65] lg:hidden" 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[95] lg:hidden" 
           onClick={toggleMenu}
         />
       )}

@@ -4,7 +4,7 @@ import { djStyleBg, djStyleText } from '../lib/utils';
 import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
-import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, arrayUnion, arrayRemove } from '../lib/firebase';
+import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove } from '../lib/firebase';
 import { updateProfile, updatePassword } from 'firebase/auth';
 
 export function Profile({ state, updateState }: { state: AppState, updateState: any }) {
@@ -279,10 +279,27 @@ export function Friends({ state, updateState }: { state: AppState, updateState: 
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => {
+                  <button onClick={async () => {
                     // Start SMS
+                    if (!state.currentUser || !f) return;
                     const chatId = [state.currentUser, f].sort().join('_');
-                    updateState({ activeGroup: `sms_${chatId}`, activeView: 'discussions', discussionTab: 'sms' });
+                    const smsId = `sms_${chatId}`;
+                    
+                    try {
+                      const chatRef = doc(db, 'private_messages', smsId);
+                      const snap = await getDoc(chatRef);
+                      if (!snap.exists()) {
+                        await setDoc(chatRef, {
+                          id: smsId,
+                          members: [state.currentUser, f],
+                          createdAt: new Date().toISOString()
+                        });
+                      }
+                      updateState({ activeGroup: smsId, activeView: 'discussions', discussionTab: 'sms' });
+                    } catch (error) {
+                      console.error("Error starting SMS from friends list:", error);
+                      showToast("Erreur lors du lancement de la discussion.");
+                    }
                   }} className="p-3 rounded-full bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors">
                     <MessageSquare size={20} />
                   </button>
