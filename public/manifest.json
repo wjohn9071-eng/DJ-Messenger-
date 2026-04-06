@@ -11,43 +11,43 @@
       "short_name": "Chat",
       "description": "Ouvrir les discussions",
       "url": "/?view=discussions",
-      "icons": [{ "src": "/icon.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+      "icons": [{ "src": "https://ui-avatars.com/api/?name=Chat&background=007FFF&color=fff&size=192", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Amis",
       "short_name": "Amis",
       "description": "Voir mes amis",
       "url": "/?view=friends",
-      "icons": [{ "src": "/icon.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+      "icons": [{ "src": "https://ui-avatars.com/api/?name=Amis&background=007FFF&color=fff&size=192", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "DJ Society",
       "short_name": "Society",
       "description": "Proposer des idées",
       "url": "/?view=djsociety",
-      "icons": [{ "src": "/icon.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+      "icons": [{ "src": "https://ui-avatars.com/api/?name=DJ&background=007FFF&color=fff&size=192", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Paramètres",
       "short_name": "Settings",
       "description": "Modifier mes préférences",
       "url": "/?view=settings",
-      "icons": [{ "src": "/icon.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+      "icons": [{ "src": "https://ui-avatars.com/api/?name=Set&background=007FFF&color=fff&size=192", "sizes": "192x192", "type": "image/png" }]
     }
   ],
   "background_color": "#f0f2f5",
   "theme_color": "#007FFF",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "https://ui-avatars.com/api/?name=DJ&background=007FFF&color=fff&size=192",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon.svg",
+      "src": "https://ui-avatars.com/api/?name=DJ&background=007FFF&color=fff&size=512",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/png"
     }
   ]
 }

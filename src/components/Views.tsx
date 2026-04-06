@@ -1,11 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { AppState } from '../types';
 import { djStyleBg, djStyleText } from '../lib/utils';
-import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus } from 'lucide-react';
+import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
 import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove } from '../lib/firebase';
 import { updateProfile, updatePassword } from 'firebase/auth';
+
+const renderMessageText = (text: string) => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a 
+          key={i} 
+          href={part} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-[#007FFF] drop-shadow-[0_0_8px_rgba(0,127,255,0.8)] hover:underline font-bold break-all"
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
 
 export function Profile({ state, updateState }: { state: AppState, updateState: any }) {
   const isTest = state.currentUser === 'test';
@@ -152,7 +173,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
   
   const isTest = state.currentUser === 'test';
-  const currentUserData = (isTest || !state.currentUser) ? null : state.users[state.currentUser as string];
+  const currentUserData = (isTest || !state.currentUser) ? null : (state.currentUserData || state.users[state.currentUser as string]);
   const currentUser = {
     ...currentUserData,
     friends: currentUserData?.friends || []
@@ -547,12 +568,12 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
                 </span>
               )}
             </div>
-            <p className={`${p.isAdminAnnouncement ? 'text-gray-800 font-medium' : 'text-gray-600'} mb-3`}>{p.text}</p>
+            <p className={`${p.isAdminAnnouncement ? 'text-gray-800 font-medium' : 'text-gray-600'} mb-3`}>{renderMessageText(p.text)}</p>
             
             {p.poll && (
-              <div className="mb-4 p-4 bg-black/5 rounded-2xl border border-black/5 space-y-3">
+              <div className="mb-4 p-4 bg-black rounded-2xl border border-white/10 space-y-3 shadow-xl">
                 <div className="flex justify-between items-start gap-2">
-                  <h4 className="font-black text-sm uppercase tracking-tight text-gray-800">{p.poll.question}</h4>
+                  <h4 className="font-black text-sm uppercase tracking-tight text-white">{p.poll.question}</h4>
                   {p.poll.closed && (
                     <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-red-500 text-white rounded-full">Clôturé</span>
                   )}
@@ -569,22 +590,22 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
                         key={opt.id}
                         onClick={() => !p.poll?.closed && handleVote(p.id, opt.id)}
                         disabled={p.poll?.closed}
-                        className={`w-full relative h-10 rounded-xl overflow-hidden border border-black/10 transition-all ${!p.poll?.closed ? 'active:scale-[0.98] bg-gray-50' : 'bg-gray-100 cursor-default'}`}
+                        className={`w-full relative h-10 rounded-xl overflow-hidden border border-white/10 transition-all ${!p.poll?.closed ? 'active:scale-[0.98] bg-white/5' : 'bg-white/10 cursor-default'}`}
                       >
                         <div 
-                          className={`absolute inset-y-0 left-0 transition-all duration-500 ${p.poll?.closed ? 'bg-gray-300' : 'bg-[#32CD32] shadow-[2px_0_10px_rgba(50,205,50,0.3)]'}`}
+                          className={`absolute inset-y-0 left-0 transition-all duration-500 ${p.poll?.closed ? 'bg-gray-600' : 'bg-[#32CD32] shadow-[0_0_15px_rgba(50,205,50,0.4)]'}`}
                           style={{ width: `${percentage}%` }}
                         />
                         <div className="absolute inset-0 flex items-center justify-between px-4 z-10">
-                          <span className="text-xs font-black uppercase tracking-widest text-black">
+                          <span className="text-xs font-black uppercase tracking-widest text-white drop-shadow-md">
                             {opt.text}
                           </span>
-                          <span className="text-[10px] font-black text-black">
+                          <span className="text-[10px] font-black text-white drop-shadow-md">
                             {percentage}%
                           </span>
                         </div>
                         {hasVoted && (
-                          <div className="absolute right-1 top-1 w-2 h-2 rounded-full bg-black shadow-sm z-20" />
+                          <div className="absolute right-1 top-1 w-2 h-2 rounded-full bg-white shadow-[0_0_8px_white] z-20" />
                         )}
                       </button>
                     );
@@ -597,7 +618,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
                   {currentUser?.isAdmin && !p.poll.closed && (
                     <button 
                       onClick={() => handleClosePoll(p.id)}
-                      className="text-[9px] font-black uppercase text-red-500 hover:underline tracking-widest"
+                      className="text-[9px] font-black uppercase text-red-500 hover:text-red-400 tracking-widest transition-colors"
                     >
                       Clôturer
                     </button>
@@ -848,7 +869,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     try {
-      // Remove from friends' lists using arrayRemove
+      // 1. Remove from friends' lists using arrayRemove
       const userDoc = state.users[uid];
       if (userDoc && userDoc.friends) {
         for (const friendId of userDoc.friends) {
@@ -857,13 +878,24 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         }
       }
 
-      // Delete user documents
+      // 2. Remove from all groups members list
+      const groupsToUpdate = Object.values(state.groups).filter(g => g.members.includes(uid));
+      for (const group of groupsToUpdate) {
+        const groupRef = doc(db, 'groups', group.id);
+        await updateDoc(groupRef, {
+          members: arrayRemove(uid),
+          admins: arrayRemove(uid)
+        });
+      }
+
+      // 3. Delete user documents
       await deleteDoc(doc(db, 'users', uid));
       await deleteDoc(doc(db, 'users_public', uid));
       
-      // Delete from Auth
+      // 4. Delete from Auth
       await auth.currentUser.delete();
       handleLogout();
+      showToast("Compte supprimé avec succès.");
     } catch (error: any) {
       console.error("Error deleting account:", error);
       if (error.code === 'auth/requires-recent-login') {
@@ -871,7 +903,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         await signOut(auth);
         handleLogout();
       } else {
-        showToast("Erreur lors de la suppression: " + error.message);
+        showToast("Erreur lors de la suppression: " + (error.message || "Inconnue"));
       }
     }
   };

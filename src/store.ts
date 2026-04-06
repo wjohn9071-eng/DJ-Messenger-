@@ -64,6 +64,7 @@ const defaultState: AppState = {
   privateMessages: {},
   proposals: [],
   currentUser: null,
+  currentUserData: null,
   menuOpen: true,
   activeGroup: null,
   newMessages: []
@@ -122,11 +123,29 @@ export function useAppStore() {
           // Sync current user to state.users immediately
           setState(prev => ({
             ...prev,
+            currentUserData: userData,
             users: { ...prev.users, [user.uid]: userData }
           }));
         }).catch(e => handleFirestoreError(e, OperationType.GET, `users/${user.uid}`));
+        
+        // Listen to current user document for real-time updates (like friends list)
+        const unsubUser = onSnapshot(userRef, (snap) => {
+          if (snap.exists()) {
+            setState(prev => ({
+              ...prev,
+              currentUserData: snap.data() as User
+            }));
+          }
+        });
+        
+        // Store the unsubscribe function to clean up later if needed
+        (window as any).unsubCurrentUser = unsubUser;
+        
       } else {
-        setState(prev => ({ ...prev, currentUser: null }));
+        setState(prev => ({ ...prev, currentUser: null, currentUserData: null }));
+        if ((window as any).unsubCurrentUser) {
+          (window as any).unsubCurrentUser();
+        }
       }
     });
     return () => unsubscribe();

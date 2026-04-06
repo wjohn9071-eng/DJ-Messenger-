@@ -66,7 +66,14 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
         }
       }
     } catch (error: any) {
-      showToast("Erreur de connexion Google: " + error.message);
+      console.error("Google Login Error:", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        showToast("Erreur: Ce domaine n'est pas autorisé dans la console Firebase.");
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        showToast("Connexion annulée.");
+      } else {
+        showToast("Erreur de connexion Google: " + (error.message || "Inconnue"));
+      }
     }
   };
 

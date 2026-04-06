@@ -95,7 +95,8 @@ export interface AppState {
   groups: Record<string, Group>;
   privateMessages: Record<string, PrivateChat>;
   proposals: Proposal[];
-  currentUser: string | null; // 'test' for anonymous
+  currentUser: string | null;
+  currentUserData: User | null; // 'test' for anonymous
   newMessages?: string[]; // IDs of groups with new messages
   discussionTab?: 'public' | 'private' | 'sms' | 'recent';
   simulatedMessages?: Message[]; // Messages factices pour le tutoriel

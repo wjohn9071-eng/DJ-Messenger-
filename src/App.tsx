@@ -157,15 +157,15 @@ export default function App() {
       "Astuce : L'onglet SMS est réservé aux discussions privées en tête-à-tête avec vos amis.",
       "Astuce : Dans les paramètres, vous pouvez changer la couleur de l'application pour qu'elle corresponde à votre style DJ.",
       "Astuce : Les administrateurs de groupes privés peuvent bannir des membres ou supprimer des messages inappropriés.",
-      "Astuce : Si vous êtes en mode test, vous pouvez lire les messages des groupes publics mais pas y participer.",
-      "Astuce : Dans les discussions publiques, vous pouvez voir qui a envoyé un message et même bannir des utilisateurs si vous êtes admin.",
+      "Astuce : Si vous etes en mode test, vous pouvez lire les messages des groupes publics mais pas y participer.",
+      "Astuce : Dans les discussions publiques, vous pouvez voir qui a envoyé un message et même bannir des utilisateurs si vous etes admin.",
       "Astuce : Votre profil vous permet de changer votre avatar et votre mot de passe à tout moment.",
       "Astuce : Consultez l'onglet 'Mises à jour' pour découvrir les dernières nouveautés de DJ Messenger.",
       "Astuce : Si un utilisateur est supprimé, vous pouvez choisir de supprimer tous ses messages passés pour nettoyer la discussion.",
       "Astuce : Pour devenir administrateur, utilisez le code 'Dj2024in' dans la section Compte des paramètres.",
       "Astuce : Les groupes privés sont protégés par un code de 5 caractères que seul le créateur connaît au départ.",
       "Astuce : L'onglet 'Récents' dans les discussions vous montre les derniers messages de tous vos groupes en un coup d'œil.",
-      "Astuce : Vous pouvez proposer jusqu'à 3 idées par jour dans la DJ Society si vous n'êtes pas admin."
+      "Astuce : Vous pouvez proposer jusqu'à 3 idées par jour dans la DJ Society si vous n'etes pas admin."
     ];
 
     const sendTip = () => {
@@ -345,7 +345,7 @@ export default function App() {
   return (
     <div className="flex h-screen w-full overflow-hidden transition-colors duration-500 overscroll-none" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)', touchAction: 'pan-x pan-y' }}>
       {/* Sidebar / Hamburger Menu */}
-      <aside className={`fixed inset-y-0 left-0 z-[100] w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-[9999] w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden p-1.5 bg-white">
@@ -434,7 +434,7 @@ export default function App() {
       {/* Overlay for mobile when menu is open */}
       {state.menuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[95] lg:hidden" 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] lg:hidden" 
           onClick={toggleMenu}
         />
       )}

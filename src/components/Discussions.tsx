@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { db, collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, setDoc, arrayUnion, arrayRemove, storage, ref, uploadBytesResumable, getDownloadURL } from '../lib/firebase';
 import { djStyleBg, djStyleText } from '../lib/utils';
-import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download } from 'lucide-react';
+import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 import { AppState, Group } from '../types';
 
@@ -98,7 +98,34 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     { id: 'laugh', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=laugh' },
     { id: 'fire', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=fire' },
     { id: 'star', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=star' },
+    { id: 'dj', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=dj' },
+    { id: 'music', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=music' },
+    { id: 'vinyl', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=vinyl' },
+    { id: 'headphones', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=headphones' },
+    { id: 'speaker', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=speaker' },
+    { id: 'dance', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=dance' },
   ];
+
+  const renderTextWithLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a 
+            key={i} 
+            href={part} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-[#007FFF] drop-shadow-[0_0_8px_rgba(0,127,255,0.5)] hover:underline font-bold break-all"
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
 
   const handleSignUpRedirect = () => {
     updateState({ currentUser: null });
@@ -574,10 +601,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             <div className="flex gap-3">
               <button onClick={() => setWizardStep(1)} className="flex-1 py-4 rounded-2xl bg-gray-100 text-gray-500 font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all">Retour</button>
               <button 
-                onClick={() => activeTab === 'public' ? handleCreateGroup() : setWizardStep(3)} 
+                onClick={() => setWizardStep(3)} 
                 className={`flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-white shadow-xl hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
               >
-                {activeTab === 'public' ? 'Créer le groupe' : 'Suivant'}
+                Suivant
               </button>
             </div>
           </div>
@@ -688,6 +715,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         members: arrayUnion(state.currentUser)
       });
       showToast("Tu as rejoint le groupe !");
+      setActiveGroup(groupId);
     } catch (error) {
       console.error("Error joining group:", error);
       showToast("Erreur lors de l'adhésion.");
@@ -939,11 +967,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     const lastRead = currentUser?.lastReadTimestamps?.[activeGroup] || '0';
 
     return (
-      <div className="absolute inset-0 z-40 flex flex-col bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
-        <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-10">
+      <div className="fixed inset-0 z-[100] flex flex-col bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
+        <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-10 pt-safe">
           <div className="flex items-center gap-3">
             <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className="p-2.5 -ml-2 hover:bg-gray-100 rounded-xl transition text-gray-700 bg-gray-50 shadow-sm border border-gray-100 mr-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <button onClick={() => updateState({ menuOpen: true })} className="lg:hidden p-2 -ml-2 hover:bg-gray-100 rounded-xl transition text-gray-700">
+              <Menu size={24} />
             </button>
             <div className={`w-10 h-10 rounded-full ${isSMS ? 'bg-gray-100' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center text-white font-bold shadow-md overflow-hidden`}>
               {isSMS && otherUserData?.avatar ? (
@@ -1182,9 +1213,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       </div>
                     )}
                     {msg.poll && (
-                      <div className="mb-3 p-4 bg-black/5 rounded-2xl border border-black/5 space-y-3">
+                      <div className="mb-3 p-4 bg-black rounded-2xl border border-white/10 space-y-3 shadow-xl">
                         <div className="flex justify-between items-start gap-2">
-                          <h4 className="font-black text-sm uppercase tracking-tight text-gray-800">{msg.poll.question}</h4>
+                          <h4 className="font-black text-sm uppercase tracking-tight text-white">{msg.poll.question}</h4>
                           {msg.poll.closed && (
                             <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-red-500 text-white rounded-full">Clôturé</span>
                           )}
@@ -1201,22 +1232,22 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                                 key={opt.id}
                                 onClick={() => !msg.poll?.closed && handleVote(msg.id, opt.id)}
                                 disabled={msg.poll?.closed}
-                                className={`w-full relative h-10 rounded-xl overflow-hidden border border-black/10 group/opt transition-all ${!msg.poll?.closed ? 'active:scale-[0.98] bg-gray-50' : 'bg-gray-100 cursor-default'}`}
+                                className={`w-full relative h-10 rounded-xl overflow-hidden border border-white/10 transition-all ${!msg.poll?.closed ? 'active:scale-[0.98] bg-white/5' : 'bg-white/10 cursor-default'}`}
                               >
                                 <div 
-                                  className={`absolute inset-y-0 left-0 transition-all duration-500 ${msg.poll?.closed ? 'bg-gray-300' : 'bg-[#32CD32] shadow-[2px_0_10px_rgba(50,205,50,0.3)]'}`}
+                                  className={`absolute inset-y-0 left-0 transition-all duration-500 ${msg.poll?.closed ? 'bg-gray-600' : 'bg-[#32CD32] shadow-[0_0_15px_rgba(50,205,50,0.4)]'}`}
                                   style={{ width: `${percentage}%` }}
                                 />
                                 <div className="absolute inset-0 flex items-center justify-between px-4 z-10">
-                                  <span className="text-xs font-black uppercase tracking-widest text-black">
+                                  <span className="text-xs font-black uppercase tracking-widest text-white drop-shadow-md">
                                     {opt.text}
                                   </span>
-                                  <span className="text-[10px] font-black text-black">
+                                  <span className="text-[10px] font-black text-white drop-shadow-md">
                                     {percentage}%
                                   </span>
                                 </div>
                                 {hasVoted && (
-                                  <div className="absolute right-1 top-1 w-2 h-2 rounded-full bg-black shadow-sm z-20" />
+                                  <div className="absolute right-1 top-1 w-2 h-2 rounded-full bg-white shadow-[0_0_8px_white] z-20" />
                                 )}
                               </button>
                             );
@@ -1226,10 +1257,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest">
                             {msg.poll.options.reduce((acc: number, o: any) => acc + (o.votes?.length || 0), 0)} votes au total
                           </p>
-                          {isMine && !msg.poll.closed && (
+                          {(isMine || isAdmin) && !msg.poll.closed && (
                             <button 
                               onClick={() => handleClosePoll(msg.id)}
-                              className="text-[9px] font-black uppercase text-red-500 hover:underline tracking-widest"
+                              className="text-[9px] font-black uppercase text-red-500 hover:text-red-400 tracking-widest transition-colors"
                             >
                               Clôturer
                             </button>
@@ -1587,7 +1618,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             {activeTab === 'sms' && (
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">SMS</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Messages Privés (SMS)</h3>
                 </div>
 
                 <div className="relative group mb-2">
@@ -1608,9 +1639,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     {smsSearch ? 'Résultats de la recherche' : 'Tous les utilisateurs'}
                   </div>
                   {Object.values(state.users || {})
-                    .filter(u => u.id !== state.currentUser && (smsSearch === '' || u.name.toLowerCase().includes(smsSearch.toLowerCase())) && u.id !== 'dj-bot' && u.id !== 'DJ_Bot')
+                    .filter(u => u.uid !== state.currentUser && (smsSearch === '' || u.name.toLowerCase().includes(smsSearch.toLowerCase())) && u.uid !== 'dj-bot' && u.uid !== 'DJ_Bot')
                     .map((u, i) => (
-                      <div key={u.id || `sms-user-${i}`} onClick={() => handleStartSMS(u.id)} className="flex items-center justify-between p-4 border-b last:border-0 hover:bg-gray-50 cursor-pointer transition-colors">
+                      <div key={u.uid || `sms-user-${i}`} onClick={() => handleStartSMS(u.uid)} className="flex items-center justify-between p-4 border-b last:border-0 hover:bg-gray-50 cursor-pointer transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden">
                             {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : u.name[0].toUpperCase()}
