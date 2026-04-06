@@ -29,9 +29,14 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
       const userRef = doc(db, 'users', user.uid);
       let snap;
       try {
+        // On essaie de récupérer le document. Si on est offline, Firestore utilisera le cache si possible.
         snap = await getDoc(userRef);
       } catch (e: any) {
         console.error("Erreur lors de la récupération de l'utilisateur:", e);
+        if (e.code === 'unavailable') {
+          showToast("Mode hors-ligne: Connexion réussie mais synchronisation différée.");
+          return;
+        }
         throw new Error("Impossible de vérifier l'utilisateur en base de données.");
       }
 
@@ -62,7 +67,9 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
           });
         } catch (e: any) {
           console.error("Erreur lors de la création du profil:", e);
-          throw new Error("Erreur lors de l'initialisation de votre profil.");
+          if (e.code !== 'unavailable') {
+            throw new Error("Erreur lors de l'initialisation de votre profil.");
+          }
         }
       }
     } catch (error: any) {
@@ -71,6 +78,8 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
         showToast("Erreur: Ce domaine n'est pas autorisé dans la console Firebase.");
       } else if (error.code === 'auth/popup-closed-by-user') {
         showToast("Connexion annulée.");
+      } else if (error.code === 'auth/network-request-failed') {
+        showToast("Erreur réseau: Impossible de joindre les serveurs Google.");
       } else {
         showToast("Erreur de connexion Google: " + (error.message || "Inconnue"));
       }

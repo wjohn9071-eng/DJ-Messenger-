@@ -220,7 +220,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       }
     } catch (error: any) {
       console.error("Error sending message:", error);
-      showToast("Erreur lors de l'envoi: " + (error.message || "Vérifie ta connexion."));
+      if (error.code === 'unavailable') {
+        showToast("Mode hors-ligne: Le message sera envoyé dès le retour de la connexion.");
+      } else {
+        showToast("Erreur lors de l'envoi: " + (error.message || "Vérifie ta connexion."));
+      }
     }
   };
 

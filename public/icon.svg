@@ -1,10 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 2C6.477 2 2 6.145 2 11.258C2 14.17 3.43 16.738 5.664 18.475V22L9.043 20.145C9.993 20.41 10.982 20.516 12 20.516C17.523 20.516 22 16.371 22 11.258C22 6.145 17.523 2 12 2Z" fill="url(#dj-gradient)"/>
+  <path d="M7 14L10.5 9L13 11.5L17 10L13.5 15L11 12.5L7 14Z" fill="white"/>
   <defs>
-    <linearGradient id="djGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0D98BA" />
-      <stop offset="50%" stop-color="#00A86B" />
+    <linearGradient id="dj-gradient" x1="2" y1="2" x2="22" y2="20.5" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#007FFF" />
+      <stop offset="50%" stop-color="#00CED1" />
       <stop offset="100%" stop-color="#32CD32" />
     </linearGradient>
   </defs>
-  <path fill="url(#djGrad)" d="M12 2C6.477 2 2 6.145 2 11.258c0 2.908 1.463 5.493 3.754 7.152V22l3.435-1.884c.883.245 1.82.38 2.811.38 5.523 0 10-4.145 10-9.258S17.523 2 12 2zm1.2 12.158l-2.545-2.727-4.964 2.727 5.455-5.818 2.618 2.727 4.891-2.727-5.455 5.818z"/>
 </svg>

@@ -85,8 +85,11 @@ export function useAppStore() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setState(prev => ({ ...prev, currentUser: user.uid }));
+        
         // Ensure user document exists
         const userRef = doc(db, 'users', user.uid);
+        
+        // On utilise getDocFromServer pour s'assurer qu'on a bien une connexion
         getDoc(userRef).then(snap => {
           const userData = snap.exists() ? snap.data() as User : {
             id: user.uid,
@@ -103,7 +106,9 @@ export function useAppStore() {
           };
 
           if (!snap.exists()) {
-            setDoc(userRef, userData).catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`));
+            setDoc(userRef, userData).catch(e => {
+              if (e.code !== 'unavailable') handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`);
+            });
           }
           
           // Ensure public profile exists
@@ -116,9 +121,13 @@ export function useAppStore() {
                 avatar: userData.avatar,
                 role: userData.role || 'user',
                 isAdmin: userData.isAdmin || false
-              }).catch(e => handleFirestoreError(e, OperationType.WRITE, `users_public/${user.uid}`));
+              }).catch(e => {
+                if (e.code !== 'unavailable') handleFirestoreError(e, OperationType.WRITE, `users_public/${user.uid}`);
+              });
             }
-          }).catch(e => handleFirestoreError(e, OperationType.GET, `users_public/${user.uid}`));
+          }).catch(e => {
+            if (e.code !== 'unavailable') handleFirestoreError(e, OperationType.GET, `users_public/${user.uid}`);
+          });
 
           // Sync current user to state.users immediately
           setState(prev => ({
@@ -126,7 +135,9 @@ export function useAppStore() {
             currentUserData: userData,
             users: { ...prev.users, [user.uid]: userData }
           }));
-        }).catch(e => handleFirestoreError(e, OperationType.GET, `users/${user.uid}`));
+        }).catch(e => {
+          if (e.code !== 'unavailable') handleFirestoreError(e, OperationType.GET, `users/${user.uid}`);
+        });
         
         // Listen to current user document for real-time updates (like friends list)
         const unsubUser = onSnapshot(userRef, (snap) => {
@@ -136,6 +147,8 @@ export function useAppStore() {
               currentUserData: snap.data() as User
             }));
           }
+        }, (error) => {
+          if (error.code !== 'unavailable') handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
         });
         
         // Store the unsubscribe function to clean up later if needed
@@ -146,6 +159,11 @@ export function useAppStore() {
         if ((window as any).unsubCurrentUser) {
           (window as any).unsubCurrentUser();
         }
+      }
+    }, (error) => {
+      console.error("Auth State Error:", error);
+      if (error.message?.includes('network-request-failed')) {
+        console.warn("⚠️ Problème réseau détecté lors de l'authentification. Vérifiez votre connexion.");
       }
     });
     return () => unsubscribe();

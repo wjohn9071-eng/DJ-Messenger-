@@ -157,15 +157,15 @@ export default function App() {
       "Astuce : L'onglet SMS est réservé aux discussions privées en tête-à-tête avec vos amis.",
       "Astuce : Dans les paramètres, vous pouvez changer la couleur de l'application pour qu'elle corresponde à votre style DJ.",
       "Astuce : Les administrateurs de groupes privés peuvent bannir des membres ou supprimer des messages inappropriés.",
-      "Astuce : Si vous etes en mode test, vous pouvez lire les messages des groupes publics mais pas y participer.",
-      "Astuce : Dans les discussions publiques, vous pouvez voir qui a envoyé un message et même bannir des utilisateurs si vous etes admin.",
+      "Astuce : Si vous êtes en mode test, vous pouvez lire les messages des groupes publics mais pas y participer.",
+      "Astuce : Dans les discussions publiques, vous pouvez voir qui a envoyé un message et même bannir des utilisateurs si vous êtes admin.",
       "Astuce : Votre profil vous permet de changer votre avatar et votre mot de passe à tout moment.",
       "Astuce : Consultez l'onglet 'Mises à jour' pour découvrir les dernières nouveautés de DJ Messenger.",
       "Astuce : Si un utilisateur est supprimé, vous pouvez choisir de supprimer tous ses messages passés pour nettoyer la discussion.",
       "Astuce : Pour devenir administrateur, utilisez le code 'Dj2024in' dans la section Compte des paramètres.",
       "Astuce : Les groupes privés sont protégés par un code de 5 caractères que seul le créateur connaît au départ.",
       "Astuce : L'onglet 'Récents' dans les discussions vous montre les derniers messages de tous vos groupes en un coup d'œil.",
-      "Astuce : Vous pouvez proposer jusqu'à 3 idées par jour dans la DJ Society si vous n'etes pas admin."
+      "Astuce : Vous pouvez proposer jusqu'à 3 idées par jour dans la DJ Society si vous n'êtes pas admin."
     ];
 
     const sendTip = () => {

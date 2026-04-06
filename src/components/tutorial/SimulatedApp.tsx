@@ -95,8 +95,8 @@ export function SimulatedApp({
             <Menu size={24} />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center p-1 bg-black">
-              <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full invert" />
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center p-1 bg-white shadow-sm">
+              <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
             </div>
             <span className={`font-black text-lg tracking-tighter uppercase ${djStyleText}`}>Messenger</span>
           </div>

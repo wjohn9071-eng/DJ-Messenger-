@@ -1,8 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, collection, doc, setDoc, getDoc, onSnapshot, query, orderBy, limit, addDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, serverTimestamp, Timestamp, getDocFromServer } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
+// Configuration hardcodée pour une compatibilité totale Vercel & Offline
 const firebaseConfig = {
   apiKey: "AIzaSyCKITVldKjMdPY4PvJWORy-79TAxVeJagg",
   authDomain: "gen-lang-client-0241237641.firebaseapp.com",
@@ -13,24 +14,36 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// Initialisation Auth plus robuste pour les iframes et Vercel
+export const auth = initializeAuth(app, {
+  persistence: browserLocalPersistence,
+  popupRedirectResolver: browserPopupRedirectResolver,
+});
+
+// Optimisation Firestore pour éviter les erreurs "Offline" et "Network Request Failed"
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
+  experimentalForceLongPolling: true, // Force le mode compatible (indispensable sur Vercel/Iframes)
+  experimentalAutoDetectLongPolling: false, // Ne pas essayer de détecter, forcer direct
   ignoreUndefinedProperties: true,
 }, "ai-studio-5df211c0-97ca-437b-9459-24e04efe73d4");
 
-// Connection test as per critical instructions
+// Test de connexion silencieux avec gestion d'erreur améliorée
 async function testConnection() {
   try {
+    // On utilise getDocFromServer pour forcer un check réseau réel
     await getDocFromServer(doc(db, '_connection_test_', 'test'));
+    console.log("🔥 Firebase Connecté avec succès");
   } catch (error: any) {
-    if (error.message && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. The client is offline.");
+    if (error.code === 'unavailable' || error.message?.includes('offline')) {
+      console.warn("⚠️ Mode hors-ligne détecté. L'application fonctionnera en mode dégradé.");
+    } else {
+      console.error("❌ Erreur de connexion Firebase:", error.code, error.message);
     }
   }
 }
 testConnection();
 
-export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 export const googleProviderWithPrompt = new GoogleAuthProvider();
