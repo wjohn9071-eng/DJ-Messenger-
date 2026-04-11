@@ -4,7 +4,7 @@ import { AppState } from '../types';
 
 export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string) => void, updateState: any, startSimulation: () => void }) {
   const isTest = state.currentUser === 'test';
-  const currentUserData = !isTest && state.users && state.currentUser ? state.users[state.currentUser as string] : null;
+  const currentUserData = !isTest && state.currentUser ? (state.currentUserData || state.users[state.currentUser as string]) : null;
   const username = isTest ? 'Anonyme' : (currentUserData?.name || state.currentUser);
   const isNewUser = !isTest && currentUserData && currentUserData.friends?.length === 0;
   
@@ -68,8 +68,19 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           </button>
         )}
 
-        <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-100 w-full mb-12 animate-in slide-in-from-bottom-4">
+        <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-100 w-full mb-8 animate-in slide-in-from-bottom-4">
           <p className="text-sm font-semibold text-gray-600 italic">💡 {currentTip}</p>
+        </div>
+
+        <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left">
+          <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Samedi 11 avril 2026</h3>
+          <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium">
+            <li>Correction d'un bug majeur empêchant l'ajout d'amis (erreur "indexOf").</li>
+            <li>Correction d'un crash de l'application lié à l'affichage des avatars (erreur "0").</li>
+            <li>Correction d'un bug qui affichait les options en double dans l'onglet SMS.</li>
+            <li>Amélioration de la synchronisation en temps réel de la liste des utilisateurs.</li>
+            <li>Ajout d'une option de réinitialisation complète de la base de données (réservée aux administrateurs).</li>
+          </ul>
         </div>
 
         {(isTest || isNewUser) && (

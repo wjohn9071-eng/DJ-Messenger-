@@ -12,7 +12,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
 
   const isTest = state.currentUser === 'test';
-  const currentUser = (isTest || !state.users || !state.currentUser) ? null : state.users[state.currentUser as string];
+  const currentUser = (isTest || !state.currentUser) ? null : (state.currentUserData || state.users[state.currentUser as string]);
 
   const allRecentMessages = [
     ...Object.values(state.groups || {})

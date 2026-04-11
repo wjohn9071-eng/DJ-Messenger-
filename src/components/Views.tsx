@@ -153,6 +153,41 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
             Mettre à jour le profil
           </button>
         </div>
+        
+        {currentUserData?.isAdmin && (
+          <div className="pt-4 border-t border-gray-100 mt-4">
+            <button 
+              onClick={async () => {
+                if (!window.confirm("⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer TOUS les utilisateurs et TOUS les messages ? Cette action est irréversible.")) return;
+                try {
+                  const usersSnap = await getDocs(collection(db, 'users'));
+                  usersSnap.forEach(async (d) => { if (d.id !== auth.currentUser?.uid) await deleteDoc(doc(db, 'users', d.id)); });
+                  const usersPublicSnap = await getDocs(collection(db, 'users_public'));
+                  usersPublicSnap.forEach(async (d) => { if (d.id !== auth.currentUser?.uid) await deleteDoc(doc(db, 'users_public', d.id)); });
+                  const groupsSnap = await getDocs(collection(db, 'groups'));
+                  for (const d of groupsSnap.docs) {
+                    const msgs = await getDocs(collection(db, 'groups', d.id, 'messages'));
+                    msgs.forEach(async (m) => await deleteDoc(doc(db, 'groups', d.id, 'messages', m.id)));
+                    await deleteDoc(doc(db, 'groups', d.id));
+                  }
+                  const pmSnap = await getDocs(collection(db, 'private_messages'));
+                  for (const d of pmSnap.docs) {
+                    const msgs = await getDocs(collection(db, 'private_messages', d.id, 'messages'));
+                    msgs.forEach(async (m) => await deleteDoc(doc(db, 'private_messages', d.id, 'messages', m.id)));
+                    await deleteDoc(doc(db, 'private_messages', d.id));
+                  }
+                  showToast("Base de données réinitialisée !");
+                } catch (e) {
+                  console.error(e);
+                  showToast("Erreur lors de la réinitialisation.");
+                }
+              }} 
+              className="w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-lg hover:scale-[1.02] transition active:scale-95 text-white bg-red-500 hover:bg-red-600"
+            >
+              Réinitialiser la base de données
+            </button>
+          </div>
+        )}
       </div>
 
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
