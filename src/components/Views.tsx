@@ -28,6 +28,21 @@ const renderMessageText = (text: string) => {
   });
 };
 
+const ConfirmModal = ({ isOpen, message, onConfirm, onCancel }: { isOpen: boolean, message: string, onConfirm: () => void, onCancel: () => void }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+        <h3 className="text-lg font-bold text-gray-900 mb-6">{message}</h3>
+        <div className="flex gap-3 justify-end">
+          <button onClick={onCancel} className="px-4 py-2 rounded-xl text-gray-500 hover:bg-gray-100 font-bold transition">Annuler</button>
+          <button onClick={() => { onConfirm(); onCancel(); }} className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 font-bold transition shadow-lg">Confirmer</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export function Profile({ state, updateState }: { state: AppState, updateState: any }) {
   const isTest = state.currentUser === 'test';
   const user = isTest ? null : state.users[state.currentUser as string];
@@ -36,6 +51,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
   const [avatar, setAvatar] = useState(user?.avatar || null);
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{message: string, action: () => void} | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -179,30 +195,34 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           <div className="pt-4 border-t border-gray-100 mt-4">
             <button 
               type="button"
-              onClick={async () => {
-                if (!window.confirm("⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer TOUS les utilisateurs et TOUS les messages ? Cette action est irréversible.")) return;
-                try {
-                  const usersSnap = await getDocs(collection(db, 'users'));
-                  usersSnap.forEach(async (d) => { if (d.id !== auth.currentUser?.uid) await deleteDoc(doc(db, 'users', d.id)); });
-                  const usersPublicSnap = await getDocs(collection(db, 'users_public'));
-                  usersPublicSnap.forEach(async (d) => { if (d.id !== auth.currentUser?.uid) await deleteDoc(doc(db, 'users_public', d.id)); });
-                  const groupsSnap = await getDocs(collection(db, 'groups'));
-                  for (const d of groupsSnap.docs) {
-                    const msgs = await getDocs(collection(db, 'groups', d.id, 'messages'));
-                    msgs.forEach(async (m) => await deleteDoc(doc(db, 'groups', d.id, 'messages', m.id)));
-                    await deleteDoc(doc(db, 'groups', d.id));
+              onClick={() => {
+                setConfirmDialog({
+                  message: "⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer TOUS les utilisateurs et TOUS les messages ? Cette action est irréversible.",
+                  action: async () => {
+                    try {
+                      const usersSnap = await getDocs(collection(db, 'users'));
+                      usersSnap.forEach(async (d) => { if (d.id !== auth.currentUser?.uid) await deleteDoc(doc(db, 'users', d.id)); });
+                      const usersPublicSnap = await getDocs(collection(db, 'users_public'));
+                      usersPublicSnap.forEach(async (d) => { if (d.id !== auth.currentUser?.uid) await deleteDoc(doc(db, 'users_public', d.id)); });
+                      const groupsSnap = await getDocs(collection(db, 'groups'));
+                      for (const d of groupsSnap.docs) {
+                        const msgs = await getDocs(collection(db, 'groups', d.id, 'messages'));
+                        msgs.forEach(async (m) => await deleteDoc(doc(db, 'groups', d.id, 'messages', m.id)));
+                        await deleteDoc(doc(db, 'groups', d.id));
+                      }
+                      const pmSnap = await getDocs(collection(db, 'private_messages'));
+                      for (const d of pmSnap.docs) {
+                        const msgs = await getDocs(collection(db, 'private_messages', d.id, 'messages'));
+                        msgs.forEach(async (m) => await deleteDoc(doc(db, 'private_messages', d.id, 'messages', m.id)));
+                        await deleteDoc(doc(db, 'private_messages', d.id));
+                      }
+                      showToast("Base de données réinitialisée !");
+                    } catch (e) {
+                      console.error(e);
+                      showToast("Erreur lors de la réinitialisation.");
+                    }
                   }
-                  const pmSnap = await getDocs(collection(db, 'private_messages'));
-                  for (const d of pmSnap.docs) {
-                    const msgs = await getDocs(collection(db, 'private_messages', d.id, 'messages'));
-                    msgs.forEach(async (m) => await deleteDoc(doc(db, 'private_messages', d.id, 'messages', m.id)));
-                    await deleteDoc(doc(db, 'private_messages', d.id));
-                  }
-                  showToast("Base de données réinitialisée !");
-                } catch (e) {
-                  console.error(e);
-                  showToast("Erreur lors de la réinitialisation.");
-                }
+                });
               }} 
               className="w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-lg hover:scale-[1.02] transition active:scale-95 text-white bg-red-500 hover:bg-red-600"
             >
@@ -211,6 +231,13 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           </div>
         )}
       </form>
+
+      <ConfirmModal 
+        isOpen={!!confirmDialog} 
+        message={confirmDialog?.message || ''} 
+        onConfirm={() => confirmDialog?.action()} 
+        onCancel={() => setConfirmDialog(null)} 
+      />
 
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
       
@@ -228,6 +255,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{message: string, action: () => void} | null>(null);
   
   const isTest = state.currentUser === 'test';
   const currentUserData = (isTest || !state.currentUser) ? null : (state.currentUserData || state.users[state.currentUser as string]);
@@ -288,15 +316,19 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
   };
 
   const handleDeleteUser = async (uid: string) => {
-    if (!window.confirm("⚠️ ADMIN: Voulez-vous vraiment supprimer définitivement cet utilisateur de la base de données ?")) return;
-    try {
-      await deleteDoc(doc(db, 'users', uid));
-      await deleteDoc(doc(db, 'users_public', uid));
-      showToast("Utilisateur supprimé de la base de données.");
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      showToast("Erreur lors de la suppression de l'utilisateur.");
-    }
+    setConfirmDialog({
+      message: "⚠️ ADMIN: Voulez-vous vraiment supprimer définitivement cet utilisateur de la base de données ?",
+      action: async () => {
+        try {
+          await deleteDoc(doc(db, 'users', uid));
+          await deleteDoc(doc(db, 'users_public', uid));
+          showToast("Utilisateur supprimé de la base de données.");
+        } catch (error) {
+          console.error("Error deleting user:", error);
+          showToast("Erreur lors de la suppression de l'utilisateur.");
+        }
+      }
+    });
   };
 
   // The app "doesn't lie": it searches all registered users
@@ -424,6 +456,14 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
           )}
         </div>
       </div>
+
+      <ConfirmModal 
+        isOpen={!!confirmDialog} 
+        message={confirmDialog?.message || ''} 
+        onConfirm={() => confirmDialog?.action()} 
+        onCancel={() => setConfirmDialog(null)} 
+      />
+
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
       
       {showRestrictedPopup && (
@@ -443,6 +483,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
   const [showPollCreator, setShowPollCreator] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
+  const [confirmDialog, setConfirmDialog] = useState<{message: string, action: () => void} | null>(null);
   
   const isTest = state.currentUser === 'test';
   const currentUser = isTest ? { isAdmin: false, proposalsToday: 0, lastProposalDate: '' } : state.users[state.currentUser as string];
@@ -558,14 +599,18 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
   };
 
   const handleDeleteProposal = async (id: string) => {
-    if (!window.confirm("⚠️ ADMIN: Voulez-vous vraiment supprimer ce message/cette proposition ?")) return;
-    try {
-      await deleteDoc(doc(db, 'proposals', id));
-      showToast("Message supprimé.");
-    } catch (error) {
-      console.error("Error deleting proposal:", error);
-      showToast("Erreur lors de la suppression.");
-    }
+    setConfirmDialog({
+      message: "⚠️ ADMIN: Voulez-vous vraiment supprimer ce message/cette proposition ?",
+      action: async () => {
+        try {
+          await deleteDoc(doc(db, 'proposals', id));
+          showToast("Message supprimé.");
+        } catch (error) {
+          console.error("Error deleting proposal:", error);
+          showToast("Erreur lors de la suppression.");
+        }
+      }
+    });
   };
 
   return (
@@ -753,6 +798,14 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
         ))}
         {state.proposals.length === 0 && <p className="text-gray-500 italic text-center py-8">Aucune proposition pour le moment.</p>}
       </div>
+
+      <ConfirmModal 
+        isOpen={!!confirmDialog} 
+        message={confirmDialog?.message || ''} 
+        onConfirm={() => confirmDialog?.action()} 
+        onCancel={() => setConfirmDialog(null)} 
+      />
+
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
       
       {showRestrictedPopup && (
