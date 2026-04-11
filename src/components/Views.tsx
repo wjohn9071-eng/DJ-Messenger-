@@ -4,8 +4,8 @@ import { djStyleBg, djStyleText } from '../lib/utils';
 import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
-import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove } from '../lib/firebase';
-import { updateProfile, updatePassword } from 'firebase/auth';
+import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs } from '../lib/firebase';
+import { updateProfile, updatePassword, deleteUser } from 'firebase/auth';
 
 const renderMessageText = (text: string) => {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -150,7 +150,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
             onClick={handleSave} 
             className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition active:scale-95 text-white ${djStyleBg}`}
           >
-            Enregistrer les modifications
+            Mettre à jour le profil
           </button>
         </div>
       </div>
@@ -193,7 +193,10 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
       setShowRestrictedPopup(true);
       return;
     }
-    if (currentUser.friends.includes(friendId)) return showToast("Déjà dans tes amis.");
+    if (!friendId || !state.currentUser) return showToast("Erreur: Utilisateur invalide.");
+    
+    const friendsList = currentUser.friends || [];
+    if (friendsList.includes(friendId)) return showToast("Déjà dans tes amis.");
     
     try {
       const userRef = doc(db, 'users', state.currentUser as string);
@@ -210,6 +213,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
   };
 
   const handleRemoveFriend = async (friendId: string) => {
+    if (!friendId || !state.currentUser) return showToast("Erreur: Utilisateur invalide.");
     const friendName = state.users[friendId]?.name || friendId;
     
     try {
@@ -228,10 +232,11 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
 
   // The app "doesn't lie": it searches all registered users
   const searchResults = Object.values(state.users).filter(u => 
-    u.id !== state.currentUser && 
-    (search === '' || u.name.toLowerCase().includes(search.toLowerCase())) &&
-    !currentUser.friends.includes(u.id) &&
-    u.id !== 'dj-bot' && u.id !== 'DJ_Bot'
+    u && u.id !== state.currentUser && u.uid !== state.currentUser &&
+    (search === '' || (u.name && u.name.toLowerCase().includes(search.toLowerCase()))) &&
+    !(currentUser.friends || []).includes(u.id) &&
+    !(currentUser.friends || []).includes(u.uid) &&
+    u.id !== 'dj-bot' && u.id !== 'DJ_Bot' && u.uid !== 'dj-bot'
   );
 
   return (
@@ -260,7 +265,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
             <div key={u.id || `user-${i}`} className="flex items-center justify-between p-5 border-b last:border-0 hover:bg-gray-50 transition-colors">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden">
-                  {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : u.name[0].toUpperCase()}
+                  {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name || '?')[0].toUpperCase()}
                 </div>
                 <div>
                   <span className="font-bold text-gray-800 text-lg">@{u.name}</span>
@@ -283,16 +288,16 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
       </div>
 
       <div>
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Mes amis ({currentUser.friends.length})</h3>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Mes amis ({(currentUser.friends || []).length})</h3>
         <div className="grid gap-4">
-          {currentUser.friends.filter(f => f !== 'dj-bot' && f !== 'DJ_Bot').map((f, i) => {
+          {(currentUser.friends || []).filter(f => f !== 'dj-bot' && f !== 'DJ_Bot').map((f, i) => {
             const friendData = state.users[f];
             const friendName = friendData?.name || f;
             return (
               <div key={`${f}-${i}`} className="bg-white p-5 rounded-[2rem] shadow-lg border border-gray-50 flex items-center justify-between group hover:border-[#0D98BA]/30 transition-all">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
-                    {friendData?.avatar ? <img src={friendData.avatar} className="w-full h-full object-cover" /> : friendName[0].toUpperCase()}
+                    {friendData?.avatar ? <img src={friendData.avatar} className="w-full h-full object-cover" /> : (friendName || '?')[0].toUpperCase()}
                   </div>
                   <div>
                     <span className="font-bold text-gray-800 text-xl">@{friendName}</span>
@@ -332,7 +337,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
               </div>
             );
           })}
-          {currentUser.friends.length === 0 && (
+          {(currentUser.friends || []).length === 0 && (
             <div className="bg-white/50 border-2 border-dashed border-gray-200 p-12 rounded-[2.5rem] text-center">
               <p className="text-gray-400 font-bold italic">Ta liste d'amis est vide pour le moment.</p>
             </div>
@@ -868,36 +873,45 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   const confirmDeleteAccount = async () => {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
+    showToast("Suppression en cours...");
+    
     try {
-      // 1. Remove from friends' lists using arrayRemove
-      const userDoc = state.users[uid];
-      if (userDoc && userDoc.friends) {
-        for (const friendId of userDoc.friends) {
-          const friendRef = doc(db, 'users', friendId);
-          await setDoc(friendRef, { friends: arrayRemove(uid) }, { merge: true });
-        }
-      }
+      // 1. Nettoyage des "Amis Fantômes" : Retirer l'UID de toutes les listes d'amis (Recherche globale)
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('friends', 'array-contains', uid));
+      const querySnapshot = await getDocs(q);
+      
+      const friendUpdatePromises = querySnapshot.docs.map(userDoc => 
+        updateDoc(doc(db, 'users', userDoc.id), {
+          friends: arrayRemove(uid)
+        })
+      );
+      await Promise.all(friendUpdatePromises);
 
-      // 2. Remove from all groups members list
-      const groupsToUpdate = Object.values(state.groups).filter(g => g.members.includes(uid));
-      for (const group of groupsToUpdate) {
-        const groupRef = doc(db, 'groups', group.id);
-        await updateDoc(groupRef, {
+      // 2. Retirer l'utilisateur de tous les groupes (membres et admins)
+      const groupsRef = collection(db, 'groups');
+      const qGroups = query(groupsRef, where('members', 'array-contains', uid));
+      const groupsSnapshot = await getDocs(qGroups);
+      
+      const groupUpdatePromises = groupsSnapshot.docs.map(groupDoc => 
+        updateDoc(doc(db, 'groups', groupDoc.id), {
           members: arrayRemove(uid),
           admins: arrayRemove(uid)
-        });
-      }
+        })
+      );
+      await Promise.all(groupUpdatePromises);
 
-      // 3. Delete user documents
+      // 3. Supprimer les documents de l'utilisateur
       await deleteDoc(doc(db, 'users', uid));
       await deleteDoc(doc(db, 'users_public', uid));
       
-      // 4. Delete from Auth
+      // 4. Supprimer de Firebase Auth
       await auth.currentUser.delete();
+      
       handleLogout();
       showToast("Compte supprimé avec succès.");
     } catch (error: any) {
-      console.error("Error deleting account:", error);
+      console.error("Erreur lors de la suppression du compte:", error);
       if (error.code === 'auth/requires-recent-login') {
         showToast("Sécurité : Reconnecte-toi avant de supprimer ton compte.");
         await signOut(auth);
