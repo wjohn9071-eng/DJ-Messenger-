@@ -62,6 +62,18 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           photoURL: avatar
         });
 
+        if (password && password !== '••••••••') {
+          try {
+            await updatePassword(auth.currentUser, password);
+          } catch (pwdError: any) {
+            console.error("Erreur mot de passe:", pwdError);
+            if (pwdError.code === 'auth/requires-recent-login') {
+              return showToast("Erreur: Vous devez vous reconnecter pour changer de mot de passe.");
+            }
+            return showToast("Erreur lors de la modification du mot de passe.");
+          }
+        }
+
         const userRef = doc(db, 'users', auth.currentUser.uid);
         const publicRef = doc(db, 'users_public', auth.currentUser.uid);
 
@@ -118,11 +130,12 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
         </label>
       </div>
 
-      <div className="space-y-6 bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/50 mb-8">
+      <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-6 bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/50 mb-8">
         <div className="space-y-2">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Nom d'utilisateur</label>
           <input 
             type="text" 
+            autoComplete="username"
             value={username} 
             onChange={e => setUsername(e.target.value)} 
             className="w-full px-6 py-4 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all bg-gray-50/50 font-bold text-gray-800" 
@@ -134,6 +147,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           <div className="relative">
             <input 
               type="password" 
+              autoComplete="new-password"
               value={password} 
               onChange={e => setPassword(e.target.value)} 
               className="w-full px-6 py-4 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all bg-gray-50/50 font-bold text-gray-800" 
@@ -147,16 +161,17 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
         
         <div className="pt-4">
           <button 
-            onClick={handleSave} 
+            type="submit"
             className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition active:scale-95 text-white ${djStyleBg}`}
           >
             Mettre à jour le profil
           </button>
         </div>
         
-        {currentUserData?.isAdmin && (
+        {user?.isAdmin && (
           <div className="pt-4 border-t border-gray-100 mt-4">
             <button 
+              type="button"
               onClick={async () => {
                 if (!window.confirm("⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer TOUS les utilisateurs et TOUS les messages ? Cette action est irréversible.")) return;
                 try {
@@ -188,7 +203,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
             </button>
           </div>
         )}
-      </div>
+      </form>
 
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
       
@@ -323,9 +338,9 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
       </div>
 
       <div>
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Mes amis ({(currentUser.friends || []).length})</h3>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Mes amis ({(currentUser.friends || []).filter(f => f !== 'dj-bot' && f !== 'DJ_Bot' && state.users[f]).length})</h3>
         <div className="grid gap-4">
-          {(currentUser.friends || []).filter(f => f !== 'dj-bot' && f !== 'DJ_Bot').map((f, i) => {
+          {(currentUser.friends || []).filter(f => f !== 'dj-bot' && f !== 'DJ_Bot' && state.users[f]).map((f, i) => {
             const friendData = state.users[f];
             const friendName = friendData?.name || f;
             return (

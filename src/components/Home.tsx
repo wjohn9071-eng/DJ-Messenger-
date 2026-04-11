@@ -78,7 +78,9 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             <li>Correction d'un bug majeur empêchant l'ajout d'amis (erreur "indexOf").</li>
             <li>Correction d'un crash de l'application lié à l'affichage des avatars (erreur "0").</li>
             <li>Correction d'un bug qui affichait les options en double dans l'onglet SMS.</li>
-            <li>Amélioration de la synchronisation en temps réel de la liste des utilisateurs.</li>
+            <li>Amélioration de la synchronisation en temps réel de la liste des utilisateurs (les comptes supprimés n'apparaissent plus).</li>
+            <li>Correction d'un bug (écran blanc) empêchant l'accès au profil.</li>
+            <li>Le gestionnaire de mots de passe du navigateur reconnaît désormais correctement DJ Messenger.</li>
             <li>Ajout d'une option de réinitialisation complète de la base de données (réservée aux administrateurs).</li>
           </ul>
         </div>

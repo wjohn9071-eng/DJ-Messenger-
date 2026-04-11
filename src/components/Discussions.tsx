@@ -1201,7 +1201,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         )}
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {(group.messages || []).map(msg => {
+          {(group.messages || []).filter(msg => msg.isSystem || msg.user === state.currentUser || (state.users && state.users[msg.user])).map(msg => {
             const isMine = msg.user === state.currentUser;
             const isUnread = !isMine && !msg.isSystem && msg.timestamp > lastRead;
             const isDeletedAccount = !msg.isSystem && (!state.users || !state.users[msg.user]);
