@@ -171,14 +171,14 @@ export function useAppStore() {
 
   // Real-time Public Users (for search and display)
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'users_public'), (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
       const users: Record<string, User> = {};
       snapshot.forEach(doc => {
         users[doc.id] = doc.data() as User;
       });
       setState(prev => ({ ...prev, users }));
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'users_public');
+      handleFirestoreError(error, OperationType.GET, 'users');
     });
     return () => unsubscribe();
   }, []);

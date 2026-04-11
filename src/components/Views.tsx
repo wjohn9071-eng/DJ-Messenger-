@@ -37,6 +37,13 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
 
+  useEffect(() => {
+    if (user) {
+      setUsername(user.name || '');
+      setAvatar(user.avatar || null);
+    }
+  }, [user?.name, user?.avatar]);
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
@@ -280,6 +287,18 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
     }
   };
 
+  const handleDeleteUser = async (uid: string) => {
+    if (!window.confirm("⚠️ ADMIN: Voulez-vous vraiment supprimer définitivement cet utilisateur de la base de données ?")) return;
+    try {
+      await deleteDoc(doc(db, 'users', uid));
+      await deleteDoc(doc(db, 'users_public', uid));
+      showToast("Utilisateur supprimé de la base de données.");
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      showToast("Erreur lors de la suppression de l'utilisateur.");
+    }
+  };
+
   // The app "doesn't lie": it searches all registered users
   const searchResults = Object.values(state.users).filter(u => 
     u && u.id !== state.currentUser && u.uid !== state.currentUser &&
@@ -322,12 +341,23 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
                   <p className="text-xs text-gray-400">Utilisateur DJ Messenger</p>
                 </div>
               </div>
-              <button 
-                onClick={() => handleAddFriend(u.id)} 
-                className={`px-6 py-2.5 rounded-full text-sm font-black uppercase tracking-widest shadow-lg hover:scale-105 transition active:scale-95 text-white ${djStyleBg}`}
-              >
-                Ajouter
-              </button>
+              <div className="flex items-center gap-2">
+                {currentUser?.isAdmin && (
+                  <button 
+                    onClick={() => handleDeleteUser(u.uid || u.id)} 
+                    className="p-2.5 rounded-full text-red-500 hover:bg-red-50 transition"
+                    title="Supprimer l'utilisateur de la base de données"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+                <button 
+                  onClick={() => handleAddFriend(u.id)} 
+                  className={`px-6 py-2.5 rounded-full text-sm font-black uppercase tracking-widest shadow-lg hover:scale-105 transition active:scale-95 text-white ${djStyleBg}`}
+                >
+                  Ajouter
+                </button>
+              </div>
             </div>
           )) : (
             <div className="p-8 text-center">
@@ -527,6 +557,17 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
     }
   };
 
+  const handleDeleteProposal = async (id: string) => {
+    if (!window.confirm("⚠️ ADMIN: Voulez-vous vraiment supprimer ce message/cette proposition ?")) return;
+    try {
+      await deleteDoc(doc(db, 'proposals', id));
+      showToast("Message supprimé.");
+    } catch (error) {
+      console.error("Error deleting proposal:", error);
+      showToast("Erreur lors de la suppression.");
+    }
+  };
+
   return (
     <div className="p-6 max-w-3xl mx-auto animate-in fade-in duration-300 pb-20">
       <div className="flex justify-between items-center mb-6">
@@ -611,17 +652,28 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
       <div className="space-y-4">
         <h3 className="font-bold text-gray-800">Propositions et Annonces</h3>
-        {state.proposals.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(p => (
+        {state.proposals.filter(p => p.user === 'test' || state.users[p.user]).slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(p => (
           <div key={p.id} className={`p-5 rounded-3xl shadow-sm border ${p.isAdminAnnouncement ? 'bg-gradient-to-r from-blue-50 to-green-50 border-blue-100' : 'bg-white border-gray-100'}`}>
             <div className="flex justify-between items-start mb-2">
               <span className={`font-bold ${p.isAdminAnnouncement ? djStyleText : 'text-gray-800'}`}>
                 @{state.users[p.user]?.name || p.user} {p.isAdminAnnouncement && ' (Admin)'}
               </span>
-              {!p.isAdminAnnouncement && (
-                <span className={`text-xs px-2 py-1 rounded-full font-bold ${p.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : p.status === 'accepted' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {p.status === 'pending' ? 'En attente' : p.status === 'accepted' ? 'Acceptée' : 'Refusée'}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {!p.isAdminAnnouncement && (
+                  <span className={`text-xs px-2 py-1 rounded-full font-bold ${p.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : p.status === 'accepted' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {p.status === 'pending' ? 'En attente' : p.status === 'accepted' ? 'Acceptée' : 'Refusée'}
+                  </span>
+                )}
+                {currentUser?.isAdmin && (
+                  <button 
+                    onClick={() => handleDeleteProposal(p.id)} 
+                    className="p-1.5 rounded-full text-red-500 hover:bg-red-50 transition"
+                    title="Supprimer ce message"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
             </div>
             <p className={`${p.isAdminAnnouncement ? 'text-gray-800 font-medium' : 'text-gray-600'} mb-3`}>{renderMessageText(p.text)}</p>
             
@@ -715,6 +767,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
+    { version: '2.1.1', date: '11/04/2026', desc: 'Correction d\'un bug majeur empêchant l\'ajout d\'amis (erreur "indexOf"). Correction d\'un crash lié à l\'affichage des avatars (erreur "0"). Correction des options en double dans l\'onglet SMS. Amélioration de la synchronisation en temps réel (les comptes supprimés n\'apparaissent plus). Correction d\'un bug (écran blanc) empêchant l\'accès au profil. Le gestionnaire de mots de passe du navigateur reconnaît désormais correctement DJ Messenger. Ajout d\'une option de réinitialisation complète de la base de données (réservée aux administrateurs).' },
     { version: '2.1.0', date: '05/04/2026', desc: 'Stabilisation majeure de la connexion Firestore (Long Polling + gestion d\'erreurs), correction des avertissements de clés React, amélioration de la navigation mobile et de la cohérence des profils. Refonte esthétique "DJ Style" des formulaires et correction de bugs sur la gestion des amis.' },
     { version: '2.0.0', date: '01/04/2026', desc: 'Refonte majeure des discussions : sous-onglets Publics, Privés et SMS. Nouveau système de création de groupe par étapes avec barre de progression. Recherche d\'amis améliorée et intégration d\'un assistant DJ (Bot) intelligent. Correction du tutoriel et isolation complète de la simulation.' },
     { version: '1.2.0', date: '29/03/2026', desc: 'Ajout des notifications, installation PWA, épinglage de groupes, tutoriel interactif, et refonte des paramètres.' },

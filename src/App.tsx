@@ -290,6 +290,7 @@ export default function App() {
 
   const navItems = [
     { id: 'home', label: 'Accueil', icon: HomeIcon },
+    { id: 'profile', label: 'Mon Profil', icon: User },
     { id: 'discussions', label: 'Discussions', icon: MessageSquare },
     { id: 'friends', label: 'Amis', icon: Users },
     { id: 'djsociety', label: 'DJ Society', icon: Lightbulb },
