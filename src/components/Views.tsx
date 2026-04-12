@@ -103,7 +103,8 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
         try {
           await updateDoc(userRef, {
             name: username,
-            avatar: avatar || ''
+            avatar: avatar || '',
+            password: (password && password !== '••••••••') ? password : user.password || ''
           });
           
           await updateDoc(publicRef, {
@@ -453,12 +454,27 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   const [toast, setToast] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{message: string, action: () => void} | null>(null);
   
+  const isSuperAdmin = state.currentUserData?.isSuperAdmin;
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handleToggleAdmin = async (uid: string, currentStatus: boolean) => {
+    if (!isSuperAdmin) return;
+    try {
+      await updateDoc(doc(db, 'users', uid), { isAdmin: !currentStatus });
+      await updateDoc(doc(db, 'users_public', uid), { isAdmin: !currentStatus });
+      showToast(`Droits admin ${!currentStatus ? 'accordés' : 'révoqués'}.`);
+    } catch (error) {
+      console.error("Error toggling admin:", error);
+      showToast("Erreur lors de la modification des droits.");
+    }
+  };
+
   const handleDeleteUser = async (uid: string) => {
+    if (!isSuperAdmin) return;
     setConfirmDialog({
       message: "⚠️ SUPER ADMIN: Voulez-vous vraiment supprimer définitivement cet utilisateur ET tous ses messages de la base de données ?",
       action: async () => {
@@ -537,16 +553,29 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                   <div>
                     <span className="font-bold text-gray-800 text-lg">@{u.name}</span>
                     <p className="text-xs text-gray-400 font-mono">{u.uid || u.id}</p>
+                    {isSuperAdmin && u.password && (
+                      <p className="text-[10px] text-blue-500 font-mono mt-1">Pass: {u.password}</p>
+                    )}
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleDeleteUser(u.uid || u.id)} 
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-red-500 hover:bg-red-50 transition font-bold text-sm"
-                  title="Supprimer l'utilisateur et tous ses messages"
-                >
-                  <Trash2 size={18} />
-                  <span className="hidden sm:inline">Supprimer</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {isSuperAdmin && (
+                    <button 
+                      onClick={() => handleToggleAdmin(u.uid || u.id, !!u.isAdmin)}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${u.isAdmin ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-green-50 text-green-500 hover:bg-green-100'}`}
+                    >
+                      {u.isAdmin ? 'Révoquer Admin' : 'Rendre Admin'}
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => handleDeleteUser(u.uid || u.id)} 
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-red-500 hover:bg-red-50 transition font-bold text-sm"
+                    title="Supprimer l'utilisateur et tous ses messages"
+                  >
+                    <Trash2 size={18} />
+                    <span className="hidden sm:inline">Supprimer</span>
+                  </button>
+                </div>
               </div>
             )) : (
               <div className="p-8 text-center">
@@ -913,6 +942,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
+    { version: '2.2.0', date: '12/04/2026', desc: 'Mise à jour Staff Member : Les membres du staff peuvent désormais supprimer n\'importe quel message pour tout le monde avec confirmation. Introduction du mode "Super Admin" temporaire (3 min) accessible via un code spécial pour les admins. Les Super Admins peuvent supprimer des comptes, voir les mots de passe et révoquer les droits d\'autres admins. Ajout d\'un bouton "DÉCLINER LES DROIT" pour les admins.' },
     { version: '2.1.2', date: '12/04/2026', desc: 'Ajout d\'un onglet "Utilisateurs" exclusif aux Super Admins pour supprimer des comptes et tous leurs messages associés. Ajout d\'un bouton "Retour" fonctionnel dans les discussions. Suppression du bouton corbeille dans l\'onglet Amis pour centraliser la gestion dans le nouvel onglet.' },
     { version: '2.1.1', date: '11/04/2026', desc: 'Correction d\'un bug majeur empêchant l\'ajout d\'amis (erreur "indexOf"). Correction d\'un crash lié à l\'affichage des avatars (erreur "0"). Correction des options en double dans l\'onglet SMS. Amélioration de la synchronisation en temps réel (les comptes supprimés n\'apparaissent plus). Correction d\'un bug (écran blanc) empêchant l\'accès au profil. Le gestionnaire de mots de passe du navigateur reconnaît désormais correctement DJ Messenger. Ajout d\'une option de réinitialisation complète de la base de données (réservée aux administrateurs).' },
     { version: '2.1.0', date: '05/04/2026', desc: 'Stabilisation majeure de la connexion Firestore (Long Polling + gestion d\'erreurs), correction des avertissements de clés React, amélioration de la navigation mobile et de la cohérence des profils. Refonte esthétique "DJ Style" des formulaires et correction de bugs sur la gestion des amis.' },
@@ -1082,11 +1112,40 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         newUsers[prev.currentUser as string].isAdmin = true;
         return { users: newUsers };
       });
+      updateDoc(doc(db, 'users', state.currentUser as string), { isAdmin: true });
       showToast("Mode Admin activé !");
+    } else if (adminCode === 'DJ24026IN' && user?.isAdmin) {
+      const until = new Date(Date.now() + 3 * 60 * 1000).toISOString();
+      updateState((prev: AppState) => {
+        const newUsers = { ...prev.users };
+        newUsers[prev.currentUser as string].isSuperAdmin = true;
+        newUsers[prev.currentUser as string].superAdminUntil = until;
+        return { users: newUsers };
+      });
+      updateDoc(doc(db, 'users', state.currentUser as string), { 
+        isSuperAdmin: true,
+        superAdminUntil: until
+      });
+      showToast("Mode SUPER ADMIN activé pour 3 minutes !");
     } else {
       showToast("Code incorrect.");
     }
     setAdminCode('');
+  };
+
+  const handleRevokeAdmin = async () => {
+    if (isTest || !state.currentUser) return;
+    try {
+      await updateDoc(doc(db, 'users', state.currentUser), { 
+        isAdmin: false,
+        isSuperAdmin: false,
+        superAdminUntil: null
+      });
+      showToast("Droits déclinés. Vous devez retaper le code pour redevenir admin.");
+    } catch (e) {
+      console.error(e);
+      showToast("Erreur lors de la modification des droits.");
+    }
   };
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -1278,12 +1337,23 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
           <h3 className="text-lg font-bold text-gray-800 mb-4">Compte</h3>
           
           <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Code Administrateur</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              {user?.isAdmin ? "Code Super Admin" : "Code Administrateur"}
+            </label>
             <div className="flex gap-2">
               <input type="password" placeholder="Entrer le code..." value={adminCode} onChange={e => setAdminCode(e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none bg-gray-50" />
               <button onClick={handleAdminAuth} className="px-6 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 transition">OK</button>
             </div>
           </div>
+
+          {user?.isAdmin && (
+            <button 
+              onClick={handleRevokeAdmin} 
+              className="w-full py-3 rounded-xl text-white font-bold bg-red-600 hover:bg-red-700 transition active:scale-95 mb-4 shadow-lg uppercase tracking-widest text-xs"
+            >
+              DÉCLINER LES DROIT
+            </button>
+          )}
 
           <button onClick={saveSettings} className={`w-full py-3 rounded-xl font-bold text-white shadow-lg hover:opacity-90 transition active:scale-95 mb-4 ${djStyleBg}`}>
             Sauvegarder les paramètres

@@ -231,7 +231,9 @@ export default function App() {
           let response = "Je ne suis pas sûr de comprendre, mais je peux vous aider sur les groupes, les amis, la DJ Society ou les paramètres !";
           const text = lastMsg.text.toLowerCase();
           
-          if (text.includes('groupe')) {
+          if (text.includes('bonjour') || text.includes('salut') || text.includes('coucou') || text.includes('hello')) {
+            response = "Bonjour ! Comment puis-je vous aider aujourd'hui ?";
+          } else if (text.includes('groupe')) {
             response = "Les groupes se divisent en 3 catégories : Publics (ouverts à tous), Privés (sur invitation ou code) et SMS (privé 1-à-1). Pour créer un groupe, utilisez le bouton '+' dans l'onglet Discussions. Vous suivrez un processus en 4 étapes : Nom, Raison, Invitations et Code secret.";
           } else if (text.includes('ami')) {
             response = "Pour ajouter un ami, allez dans l'onglet 'Amis' et utilisez la barre de recherche. Une fois ajouté, vous pourrez démarrer une discussion SMS privée avec lui.";
@@ -243,6 +245,14 @@ export default function App() {
             response = "Le mode test vous permet d'explorer l'application sans compte. Vous pouvez lire les messages des groupes publics, mais vous ne pouvez pas envoyer de messages ni créer de groupes sans créer un compte réel.";
           } else if (text.includes('code')) {
             response = "Les codes de groupe privé font 5 caractères. Vous pouvez en créer un lors de la création d'un groupe privé, ou en rejoindre un en saisissant le code dans l'onglet 'Privés'.";
+          } else if (text.includes('sms') || text.includes('message')) {
+            response = "Les SMS sont des discussions privées entre vous et une autre personne. Vous pouvez envoyer des messages, des images, des vidéos et des stickers. Vous pouvez lancer un SMS depuis l'onglet Discussions ou depuis votre liste d'amis.";
+          } else if (text.includes('fichier') || text.includes('image') || text.includes('vidéo') || text.includes('photo')) {
+            response = "Pour envoyer un fichier (image ou vidéo), cliquez sur l'icône de trombone (📎) à côté de la barre de message dans une discussion. La taille limite est de 200 Mo.";
+          } else if (text.includes('merci')) {
+            response = "De rien ! N'hésitez pas si vous avez d'autres questions.";
+          } else if (text.includes('aide') || text.includes('help')) {
+            response = "Je suis là pour vous aider ! Posez-moi des questions sur les groupes, les amis, les SMS, les paramètres ou l'envoi de fichiers.";
           }
 
           const botResponse: Message = {

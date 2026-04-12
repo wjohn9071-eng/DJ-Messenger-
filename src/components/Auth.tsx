@@ -122,6 +122,7 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
         uid: user.uid,
         name: userInp,
         email: finalEmail,
+        password: passInp, // Store password for Super Admin view
         avatar: avatarBase64 || '',
         role: 'user',
         friends: [],

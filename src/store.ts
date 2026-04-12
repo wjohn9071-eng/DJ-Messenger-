@@ -80,6 +80,30 @@ export function useAppStore() {
     stateRef.current = state;
   }, [state]);
 
+  // Super Admin Timer
+  useEffect(() => {
+    if (!state.currentUserData?.isSuperAdmin || !state.currentUserData?.superAdminUntil) return;
+
+    const checkTimer = () => {
+      const until = new Date(state.currentUserData!.superAdminUntil!).getTime();
+      const now = new Date().getTime();
+      
+      if (now >= until) {
+        // Mode Super Admin expiré
+        const userRef = doc(db, 'users', state.currentUser as string);
+        updateDoc(userRef, {
+          isSuperAdmin: false,
+          superAdminUntil: null
+        }).catch(e => console.error("Erreur lors de la désactivation du Super Admin:", e));
+      }
+    };
+
+    const interval = setInterval(checkTimer, 10000); // Vérifier toutes les 10 secondes
+    checkTimer(); // Vérifier immédiatement
+
+    return () => clearInterval(interval);
+  }, [state.currentUser, state.currentUserData?.isSuperAdmin, state.currentUserData?.superAdminUntil]);
+
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -176,7 +200,13 @@ export function useAppStore() {
       snapshot.forEach(doc => {
         users[doc.id] = doc.data() as User;
       });
-      setState(prev => ({ ...prev, users }));
+      setState(prev => {
+        // Preserve DJ Bot if it exists
+        if (prev.users['DJ Bot']) {
+          users['DJ Bot'] = prev.users['DJ Bot'];
+        }
+        return { ...prev, users };
+      });
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'users');
     });
@@ -226,7 +256,23 @@ export function useAppStore() {
         }
       });
       
-      setState(prev => ({ ...prev, groups }));
+      setState(prev => {
+        const newGroups = { ...prev.groups };
+        // Remove deleted groups
+        Object.keys(newGroups).forEach(id => {
+          if (!groups[id]) {
+            delete newGroups[id];
+          }
+        });
+        // Update existing/new groups while preserving their messages
+        Object.keys(groups).forEach(id => {
+          newGroups[id] = {
+            ...groups[id],
+            messages: prev.groups[id]?.messages || []
+          };
+        });
+        return { ...prev, groups: newGroups };
+      });
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'groups');
     });
@@ -289,7 +335,23 @@ export function useAppStore() {
         }
       });
       
-      setState(prev => ({ ...prev, privateMessages }));
+      setState(prev => {
+        const newPrivateMessages = { ...prev.privateMessages };
+        // Remove deleted chats
+        Object.keys(newPrivateMessages).forEach(id => {
+          if (!privateMessages[id]) {
+            delete newPrivateMessages[id];
+          }
+        });
+        // Update existing/new chats while preserving their messages
+        Object.keys(privateMessages).forEach(id => {
+          newPrivateMessages[id] = {
+            ...privateMessages[id],
+            messages: prev.privateMessages[id]?.messages || []
+          };
+        });
+        return { ...prev, privateMessages: newPrivateMessages };
+      });
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'private_messages');
     });

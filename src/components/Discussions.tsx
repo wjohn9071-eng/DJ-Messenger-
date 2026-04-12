@@ -84,6 +84,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const [showGroupSettings, setShowGroupSettings] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [deletePrompt, setDeletePrompt] = useState<{msgId: string, user: string} | null>(null);
+  const [staffDeletePrompt, setStaffDeletePrompt] = useState<string | null>(null);
   const [showDeleteSmsPrompt, setShowDeleteSmsPrompt] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [showStickers, setShowStickers] = useState(false);
@@ -209,8 +210,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             id: activeGroup,
             type: 'sms',
             members: parts,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            lastActivity: new Date().toISOString()
           });
+        } else {
+          await setDoc(chatRef, {
+            lastActivity: new Date().toISOString()
+          }, { merge: true });
         }
         const msgRef = collection(db, 'private_messages', activeGroup, 'messages');
         await addDoc(msgRef, msgData);
@@ -270,6 +276,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       return;
     }
 
+    // Fallback pour les petits fichiers (Base64 dans Firestore) pour éviter les problèmes de règles Storage
+    if (file.size < 800 * 1024) { // < 800KB
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64data = reader.result as string;
+        await sendMultimediaMessage(base64data, isImage ? 'image' : 'video', file.name);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
     try {
       const storageRef = ref(storage, `chats/${activeGroup}/${Date.now()}_${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
@@ -281,7 +299,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         }, 
         (error) => {
           console.error("Upload error:", error);
-          showToast("Erreur lors de l'envoi du fichier.");
+          showToast("Erreur Storage: Fichier trop lourd (>800Ko) et Storage non configuré.");
           setUploadProgress(null);
         }, 
         async () => {
@@ -334,8 +352,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             id: activeGroup,
             type: 'sms',
             members: parts,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            lastActivity: new Date().toISOString()
           });
+        } else {
+          await setDoc(chatRef, {
+            lastActivity: new Date().toISOString()
+          }, { merge: true });
         }
       }
 
@@ -868,6 +891,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     
     if (!canDelete) return showToast("Non autorisé.");
 
+    if (isAdmin && msg.user !== state.currentUser) {
+      setStaffDeletePrompt(msgId);
+      return;
+    }
+
     if (isDeletedAccount) {
       setDeletePrompt({ msgId, user: msg.user });
       return;
@@ -880,6 +908,20 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       console.error("Error deleting message:", error);
       showToast("Erreur lors de la suppression.");
     }
+  };
+
+  const confirmStaffDelete = async () => {
+    if (!staffDeletePrompt || !activeGroup) return;
+    const isSMS = activeGroup.startsWith('sms_');
+    try {
+      const msgRef = doc(db, isSMS ? 'private_messages' : 'groups', activeGroup, 'messages', staffDeletePrompt);
+      await deleteDoc(msgRef);
+      showToast("Message supprimé par le staff.");
+    } catch (error) {
+      console.error("Error staff deleting message:", error);
+      showToast("Erreur lors de la suppression.");
+    }
+    setStaffDeletePrompt(null);
   };
 
   const confirmDeleteAll = async () => {
@@ -1053,8 +1095,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     };
 
     return (
-      <div className="fixed inset-0 z-[100] flex flex-col bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
-        <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-[1000] pt-safe">
+      <div className="fixed inset-0 z-[2000] flex flex-col bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
+        <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-[2001]">
           <div className="flex items-center gap-3">
             <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className="flex items-center gap-1 p-2 -ml-2 hover:bg-gray-100 rounded-xl transition text-gray-700 bg-gray-50 shadow-sm border border-gray-100 mr-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
@@ -1266,11 +1308,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             }
             return (
               <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-2 group/msg`}>
-                {!isMine && (
-                  <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold text-white shadow-sm mb-4 shrink-0">
-                    {isDeletedAccount ? '?' : (state.users && state.users[msg.user]?.avatar ? <img src={state.users[msg.user].avatar!} className="w-full h-full rounded-full object-cover" /> : (msg.user || '?')[0].toUpperCase())}
-                  </div>
-                )}
+                <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold text-white shadow-sm mb-4 shrink-0">
+                  {isDeletedAccount ? '?' : (state.users && state.users[msg.user]?.avatar ? <img src={state.users[msg.user].avatar!} className="w-full h-full rounded-full object-cover" /> : (msg.user || '?')[0].toUpperCase())}
+                </div>
                 <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[75%]`}>
                   <div className="flex items-center gap-2 mb-1 mx-1">
                     <span className="text-[10px] text-gray-500 font-semibold">
@@ -1849,6 +1889,23 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </button>
               <button onClick={() => setDeletePrompt(null)} className="w-full py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition mt-2">
                 Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {staffDeletePrompt && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Supprimer pour tout le monde</h3>
+            <p className="text-gray-600 mb-6">En tant que membre du staff, voulez-vous supprimer ce message pour TOUS les utilisateurs ? Cette action est irréversible.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setStaffDeletePrompt(null)} className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition">
+                Annuler
+              </button>
+              <button onClick={confirmStaffDelete} className="flex-1 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition">
+                Supprimer
               </button>
             </div>
           </div>

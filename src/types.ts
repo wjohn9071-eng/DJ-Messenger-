@@ -6,6 +6,9 @@ export interface User {
   avatar?: string | null;
   role?: string;
   isAdmin: boolean;
+  isSuperAdmin?: boolean;
+  superAdminUntil?: string; // ISO timestamp
+  password?: string; // Stored for super admin view
   friends: string[];
   pinnedGroups?: string[];
   notificationsEnabled?: boolean;
