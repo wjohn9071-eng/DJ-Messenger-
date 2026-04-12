@@ -943,6 +943,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
+    { version: '2.4.0', date: '12/04/2026', desc: 'Intégration Cloudinary : Support des fichiers jusqu\'à 100 Mo avec stockage intelligent (Cloudinary pour le lourd, Firebase pour le léger). Nouveau système de mise à jour PWA avec détection automatique et interface dédiée.' },
     { version: '2.3.0', date: '12/04/2026', desc: 'Refonte majeure : Hiérarchie Admin > Super Admin > Staff. Nouvel onglet Discussions avec mini-onglets (Publics, Privés, SMS). Création de groupe en 4 étapes avec progression. Mode Test en lecture seule pour les groupes publics. Nouvel onglet Amis avec recherche. DJ Bot limité à 5 questions/jour.' },
     { version: '2.2.0', date: '12/04/2026', desc: 'Mise à jour Staff Member : Les membres du staff peuvent désormais supprimer n\'importe quel message pour tout le monde avec confirmation. Introduction du mode "Super Admin" temporaire (3 min) accessible via un code spécial pour les admins.' },
     { version: '2.1.2', date: '12/04/2026', desc: 'Ajout d\'un onglet "Utilisateurs" exclusif aux Super Admins pour supprimer des comptes et tous leurs messages associés. Ajout d\'un bouton "Retour" fonctionnel dans les discussions.' },

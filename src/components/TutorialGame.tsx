@@ -38,6 +38,7 @@ export function TutorialGame({
   const [currentView, setCurrentView] = useState('home');
   const [showBotMessage, setShowBotMessage] = useState(false);
   const [actionCompleted, setActionCompleted] = useState(false);
+  const [isExplanationsHidden, setIsExplanationsHidden] = useState(false);
 
   // Local state for the simulation to avoid touching the real database
   const [simulatedAppState, setSimulatedAppState] = useState<AppState>(() => {
@@ -197,6 +198,7 @@ export function TutorialGame({
       setCurrentView(currentStep.view);
       if (currentStep.action) currentStep.action(updateSimulatedState);
       setActionCompleted(!currentStep.requiredAction);
+      setIsExplanationsHidden(false);
     }
   }, [stepIndex, gameState]);
 
@@ -231,6 +233,12 @@ export function TutorialGame({
       }
     }
   }, [simulatedAppState, currentView, currentStep, gameState]);
+
+  useEffect(() => {
+    if (actionCompleted) {
+      setIsExplanationsHidden(false);
+    }
+  }, [actionCompleted]);
 
   const handleNext = () => {
     if (stepIndex < steps.length - 1) {
@@ -362,11 +370,15 @@ export function TutorialGame({
           <motion.div 
             key={stepIndex}
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={{ 
+              opacity: 1, 
+              y: isExplanationsHidden ? 150 : 0,
+              scale: isExplanationsHidden ? 0.9 : 1
+            }}
             exit={{ opacity: 0, y: -20 }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-50"
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-50 transition-all duration-500"
           >
-            <div className="bg-white/95 backdrop-blur-md p-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100">
+            <div className={`bg-white/95 backdrop-blur-md p-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 transition-all ${isExplanationsHidden ? 'opacity-40' : 'opacity-100'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white ${djStyleBg}`}>
@@ -381,27 +393,51 @@ export function TutorialGame({
                     </div>
                   </div>
                 </div>
-                <button 
-                  onClick={onComplete}
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                  title="Quitter le tutoriel"
-                >
-                  <RefreshCw size={18} />
-                </button>
+                <div className="flex gap-2">
+                  {currentStep.requiredAction && !actionCompleted && (
+                    <button 
+                      onClick={() => setIsExplanationsHidden(!isExplanationsHidden)}
+                      className={`p-2 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest ${isExplanationsHidden ? djStyleBg + ' text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    >
+                      {isExplanationsHidden ? 'Afficher' : 'Masquer'}
+                    </button>
+                  )}
+                  <button 
+                    onClick={onComplete}
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                    title="Quitter le tutoriel"
+                  >
+                    <RefreshCw size={18} />
+                  </button>
+                </div>
               </div>
               
-              <p className="text-gray-600 text-sm leading-relaxed mb-6">
-                {currentStep.description}
-              </p>
-              
-              <button 
-                onClick={handleNext}
-                disabled={!actionCompleted}
-                className={`w-full py-4 rounded-2xl font-black text-white shadow-lg flex items-center justify-center gap-2 group transition-all ${actionCompleted ? djStyleBg : 'bg-gray-400 cursor-not-allowed opacity-50'}`}
-              >
-                {stepIndex === steps.length - 1 ? "TERMINER LA SIMULATION" : actionCompleted ? "CONTINUER" : "ACTION REQUISE"}
-                <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
-              </button>
+              {!isExplanationsHidden && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <p className="text-gray-600 text-sm leading-relaxed mb-6">
+                    {currentStep.description}
+                  </p>
+                  
+                  <button 
+                    onClick={handleNext}
+                    disabled={!actionCompleted}
+                    className={`w-full py-4 rounded-2xl font-black text-white shadow-lg flex items-center justify-center gap-2 group transition-all ${actionCompleted ? djStyleBg : 'bg-gray-400 cursor-not-allowed opacity-50'}`}
+                  >
+                    {stepIndex === steps.length - 1 ? "TERMINER LA SIMULATION" : actionCompleted ? "CONTINUER" : "ACTION REQUISE"}
+                    <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </motion.div>
+              )}
+
+              {isExplanationsHidden && (
+                <div className="text-center py-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#0D98BA] animate-pulse">Action en cours...</p>
+                </div>
+              )}
             </div>
           </motion.div>
         </AnimatePresence>

@@ -3,6 +3,9 @@ import { djStyleText, djStyleBg, DJ_LOGO_SVG } from '../lib/utils';
 import { AppState } from '../types';
 
 export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string) => void, updateState: any, startSimulation: () => void }) {
+  const [showUpdateNotice, setShowUpdateNotice] = React.useState(() => {
+    return localStorage.getItem('update_notice_dismissed_2.4.0') !== 'true';
+  });
   const isTest = state.currentUser === 'test';
   const currentUserData = !isTest && state.currentUser ? (state.currentUserData || state.users[state.currentUser as string]) : null;
   const username = isTest ? 'Anonyme' : (currentUserData?.name || state.currentUser);
@@ -72,17 +75,26 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           <p className="text-sm font-semibold text-gray-600 italic">💡 {currentTip}</p>
         </div>
 
-        <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left">
-          <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Dimanche 12 avril 2026</h3>
-          <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium">
-            <li><b>Staff & Admin :</b> Les membres du staff peuvent supprimer des messages. Hiérarchie Admin &gt; Super Admin &gt; Staff.</li>
-            <li><b>Discussions :</b> Restructuration en mini-onglets (Publics, Privés, SMS) pour une meilleure organisation.</li>
-            <li><b>DJ Bot (IA) :</b> Intelligence améliorée, réponses détaillées et conseils automatiques toutes les 20 minutes.</li>
-            <li><b>Mode Test :</b> Lecture seule des groupes publics avec invitation stylisée à s'inscrire.</li>
-            <li><b>Transferts :</b> Barre de progression lors de l'envoi de fichiers et support des vidéos jusqu'à 200 Mo.</li>
-            <li><b>Messages :</b> Affichage du nom et de la photo de profil de l'expéditeur pour plus de clarté.</li>
-          </ul>
-        </div>
+        {showUpdateNotice && (
+          <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Dimanche 12 avril 2026</h3>
+            <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
+              <li><b>Cloudinary :</b> Support des fichiers jusqu'à 100 Mo avec stockage intelligent (Cloudinary pour le lourd, Firebase pour le léger).</li>
+              <li><b>PWA Update :</b> Nouveau système de détection de mise à jour avec interface dédiée pour rester toujours à la pointe.</li>
+              <li><b>Staff & Admin :</b> Hiérarchie Admin &gt; Super Admin &gt; Staff avec suppression de messages sécurisée.</li>
+              <li><b>Discussions :</b> Mini-onglets (Publics, Privés, SMS) pour une navigation ultra-fluide.</li>
+            </ul>
+            <button 
+              onClick={() => {
+                setShowUpdateNotice(false);
+                localStorage.setItem('update_notice_dismissed_2.4.0', 'true');
+              }}
+              className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
+            >
+              Compris
+            </button>
+          </div>
+        )}
 
         {(isTest || isNewUser) && (
           <button 
