@@ -201,6 +201,17 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       };
       
       if (isSMS) {
+        const chatRef = doc(db, 'private_messages', activeGroup);
+        const snap = await getDoc(chatRef);
+        if (!snap.exists()) {
+          const parts = activeGroup.replace('sms_', '').split('_');
+          await setDoc(chatRef, {
+            id: activeGroup,
+            type: 'sms',
+            members: parts,
+            createdAt: new Date().toISOString()
+          });
+        }
         const msgRef = collection(db, 'private_messages', activeGroup, 'messages');
         await addDoc(msgRef, msgData);
       } else {
@@ -313,6 +324,21 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       };
 
       const path = isSMS ? 'private_messages' : 'groups';
+      
+      if (isSMS) {
+        const chatRef = doc(db, 'private_messages', activeGroup);
+        const snap = await getDoc(chatRef);
+        if (!snap.exists()) {
+          const parts = activeGroup.replace('sms_', '').split('_');
+          await setDoc(chatRef, {
+            id: activeGroup,
+            type: 'sms',
+            members: parts,
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+
       await addDoc(collection(db, path, activeGroup, 'messages'), msgData);
 
       if (!isSMS) {
@@ -365,6 +391,21 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       };
 
       const path = isSMS ? 'private_messages' : 'groups';
+      
+      if (isSMS) {
+        const chatRef = doc(db, 'private_messages', activeGroup);
+        const snap = await getDoc(chatRef);
+        if (!snap.exists()) {
+          const parts = activeGroup.replace('sms_', '').split('_');
+          await setDoc(chatRef, {
+            id: activeGroup,
+            type: 'sms',
+            members: parts,
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+
       await addDoc(collection(db, path, activeGroup, 'messages'), msgData);
 
       if (!isSMS) {
@@ -1015,8 +1056,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       <div className="fixed inset-0 z-[100] flex flex-col bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
         <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-[1000] pt-safe">
           <div className="flex items-center gap-3">
-            <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className="p-2.5 -ml-2 hover:bg-gray-100 rounded-xl transition text-gray-700 bg-gray-50 shadow-sm border border-gray-100 mr-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className="flex items-center gap-1 p-2 -ml-2 hover:bg-gray-100 rounded-xl transition text-gray-700 bg-gray-50 shadow-sm border border-gray-100 mr-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              <span className="text-xs font-bold uppercase tracking-widest pr-1">Retour</span>
             </button>
             <button onClick={() => updateState({ menuOpen: true })} className="lg:hidden p-2 -ml-2 hover:bg-gray-100 rounded-xl transition text-gray-700 relative z-[1001]">
               <Menu size={24} />
@@ -1049,8 +1091,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
               </button>
             )}
-            {!isSMS && isMember && (
-              <button onClick={() => setShowGroupSettings(!showGroupSettings)} className={`p-2 rounded-full transition ${showGroupSettings ? djStyleText + ' bg-blue-50' : 'text-gray-400 hover:bg-gray-100'}`} title="Paramètres du groupe">
+            {(isMember || isSMS) && (
+              <button onClick={() => setShowGroupSettings(!showGroupSettings)} className={`p-2 rounded-full transition ${showGroupSettings ? djStyleText + ' bg-blue-50' : 'text-gray-400 hover:bg-gray-100'}`} title={isSMS ? "Paramètres de la discussion" : "Paramètres du groupe"}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
             )}
@@ -1060,9 +1102,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         {showGroupSettings && (
           <div className="bg-white border-b p-6 space-y-6 animate-in slide-in-from-top-4">
             <div className="flex justify-between items-center">
-              <h4 className="font-black uppercase tracking-widest text-xs text-gray-400">Paramètres de {group.name}</h4>
+              <h4 className="font-black uppercase tracking-widest text-xs text-gray-400">Paramètres de {isSMS ? 'la discussion' : group.name}</h4>
               <div className="flex gap-2">
-                {isMember && (
+                {!isSMS && isMember && (
                   <button 
                     onClick={async () => {
                       const newName = prompt("Nouveau nom du groupe :", group.name);
@@ -1112,60 +1154,62 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             )}
 
-            <div className="space-y-4">
-              <label className="flex items-center justify-between cursor-pointer group">
-                <span className="text-sm font-bold text-gray-700">Autoriser les autres à parler</span>
-                <div className="relative">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only" 
-                    disabled={!isCreator}
-                    checked={group.allowOthersToSpeak ?? true} 
-                    onChange={async e => {
-                      const val = e.target.checked;
-                      updateState((prev: AppState) => ({
-                        groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToSpeak: val } }
-                      }));
-                      try {
-                        await updateDoc(doc(db, 'groups', activeGroup), { allowOthersToSpeak: val });
-                      } catch (err) {
-                        console.error("Error updating group setting:", err);
-                      }
-                    }} 
-                  />
-                  <div className={`block w-12 h-7 rounded-full transition-colors ${group.allowOthersToSpeak ?? true ? 'bg-[#32CD32]' : 'bg-gray-300'} ${!isCreator ? 'opacity-50' : ''}`}></div>
-                  <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${group.allowOthersToSpeak ?? true ? 'transform translate-x-5' : ''}`}></div>
-                </div>
-              </label>
+            {!isSMS && (
+              <div className="space-y-4">
+                <label className="flex items-center justify-between cursor-pointer group">
+                  <span className="text-sm font-bold text-gray-700">Autoriser les autres à parler</span>
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only" 
+                      disabled={!isCreator}
+                      checked={group.allowOthersToSpeak ?? true} 
+                      onChange={async e => {
+                        const val = e.target.checked;
+                        updateState((prev: AppState) => ({
+                          groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToSpeak: val } }
+                        }));
+                        try {
+                          await updateDoc(doc(db, 'groups', activeGroup), { allowOthersToSpeak: val });
+                        } catch (err) {
+                          console.error("Error updating group setting:", err);
+                        }
+                      }} 
+                    />
+                    <div className={`block w-12 h-7 rounded-full transition-colors ${group.allowOthersToSpeak ?? true ? 'bg-[#32CD32]' : 'bg-gray-300'} ${!isCreator ? 'opacity-50' : ''}`}></div>
+                    <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${group.allowOthersToSpeak ?? true ? 'transform translate-x-5' : ''}`}></div>
+                  </div>
+                </label>
 
-              <label className="flex items-center justify-between cursor-pointer group">
-                <span className="text-sm font-bold text-gray-700">Autoriser les autres à ajouter des membres</span>
-                <div className="relative">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only" 
-                    disabled={!isCreator}
-                    checked={group.allowOthersToInvite ?? true} 
-                    onChange={async e => {
-                      const val = e.target.checked;
-                      updateState((prev: AppState) => ({
-                        groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToInvite: val } }
-                      }));
-                      try {
-                        await updateDoc(doc(db, 'groups', activeGroup), { allowOthersToInvite: val });
-                      } catch (err) {
-                        console.error("Error updating group setting:", err);
-                      }
-                    }} 
-                  />
-                  <div className={`block w-12 h-7 rounded-full transition-colors ${group.allowOthersToInvite ?? true ? 'bg-[#32CD32]' : 'bg-gray-300'} ${!isCreator ? 'opacity-50' : ''}`}></div>
-                  <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${group.allowOthersToInvite ?? true ? 'transform translate-x-5' : ''}`}></div>
-                </div>
-              </label>
-            </div>
+                <label className="flex items-center justify-between cursor-pointer group">
+                  <span className="text-sm font-bold text-gray-700">Autoriser les autres à ajouter des membres</span>
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only" 
+                      disabled={!isCreator}
+                      checked={group.allowOthersToInvite ?? true} 
+                      onChange={async e => {
+                        const val = e.target.checked;
+                        updateState((prev: AppState) => ({
+                          groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToInvite: val } }
+                        }));
+                        try {
+                          await updateDoc(doc(db, 'groups', activeGroup), { allowOthersToInvite: val });
+                        } catch (err) {
+                          console.error("Error updating group setting:", err);
+                        }
+                      }} 
+                    />
+                    <div className={`block w-12 h-7 rounded-full transition-colors ${group.allowOthersToInvite ?? true ? 'bg-[#32CD32]' : 'bg-gray-300'} ${!isCreator ? 'opacity-50' : ''}`}></div>
+                    <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${group.allowOthersToInvite ?? true ? 'transform translate-x-5' : ''}`}></div>
+                  </div>
+                </label>
+              </div>
+            )}
 
             <div className="pt-4 border-t space-y-3">
-              {(isCreator || (group.allowOthersToInvite ?? true)) && (
+              {!isSMS && (isCreator || (group.allowOthersToInvite ?? true)) && (
                 <button 
                   onClick={async () => {
                     const friend = prompt("Nom de l'ami à ajouter :");
@@ -1188,12 +1232,20 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   Ajouter un membre
                 </button>
               )}
-              {isCreator && (
+              {!isSMS && isCreator && (
                 <button 
                   onClick={() => handleDeleteGroup(activeGroup)}
                   className="w-full py-3 rounded-xl bg-red-50 text-red-500 font-bold text-sm hover:bg-red-100 transition"
                 >
                   Supprimer le groupe
+                </button>
+              )}
+              {isSMS && (
+                <button 
+                  onClick={() => setShowDeleteSmsPrompt(activeGroup)}
+                  className="w-full py-3 rounded-xl bg-red-50 text-red-500 font-bold text-sm hover:bg-red-100 transition"
+                >
+                  Supprimer la discussion
                 </button>
               )}
             </div>
@@ -1566,11 +1618,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 </div>
               </div>
               
-              {smsSearch.trim() && (
-                <div className="mt-4 space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                  {Object.keys(state.users)
-                    .filter(u => u !== state.currentUser && state.users[u]?.uid !== state.currentUser && u !== 'DJ_Bot' && u !== 'dj-bot' && (state.users[u]?.name?.toLowerCase().includes(smsSearch.toLowerCase()) || u.toLowerCase().includes(smsSearch.toLowerCase())))
-                    .map(u => (
+              <div className="mt-4 space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                {Object.keys(state.users)
+                  .filter(u => u !== state.currentUser && state.users[u]?.uid !== state.currentUser && u !== 'DJ_Bot' && u !== 'dj-bot' && (state.users[u]?.name?.toLowerCase().includes(smsSearch.toLowerCase()) || u.toLowerCase().includes(smsSearch.toLowerCase())))
+                  .map(u => (
                       <button 
                         key={u} 
                         onClick={() => handleStartSMS(u)}
@@ -1592,7 +1643,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     <p className="text-center text-xs text-gray-400 py-4 italic">Aucun utilisateur trouvé.</p>
                   )}
                 </div>
-              )}
             </div>
 
             <div className="space-y-4">

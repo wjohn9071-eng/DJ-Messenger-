@@ -3,9 +3,9 @@ import { useAppStore } from './store';
 import Auth from './components/Auth';
 import Home from './components/Home';
 import { Discussions } from './components/Discussions';
-import { Profile, Friends, DJSociety, Updates, Settings } from './components/Views';
+import { Profile, Friends, AdminUsers, DJSociety, Updates, Settings } from './components/Views';
 import { TutorialGame } from './components/TutorialGame';
-import { Menu, Home as HomeIcon, MessageSquare, Users, Lightbulb, Bell, Settings as SettingsIcon, HelpCircle, User, Plus } from 'lucide-react';
+import { Menu, Home as HomeIcon, MessageSquare, Users, Lightbulb, Bell, Settings as SettingsIcon, HelpCircle, User, Plus, Shield } from 'lucide-react';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from './lib/utils';
 import { AppState, Message, Group } from './types';
 
@@ -299,11 +299,16 @@ export default function App() {
     { id: 'tutorial', label: 'Tutoriel', icon: HelpCircle },
   ];
 
+  if (user?.isAdmin) {
+    navItems.splice(4, 0, { id: 'admin_users', label: 'Utilisateurs', icon: Shield });
+  }
+
   const renderView = () => {
     switch (view) {
       case 'home': return <Home state={state} setView={setView} updateState={updateState} startSimulation={startSimulation} />;
       case 'discussions': return <Discussions state={state} updateState={updateState} />;
       case 'friends': return <Friends state={state} updateState={updateState} setView={setView} />;
+      case 'admin_users': return <AdminUsers state={state} updateState={updateState} />;
       case 'djsociety': return <DJSociety state={state} updateState={updateState} />;
       case 'updates': return <Updates />;
       case 'settings': return <Settings state={state} updateState={updateState} handleLogout={handleLogout} />;
@@ -319,10 +324,8 @@ export default function App() {
     }
     setView(id);
     
-    // Clear active group if navigating away from discussions
-    if (id !== 'discussions') {
-      updateState({ activeGroup: null });
-    }
+    // Clear active group when navigating
+    updateState({ activeGroup: null });
     
     // Always close menu on mobile, or if autoHideSidebar is enabled
     if (window.innerWidth < 1024 || user?.autoHideSidebar) {

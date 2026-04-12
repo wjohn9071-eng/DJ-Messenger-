@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppState } from '../types';
 import { djStyleBg, djStyleText } from '../lib/utils';
-import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download } from 'lucide-react';
+import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
 import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs } from '../lib/firebase';
@@ -315,23 +315,6 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
     }
   };
 
-  const handleDeleteUser = async (uid: string) => {
-    setConfirmDialog({
-      message: "⚠️ ADMIN: Voulez-vous vraiment supprimer définitivement cet utilisateur de la base de données ?",
-      action: async () => {
-        try {
-          await deleteDoc(doc(db, 'users', uid));
-          await deleteDoc(doc(db, 'users_public', uid));
-          showToast("Utilisateur supprimé de la base de données.");
-        } catch (error) {
-          console.error("Error deleting user:", error);
-          showToast("Erreur lors de la suppression de l'utilisateur.");
-        }
-      }
-    });
-  };
-
-  // The app "doesn't lie": it searches all registered users
   const searchResults = Object.values(state.users).filter(u => 
     u && u.id !== state.currentUser && u.uid !== state.currentUser &&
     (search === '' || (u.name && u.name.toLowerCase().includes(search.toLowerCase()))) &&
@@ -373,23 +356,12 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
                   <p className="text-xs text-gray-400">Utilisateur DJ Messenger</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {currentUser?.isAdmin && (
-                  <button 
-                    onClick={() => handleDeleteUser(u.uid || u.id)} 
-                    className="p-2.5 rounded-full text-red-500 hover:bg-red-50 transition"
-                    title="Supprimer l'utilisateur de la base de données"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                )}
-                <button 
-                  onClick={() => handleAddFriend(u.id)} 
-                  className={`px-6 py-2.5 rounded-full text-sm font-black uppercase tracking-widest shadow-lg hover:scale-105 transition active:scale-95 text-white ${djStyleBg}`}
-                >
-                  Ajouter
-                </button>
-              </div>
+              <button 
+                onClick={() => handleAddFriend(u.id)} 
+                className={`px-6 py-2.5 rounded-full text-sm font-black uppercase tracking-widest shadow-lg hover:scale-105 transition active:scale-95 text-white ${djStyleBg}`}
+              >
+                Ajouter
+              </button>
             </div>
           )) : (
             <div className="p-8 text-center">
@@ -472,6 +444,127 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
           onSignUp={handleSignUpRedirect}
         />
       )}
+    </div>
+  );
+}
+
+export function AdminUsers({ state, updateState }: { state: AppState, updateState: any }) {
+  const [search, setSearch] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{message: string, action: () => void} | null>(null);
+  
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleDeleteUser = async (uid: string) => {
+    setConfirmDialog({
+      message: "⚠️ SUPER ADMIN: Voulez-vous vraiment supprimer définitivement cet utilisateur ET tous ses messages de la base de données ?",
+      action: async () => {
+        try {
+          // 1. Delete user documents
+          await deleteDoc(doc(db, 'users', uid));
+          await deleteDoc(doc(db, 'users_public', uid));
+
+          // 2. Delete messages in public/private groups
+          const groupsSnap = await getDocs(collection(db, 'groups'));
+          for (const d of groupsSnap.docs) {
+            const msgsQuery = query(collection(db, 'groups', d.id, 'messages'), where('user', '==', uid));
+            const msgs = await getDocs(msgsQuery);
+            msgs.forEach(async (m) => await deleteDoc(doc(db, 'groups', d.id, 'messages', m.id)));
+          }
+
+          // 3. Delete messages in SMS (private_messages)
+          const pmSnap = await getDocs(collection(db, 'private_messages'));
+          for (const d of pmSnap.docs) {
+            const msgsQuery = query(collection(db, 'private_messages', d.id, 'messages'), where('user', '==', uid));
+            const msgs = await getDocs(msgsQuery);
+            msgs.forEach(async (m) => await deleteDoc(doc(db, 'private_messages', d.id, 'messages', m.id)));
+          }
+
+          showToast("Utilisateur et ses messages supprimés.");
+        } catch (error) {
+          console.error("Error deleting user and messages:", error);
+          showToast("Erreur lors de la suppression.");
+        }
+      }
+    });
+  };
+
+  const searchResults = Object.values(state.users).filter(u => 
+    u && u.id !== state.currentUser && u.uid !== state.currentUser &&
+    (search === '' || (u.name && u.name.toLowerCase().includes(search.toLowerCase()))) &&
+    u.id !== 'dj-bot' && u.id !== 'DJ_Bot' && u.uid !== 'dj-bot'
+  );
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto animate-in fade-in duration-300 pb-20">
+      <div className="flex items-center gap-4 mb-8">
+        <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg`}>
+          <Shield className="text-white" size={24} />
+        </div>
+        <h2 className={`text-3xl font-black uppercase tracking-tighter ${djStyleText}`}>Gestion des Utilisateurs</h2>
+      </div>
+      
+      <div className="mb-8">
+        <div className="relative group">
+          <input 
+            type="text" 
+            placeholder="Rechercher un utilisateur..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            className="w-full px-6 py-4 rounded-[2rem] bg-white border border-gray-100 shadow-xl focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all text-lg font-medium"
+          />
+          <div className={`absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full ${djStyleBg}`}>
+            <User size={20} className="text-white" />
+          </div>
+        </div>
+        
+        <div className="mt-6 bg-white rounded-3xl shadow-2xl border border-gray-50 overflow-hidden animate-in slide-in-from-top-4">
+          <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              {searchResults.length} Utilisateur(s) trouvé(s)
+            </span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {searchResults.length > 0 ? searchResults.map((u, i) => (
+              <div key={u.id || `admin-user-${i}`} className="flex items-center justify-between p-5 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden">
+                    {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name || '?')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <span className="font-bold text-gray-800 text-lg">@{u.name}</span>
+                    <p className="text-xs text-gray-400 font-mono">{u.uid || u.id}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => handleDeleteUser(u.uid || u.id)} 
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-red-500 hover:bg-red-50 transition font-bold text-sm"
+                  title="Supprimer l'utilisateur et tous ses messages"
+                >
+                  <Trash2 size={18} />
+                  <span className="hidden sm:inline">Supprimer</span>
+                </button>
+              </div>
+            )) : (
+              <div className="p-8 text-center">
+                <p className="text-gray-400 font-bold italic">Aucun utilisateur trouvé.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <ConfirmModal 
+        isOpen={!!confirmDialog} 
+        message={confirmDialog?.message || ''} 
+        onConfirm={() => confirmDialog?.action()} 
+        onCancel={() => setConfirmDialog(null)} 
+      />
+
+      {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
     </div>
   );
 }
@@ -820,6 +913,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
+    { version: '2.1.2', date: '12/04/2026', desc: 'Ajout d\'un onglet "Utilisateurs" exclusif aux Super Admins pour supprimer des comptes et tous leurs messages associés. Ajout d\'un bouton "Retour" fonctionnel dans les discussions. Suppression du bouton corbeille dans l\'onglet Amis pour centraliser la gestion dans le nouvel onglet.' },
     { version: '2.1.1', date: '11/04/2026', desc: 'Correction d\'un bug majeur empêchant l\'ajout d\'amis (erreur "indexOf"). Correction d\'un crash lié à l\'affichage des avatars (erreur "0"). Correction des options en double dans l\'onglet SMS. Amélioration de la synchronisation en temps réel (les comptes supprimés n\'apparaissent plus). Correction d\'un bug (écran blanc) empêchant l\'accès au profil. Le gestionnaire de mots de passe du navigateur reconnaît désormais correctement DJ Messenger. Ajout d\'une option de réinitialisation complète de la base de données (réservée aux administrateurs).' },
     { version: '2.1.0', date: '05/04/2026', desc: 'Stabilisation majeure de la connexion Firestore (Long Polling + gestion d\'erreurs), correction des avertissements de clés React, amélioration de la navigation mobile et de la cohérence des profils. Refonte esthétique "DJ Style" des formulaires et correction de bugs sur la gestion des amis.' },
     { version: '2.0.0', date: '01/04/2026', desc: 'Refonte majeure des discussions : sous-onglets Publics, Privés et SMS. Nouveau système de création de groupe par étapes avec barre de progression. Recherche d\'amis améliorée et intégration d\'un assistant DJ (Bot) intelligent. Correction du tutoriel et isolation complète de la simulation.' },
@@ -995,6 +1089,20 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
     setAdminCode('');
   };
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    const checkInstalled = () => {
+      if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+        setIsInstalled(true);
+      }
+    };
+    checkInstalled();
+    window.matchMedia('(display-mode: standalone)').addEventListener('change', checkInstalled);
+    return () => window.matchMedia('(display-mode: standalone)').removeEventListener('change', checkInstalled);
+  }, []);
+
   const handleInstall = async () => {
     const prompt = (window as any).deferredPrompt;
     if (prompt) {
@@ -1005,21 +1113,9 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         showToast("Installation lancée !");
       }
     } else {
-      // Fallback for browsers where beforeinstallprompt isn't supported or fired
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-      
-      if (isStandalone) {
-        showToast("L'application est déjà installée !");
-      } else if (isIOS) {
-        showToast("Sur iOS, appuyez sur 'Partager' puis 'Sur l'écran d'accueil'.");
-      } else {
-        showToast("Utilisez le menu de votre navigateur (⋮) pour 'Installer l'application'.");
-      }
+      showToast("L'installation n'est pas supportée sur ce navigateur ou l'application est déjà installée.");
     }
   };
-
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const deleteAccount = () => {
     if (isTest) return handleLogout();
@@ -1108,7 +1204,33 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
           <label className="flex items-center justify-between cursor-pointer">
             <span className="text-sm font-semibold text-gray-700">Activer les notifications</span>
             <div className="relative">
-              <input type="checkbox" className="sr-only" checked={notifications} onChange={e => setNotifications(e.target.checked)} />
+              <input 
+                type="checkbox" 
+                className="sr-only" 
+                checked={notifications} 
+                onChange={e => {
+                  const checked = e.target.checked;
+                  setNotifications(checked);
+                  if (checked && 'Notification' in window) {
+                    if (Notification.permission === 'default') {
+                      Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                          showToast("Notifications activées !");
+                        } else {
+                          setNotifications(false);
+                          showToast("Permission refusée.");
+                        }
+                      });
+                    } else if (Notification.permission === 'denied') {
+                      showToast("Les notifications sont bloquées par votre navigateur.");
+                      setNotifications(false);
+                    }
+                  } else if (checked) {
+                    showToast("Votre navigateur ne supporte pas les notifications.");
+                    setNotifications(false);
+                  }
+                }} 
+              />
               <div className={`block w-14 h-8 rounded-full transition-colors ${notifications ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
               <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${notifications ? 'transform translate-x-6' : ''}`}></div>
             </div>
@@ -1130,10 +1252,25 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
             </label>
             <p className="text-xs text-gray-500 mt-2">Ferme le menu après avoir cliqué sur un onglet.</p>
           </div>
-          <button onClick={handleInstall} className={`w-full py-3 rounded-xl font-bold text-white shadow-md hover:opacity-90 transition active:scale-95 ${djStyleBg}`}>
-            Installer l'application (PWA)
-          </button>
-          <p className="text-xs text-gray-500 mt-2 text-center">Ajoute DJ Messenger à ton écran d'accueil.</p>
+          <div>
+            <label className="flex items-center justify-between cursor-pointer">
+              <span className="text-sm font-semibold text-gray-700">Installer l'application (PWA)</span>
+              <div className="relative">
+                <input 
+                  type="checkbox" 
+                  className="sr-only" 
+                  checked={isInstalled} 
+                  onChange={(e) => {
+                    e.preventDefault();
+                    if (!isInstalled) handleInstall();
+                  }} 
+                />
+                <div className={`block w-14 h-8 rounded-full transition-colors ${isInstalled ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
+                <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isInstalled ? 'transform translate-x-6' : ''}`}></div>
+              </div>
+            </label>
+            <p className="text-xs text-gray-500 mt-2">Ajoute DJ Messenger à ton écran d'accueil.</p>
+          </div>
         </section>
 
         {/* Section Compte */}
@@ -1182,6 +1319,25 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
                 Supprimer
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showInstallModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Installer l'application</h3>
+            <div className="text-gray-600 mb-6 space-y-3 text-sm">
+              <p>Pour installer DJ Messenger sur votre appareil :</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Sur iOS (Safari) :</strong> Appuyez sur l'icône de partage (le carré avec une flèche vers le haut) puis sélectionnez "Sur l'écran d'accueil".</li>
+                <li><strong>Sur Android (Chrome) :</strong> Appuyez sur le menu (les 3 petits points en haut à droite) puis sélectionnez "Ajouter à l'écran d'accueil" ou "Installer l'application".</li>
+                <li><strong>Sur Ordinateur :</strong> Cliquez sur l'icône d'installation dans la barre d'adresse de votre navigateur.</li>
+              </ul>
+            </div>
+            <button onClick={() => setShowInstallModal(false)} className={`w-full py-3 rounded-xl font-bold text-white transition ${djStyleBg}`}>
+              J'ai compris
+            </button>
           </div>
         </div>
       )}
