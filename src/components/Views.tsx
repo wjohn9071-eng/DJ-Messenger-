@@ -1322,25 +1322,6 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
           </div>
         </div>
       )}
-
-      {showInstallModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Installer l'application</h3>
-            <div className="text-gray-600 mb-6 space-y-3 text-sm">
-              <p>Pour installer DJ Messenger sur votre appareil :</p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Sur iOS (Safari) :</strong> Appuyez sur l'icône de partage (le carré avec une flèche vers le haut) puis sélectionnez "Sur l'écran d'accueil".</li>
-                <li><strong>Sur Android (Chrome) :</strong> Appuyez sur le menu (les 3 petits points en haut à droite) puis sélectionnez "Ajouter à l'écran d'accueil" ou "Installer l'application".</li>
-                <li><strong>Sur Ordinateur :</strong> Cliquez sur l'icône d'installation dans la barre d'adresse de votre navigateur.</li>
-              </ul>
-            </div>
-            <button onClick={() => setShowInstallModal(false)} className={`w-full py-3 rounded-xl font-bold text-white transition ${djStyleBg}`}>
-              J'ai compris
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
