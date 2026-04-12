@@ -73,15 +73,14 @@ export default function Home({ state, setView, updateState, startSimulation }: {
         </div>
 
         <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left">
-          <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Samedi 11 avril 2026</h3>
+          <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Dimanche 12 avril 2026</h3>
           <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium">
-            <li>Correction d'un bug majeur empêchant l'ajout d'amis (erreur "indexOf").</li>
-            <li>Correction d'un crash de l'application lié à l'affichage des avatars (erreur "0").</li>
-            <li>Correction d'un bug qui affichait les options en double dans l'onglet SMS.</li>
-            <li>Amélioration de la synchronisation en temps réel de la liste des utilisateurs (les comptes supprimés n'apparaissent plus).</li>
-            <li>Correction d'un bug (écran blanc) empêchant l'accès au profil.</li>
-            <li>Le gestionnaire de mots de passe du navigateur reconnaît désormais correctement DJ Messenger.</li>
-            <li>Ajout d'une option de réinitialisation complète de la base de données (réservée aux administrateurs).</li>
+            <li><b>Staff & Admin :</b> Les membres du staff peuvent supprimer des messages. Hiérarchie Admin &gt; Super Admin &gt; Staff.</li>
+            <li><b>Discussions :</b> Restructuration en mini-onglets (Publics, Privés, SMS) pour une meilleure organisation.</li>
+            <li><b>DJ Bot (IA) :</b> Intelligence améliorée, réponses détaillées et conseils automatiques toutes les 20 minutes.</li>
+            <li><b>Mode Test :</b> Lecture seule des groupes publics avec invitation stylisée à s'inscrire.</li>
+            <li><b>Transferts :</b> Barre de progression lors de l'envoi de fichiers et support des vidéos jusqu'à 200 Mo.</li>
+            <li><b>Messages :</b> Affichage du nom et de la photo de profil de l'expéditeur pour plus de clarté.</li>
           </ul>
         </div>
 

@@ -5,14 +5,18 @@ import Home from './components/Home';
 import { Discussions } from './components/Discussions';
 import { Profile, Friends, AdminUsers, DJSociety, Updates, Settings } from './components/Views';
 import { TutorialGame } from './components/TutorialGame';
-import { Menu, Home as HomeIcon, MessageSquare, Users, Lightbulb, Bell, Settings as SettingsIcon, HelpCircle, User, Plus, Shield } from 'lucide-react';
+import { PWAUpdateModal } from './components/PWAUpdateModal';
+import { Menu, Home as HomeIcon, MessageSquare, Users, Lightbulb, Bell, Settings as SettingsIcon, HelpCircle, User as UserIcon, Plus, Shield } from 'lucide-react';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from './lib/utils';
-import { AppState, Message, Group } from './types';
+import { AppState, Message, Group, User } from './types';
+import { db, collection, doc, addDoc, setDoc, updateDoc, arrayUnion } from './lib/firebase';
 
 export default function App() {
   const { state, updateState } = useAppStore();
   const [view, setView] = useState('home');
   const [simulationMode, setSimulationMode] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
 
   useEffect(() => {
     if (state.currentUser && state.users[state.currentUser]?.bgColor) {
@@ -31,6 +35,48 @@ export default function App() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
+
+  useEffect(() => {
+    if (showUpdateModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showUpdateModal]);
+
+  // Service Worker Update Detection
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener('state_changed', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                setWaitingWorker(newWorker);
+                setShowUpdateModal(true);
+              }
+            });
+          }
+        });
+      });
+
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+    }
+  }, []);
+
+  const handleUpdate = () => {
+    if (waitingWorker) {
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+    }
+    setShowUpdateModal(false);
+  };
 
   const handleLogout = () => {
     updateState({ currentUser: null });
@@ -168,63 +214,56 @@ export default function App() {
       "Astuce : Vous pouvez proposer jusqu'à 3 idées par jour dans la DJ Society si vous n'êtes pas admin."
     ];
 
-    const sendTip = () => {
+    const sendTip = async () => {
       const randomTip = tips[Math.floor(Math.random() * tips.length)];
-      const newMsg: Message = {
-        id: `bot-tip-${Date.now()}`,
+      const newMsg = {
         user: 'DJ Bot',
         text: randomTip,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        senderId: 'dj-bot',
+        senderName: 'DJ Bot'
       };
       
-      updateState((prev: AppState) => {
-        if (!prev.groups[helpGroupId]) return prev;
-        return {
-          groups: {
-            ...prev.groups,
-            [helpGroupId]: {
-              ...prev.groups[helpGroupId],
-              messages: [...prev.groups[helpGroupId].messages, newMsg]
-            }
-          }
-        };
-      });
+      try {
+        const msgRef = collection(db, 'private_messages', helpGroupId, 'messages');
+        await addDoc(msgRef, newMsg);
+      } catch (e) {
+        console.error("Error sending bot tip:", e);
+      }
     };
 
     // Send a tip every 20 minutes
     const interval = setInterval(sendTip, 20 * 60 * 1000);
     
     // Response logic: Check for new user messages in DJ Bot group
-    const helpGroup = state.groups[helpGroupId];
+    const helpGroup = state.groups[helpGroupId] || state.privateMessages[helpGroupId];
     const currentUserData = state.users[state.currentUser as string];
 
-    if (helpGroup) {
+    if (helpGroup && helpGroup.messages) {
       const lastMsg = helpGroup.messages[helpGroup.messages.length - 1];
       if (lastMsg && lastMsg.user === state.currentUser && !lastMsg.isSystem) {
         // User just sent a message, respond after 1 second
-        const timer = setTimeout(() => {
+        const timer = setTimeout(async () => {
           const today = new Date().toLocaleDateString();
           const questionsToday = currentUserData?.lastBotQuestionDate === today ? (currentUserData?.botQuestionsToday || 0) : 0;
 
           if (questionsToday >= 5) {
             const response = "Désolé, vous avez atteint votre limite de 5 questions pour aujourd'hui. Revenez demain pour plus de conseils !";
-            const botResponse: Message = {
-              id: `bot-resp-${Date.now()}`,
+            const botResponse = {
               user: 'DJ Bot',
               text: response,
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              senderId: 'dj-bot',
+              senderName: 'DJ Bot'
             };
-            updateState((prev: AppState) => ({
-              groups: {
-                ...prev.groups,
-                [helpGroupId]: {
-                  ...prev.groups[helpGroupId],
-                  messages: [...prev.groups[helpGroupId].messages, botResponse]
-                }
-              }
-            }));
+            try {
+              const msgRef = collection(db, 'private_messages', helpGroupId, 'messages');
+              await addDoc(msgRef, botResponse);
+            } catch (e) {
+              console.error("Error sending bot limit message:", e);
+            }
             return;
           }
 
@@ -232,54 +271,52 @@ export default function App() {
           const text = lastMsg.text.toLowerCase();
           
           if (text.includes('bonjour') || text.includes('salut') || text.includes('coucou') || text.includes('hello')) {
-            response = "Bonjour ! Comment puis-je vous aider aujourd'hui ?";
+            response = "Bonjour ! Je suis DJ Bot, votre assistant personnel. Comment puis-je vous aider aujourd'hui ? Je peux vous expliquer comment créer des groupes, ajouter des amis ou utiliser les fonctionnalités avancées.";
           } else if (text.includes('groupe')) {
-            response = "Les groupes se divisent en 3 catégories : Publics (ouverts à tous), Privés (sur invitation ou code) et SMS (privé 1-à-1). Pour créer un groupe, utilisez le bouton '+' dans l'onglet Discussions. Vous suivrez un processus en 4 étapes : Nom, Raison, Invitations et Code secret.";
+            response = "Les groupes sont essentiels ! \n1. Publics : Tout le monde peut les voir et les rejoindre.\n2. Privés : Nécessitent un code de 5-7 caractères.\n3. SMS : Discussions privées 1-à-1.\nPour créer un groupe, cliquez sur '+' dans Discussions. Vous suivrez un assistant en 4 étapes : Nom, Raison, Invitations et Code secret.";
           } else if (text.includes('ami')) {
-            response = "Pour ajouter un ami, allez dans l'onglet 'Amis' et utilisez la barre de recherche. Une fois ajouté, vous pourrez démarrer une discussion SMS privée avec lui.";
-          } else if (text.includes('paramètre') || text.includes('couleur')) {
-            response = "Dans les 'Paramètres', vous pouvez changer la couleur de fond de l'application, modifier votre mot de passe, ou activer les notifications. C'est aussi là que vous pouvez devenir administrateur avec le code secret.";
-          } else if (text.includes('society') || text.includes('idée')) {
-            response = "La DJ Society est un espace communautaire où vous pouvez proposer des idées d'amélioration. Les administrateurs peuvent répondre à vos suggestions et même les valider.";
+            response = "Pour ajouter un ami :\n1. Allez dans l'onglet 'Amis'.\n2. Recherchez son pseudo.\n3. Cliquez sur 'Ajouter'.\nUne fois accepté, vous pourrez lui envoyer des SMS privés.";
+          } else if (text.includes('paramètre') || text.includes('couleur') || text.includes('style')) {
+            response = "Personnalisez votre expérience dans 'Paramètres' :\n- Changez la couleur de fond.\n- Modifiez votre mot de passe.\n- Devenez Admin avec le code secret.\n- Activez le mode sombre ou clair.";
+          } else if (text.includes('society') || text.includes('idée') || text.includes('proposer')) {
+            response = "La DJ Society est l'endroit où vous proposez des améliorations. Les admins examinent vos idées et peuvent les valider. Vous avez droit à 3 propositions par jour.";
           } else if (text.includes('test')) {
-            response = "Le mode test vous permet d'explorer l'application sans compte. Vous pouvez lire les messages des groupes publics, mais vous ne pouvez pas envoyer de messages ni créer de groupes sans créer un compte réel.";
+            response = "En mode test, vous êtes un spectateur. Vous pouvez voir les groupes publics, mais pour envoyer des messages, créer des groupes ou avoir des amis, vous devez créer un compte réel. C'est gratuit et rapide !";
           } else if (text.includes('code')) {
-            response = "Les codes de groupe privé font 5 caractères. Vous pouvez en créer un lors de la création d'un groupe privé, ou en rejoindre un en saisissant le code dans l'onglet 'Privés'.";
-          } else if (text.includes('sms') || text.includes('message')) {
-            response = "Les SMS sont des discussions privées entre vous et une autre personne. Vous pouvez envoyer des messages, des images, des vidéos et des stickers. Vous pouvez lancer un SMS depuis l'onglet Discussions ou depuis votre liste d'amis.";
-          } else if (text.includes('fichier') || text.includes('image') || text.includes('vidéo') || text.includes('photo')) {
-            response = "Pour envoyer un fichier (image ou vidéo), cliquez sur l'icône de trombone (📎) à côté de la barre de message dans une discussion. La taille limite est de 200 Mo.";
+            response = "Les codes de groupe (5-7 caractères) sécurisent vos discussions privées. Vous les définissez à la création. Pour rejoindre un groupe, saisissez le code dans l'onglet 'Privés'.";
+          } else if (text.includes('sms') || text.includes('message') || text.includes('privé')) {
+            response = "Les SMS sont vos discussions secrètes. Vous pouvez y envoyer du texte, des images, des vidéos et des stickers. Recherchez un ami pour commencer !";
+          } else if (text.includes('fichier') || text.includes('image') || text.includes('vidéo') || text.includes('photo') || text.includes('partage')) {
+            response = "Le partage de fichiers est simple : cliquez sur le trombone (📎). Vous pouvez envoyer des photos et vidéos jusqu'à 200 Mo. Les fichiers sont stockés de manière sécurisée et accessibles par tous les membres du groupe.";
+          } else if (text.includes('admin')) {
+            response = "Les Admins gèrent l'application. Il y a 3 niveaux : Admin simple, Super Admin (temporaire) et Grand Admin. Ils peuvent supprimer des messages, bannir des utilisateurs et gérer les comptes.";
           } else if (text.includes('merci')) {
-            response = "De rien ! N'hésitez pas si vous avez d'autres questions.";
-          } else if (text.includes('aide') || text.includes('help')) {
-            response = "Je suis là pour vous aider ! Posez-moi des questions sur les groupes, les amis, les SMS, les paramètres ou l'envoi de fichiers.";
+            response = "Avec plaisir ! Je suis là pour ça. Une autre question ?";
+          } else if (text.includes('aide') || text.includes('help') || text.includes('comment')) {
+            response = "Je peux vous aider sur tout ! Posez-moi une question précise sur : les groupes, les SMS, les fichiers, les amis ou les paramètres.";
           }
 
-          const botResponse: Message = {
-            id: `bot-resp-${Date.now()}`,
+          const botResponse = {
             user: 'DJ Bot',
             text: response,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            senderId: 'dj-bot',
+            senderName: 'DJ Bot'
           };
 
-          updateState((prev: AppState) => ({
-            groups: {
-              ...prev.groups,
-              [helpGroupId]: {
-                ...prev.groups[helpGroupId],
-                messages: [...prev.groups[helpGroupId].messages, botResponse]
-              }
-            },
-            users: {
-              ...prev.users,
-              [state.currentUser as string]: {
-                ...prev.users[state.currentUser as string],
-                botQuestionsToday: questionsToday + 1,
-                lastBotQuestionDate: today
-              }
-            }
-          }));
+          try {
+            const msgRef = collection(db, 'private_messages', helpGroupId, 'messages');
+            await addDoc(msgRef, botResponse);
+            
+            const userRef = doc(db, 'users', state.currentUser as string);
+            await updateDoc(userRef, {
+              botQuestionsToday: questionsToday + 1,
+              lastBotQuestionDate: today
+            });
+          } catch (e) {
+            console.error("Error sending bot response:", e);
+          }
         }, 1000);
         return () => {
           clearTimeout(timer);
@@ -300,7 +337,7 @@ export default function App() {
 
   const navItems = [
     { id: 'home', label: 'Accueil', icon: HomeIcon },
-    { id: 'profile', label: 'Mon Profil', icon: User },
+    { id: 'profile', label: 'Mon Profil', icon: UserIcon },
     { id: 'discussions', label: 'Discussions', icon: MessageSquare },
     { id: 'friends', label: 'Amis', icon: Users },
     { id: 'djsociety', label: 'DJ Society', icon: Lightbulb },
@@ -378,7 +415,7 @@ export default function App() {
             className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-all group"
           >
             <div className="w-12 h-12 rounded-2xl bg-gray-800 flex items-center justify-center overflow-hidden border-2 border-transparent group-hover:border-[#00CED1] transition-all shadow-lg">
-              {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <User size={24} className="text-gray-400" />}
+              {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <UserIcon size={24} className="text-gray-400" />}
             </div>
             <div className="text-left flex-1 min-w-0">
               <p className="font-black text-sm uppercase tracking-tight truncate">{isTest ? 'Mode Test' : user?.name}</p>
@@ -431,8 +468,8 @@ export default function App() {
 
       {/* Main Content */}
       <main className={`flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300 ${state.menuOpen ? 'lg:ml-72 ml-0' : 'ml-0'}`}>
-        <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[999]">
-          <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[1000]">
+        <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[1000]">
+          <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001]">
             <Menu size={24} className="text-gray-600" />
           </button>
           <h1 className={`ml-2 font-black uppercase tracking-tighter text-xl ${djStyleText}`}>
@@ -452,6 +489,8 @@ export default function App() {
           onClick={toggleMenu}
         />
       )}
+
+      <PWAUpdateModal show={showUpdateModal} onUpdate={handleUpdate} />
     </div>
   );
 }

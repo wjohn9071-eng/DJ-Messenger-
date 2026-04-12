@@ -15,7 +15,6 @@ self.addEventListener('install', (event) => {
       return cache.addAll(ASSETS);
     })
   );
-  self.skipWaiting();
 });
 
 // Activation du Service Worker et nettoyage des anciens caches
@@ -33,6 +32,13 @@ self.addEventListener('activate', (event) => {
     })
   );
   self.clients.claim();
+});
+
+// Écoute des messages pour forcer la mise à jour
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Stratégie de cache : Network First avec fallback sur le cache

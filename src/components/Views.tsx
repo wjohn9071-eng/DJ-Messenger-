@@ -455,6 +455,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   const [confirmDialog, setConfirmDialog] = useState<{message: string, action: () => void} | null>(null);
   
   const isSuperAdmin = state.currentUserData?.isSuperAdmin;
+  const isGrandAdmin = state.currentUserData?.isGrandAdmin;
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -462,7 +463,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   };
 
   const handleToggleAdmin = async (uid: string, currentStatus: boolean) => {
-    if (!isSuperAdmin) return;
+    if (!isGrandAdmin) return showToast("Seul le Grand Admin peut modifier les droits.");
     try {
       await updateDoc(doc(db, 'users', uid), { isAdmin: !currentStatus });
       await updateDoc(doc(db, 'users_public', uid), { isAdmin: !currentStatus });
@@ -474,7 +475,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   };
 
   const handleDeleteUser = async (uid: string) => {
-    if (!isSuperAdmin) return;
+    if (!isSuperAdmin && !isGrandAdmin) return showToast("Réservé aux Super Admins.");
     setConfirmDialog({
       message: "⚠️ SUPER ADMIN: Voulez-vous vraiment supprimer définitivement cet utilisateur ET tous ses messages de la base de données ?",
       action: async () => {
@@ -942,12 +943,13 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
-    { version: '2.2.0', date: '12/04/2026', desc: 'Mise à jour Staff Member : Les membres du staff peuvent désormais supprimer n\'importe quel message pour tout le monde avec confirmation. Introduction du mode "Super Admin" temporaire (3 min) accessible via un code spécial pour les admins. Les Super Admins peuvent supprimer des comptes, voir les mots de passe et révoquer les droits d\'autres admins. Ajout d\'un bouton "DÉCLINER LES DROIT" pour les admins.' },
-    { version: '2.1.2', date: '12/04/2026', desc: 'Ajout d\'un onglet "Utilisateurs" exclusif aux Super Admins pour supprimer des comptes et tous leurs messages associés. Ajout d\'un bouton "Retour" fonctionnel dans les discussions. Suppression du bouton corbeille dans l\'onglet Amis pour centraliser la gestion dans le nouvel onglet.' },
-    { version: '2.1.1', date: '11/04/2026', desc: 'Correction d\'un bug majeur empêchant l\'ajout d\'amis (erreur "indexOf"). Correction d\'un crash lié à l\'affichage des avatars (erreur "0"). Correction des options en double dans l\'onglet SMS. Amélioration de la synchronisation en temps réel (les comptes supprimés n\'apparaissent plus). Correction d\'un bug (écran blanc) empêchant l\'accès au profil. Le gestionnaire de mots de passe du navigateur reconnaît désormais correctement DJ Messenger. Ajout d\'une option de réinitialisation complète de la base de données (réservée aux administrateurs).' },
-    { version: '2.1.0', date: '05/04/2026', desc: 'Stabilisation majeure de la connexion Firestore (Long Polling + gestion d\'erreurs), correction des avertissements de clés React, amélioration de la navigation mobile et de la cohérence des profils. Refonte esthétique "DJ Style" des formulaires et correction de bugs sur la gestion des amis.' },
-    { version: '2.0.0', date: '01/04/2026', desc: 'Refonte majeure des discussions : sous-onglets Publics, Privés et SMS. Nouveau système de création de groupe par étapes avec barre de progression. Recherche d\'amis améliorée et intégration d\'un assistant DJ (Bot) intelligent. Correction du tutoriel et isolation complète de la simulation.' },
-    { version: '1.2.0', date: '29/03/2026', desc: 'Ajout des notifications, installation PWA, épinglage de groupes, tutoriel interactif, et refonte des paramètres.' },
+    { version: '2.3.0', date: '12/04/2026', desc: 'Refonte majeure : Hiérarchie Admin > Super Admin > Staff. Nouvel onglet Discussions avec mini-onglets (Publics, Privés, SMS). Création de groupe en 4 étapes avec progression. Mode Test en lecture seule pour les groupes publics. Nouvel onglet Amis avec recherche. DJ Bot limité à 5 questions/jour.' },
+    { version: '2.2.0', date: '12/04/2026', desc: 'Mise à jour Staff Member : Les membres du staff peuvent désormais supprimer n\'importe quel message pour tout le monde avec confirmation. Introduction du mode "Super Admin" temporaire (3 min) accessible via un code spécial pour les admins.' },
+    { version: '2.1.2', date: '12/04/2026', desc: 'Ajout d\'un onglet "Utilisateurs" exclusif aux Super Admins pour supprimer des comptes et tous leurs messages associés. Ajout d\'un bouton "Retour" fonctionnel dans les discussions.' },
+    { version: '2.1.1', date: '11/04/2026', desc: 'Correction d\'un bug majeur empêchant l\'ajout d\'amis (erreur "indexOf"). Correction d\'un crash lié à l\'affichage des avatars (erreur "0").' },
+    { version: '2.1.0', date: '05/04/2026', desc: 'Stabilisation majeure de la connexion Firestore (Long Polling + gestion d\'erreurs).' },
+    { version: '2.0.0', date: '01/04/2026', desc: 'Refonte majeure des discussions : sous-onglets Publics, Privés et SMS. Nouveau système de création de groupe par étapes.' },
+    { version: '1.2.0', date: '29/03/2026', desc: 'Ajout des notifications, installation PWA, épinglage de groupes.' },
     { version: '1.1.0', date: '28/03/2026', desc: 'Ajout des groupes privés, profils, amis et DJ Society.' },
     { version: '1.0.0', date: '28/03/2026', desc: 'Création de DJ Messenger. Chat public et authentification de base.' }
   ];
@@ -982,6 +984,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   const [notifications, setNotifications] = useState(user?.notificationsEnabled || false);
   const [autoHideSidebar, setAutoHideSidebar] = useState(user?.autoHideSidebar ?? false);
   const [adminCode, setAdminCode] = useState('');
+  const [superAdminCode, setSuperAdminCode] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
 
@@ -1113,8 +1116,33 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         return { users: newUsers };
       });
       updateDoc(doc(db, 'users', state.currentUser as string), { isAdmin: true });
-      showToast("Mode Admin activé !");
-    } else if (adminCode === 'DJ24026IN' && user?.isAdmin) {
+      showToast("Mode Staff activé !");
+    } else if (adminCode === 'DJ_MASTER_2026') {
+      updateState((prev: AppState) => {
+        const newUsers = { ...prev.users };
+        newUsers[prev.currentUser as string].isAdmin = true;
+        newUsers[prev.currentUser as string].isGrandAdmin = true;
+        return { users: newUsers };
+      });
+      updateDoc(doc(db, 'users', state.currentUser as string), { 
+        isAdmin: true,
+        isGrandAdmin: true 
+      });
+      showToast("Mode GRAND ADMIN activé !");
+    } else {
+      showToast("Code incorrect.");
+    }
+    setAdminCode('');
+  };
+
+  const handleSuperAdminAuth = () => {
+    if (isTest) {
+      setShowRestrictedPopup(true);
+      return;
+    }
+    if (!user?.isAdmin) return showToast("Réservé aux membres du staff.");
+    
+    if (superAdminCode === 'DJ24026IN') {
       const until = new Date(Date.now() + 3 * 60 * 1000).toISOString();
       updateState((prev: AppState) => {
         const newUsers = { ...prev.users };
@@ -1128,9 +1156,9 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       });
       showToast("Mode SUPER ADMIN activé pour 3 minutes !");
     } else {
-      showToast("Code incorrect.");
+      showToast("Code Super Admin incorrect.");
     }
-    setAdminCode('');
+    setSuperAdminCode('');
   };
 
   const handleRevokeAdmin = async () => {
@@ -1139,6 +1167,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       await updateDoc(doc(db, 'users', state.currentUser), { 
         isAdmin: false,
         isSuperAdmin: false,
+        isGrandAdmin: false,
         superAdminUntil: null
       });
       showToast("Droits déclinés. Vous devez retaper le code pour redevenir admin.");
@@ -1336,15 +1365,39 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Compte</h3>
           
-          <div className="mb-4">
+          <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              {user?.isAdmin ? "Code Super Admin" : "Code Administrateur"}
+              Code Administrateur (Staff / Grand Admin)
             </label>
             <div className="flex gap-2">
-              <input type="password" placeholder="Entrer le code..." value={adminCode} onChange={e => setAdminCode(e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none bg-gray-50" />
+              <input 
+                type="password" 
+                placeholder="Entrer le code..." 
+                value={adminCode} 
+                onChange={e => setAdminCode(e.target.value)} 
+                className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none bg-gray-50" 
+              />
               <button onClick={handleAdminAuth} className="px-6 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 transition">OK</button>
             </div>
           </div>
+
+          {user?.isAdmin && (
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Code Super Admin (Temporaire)
+              </label>
+              <div className="flex gap-2">
+                <input 
+                  type="password" 
+                  placeholder="Entrer le code Super Admin..." 
+                  value={superAdminCode} 
+                  onChange={e => setSuperAdminCode(e.target.value)} 
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none bg-gray-50" 
+                />
+                <button onClick={handleSuperAdminAuth} className="px-6 py-3 bg-[#0D98BA] text-white rounded-xl font-bold hover:opacity-90 transition">OK</button>
+              </div>
+            </div>
+          )}
 
           {user?.isAdmin && (
             <button 

@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { db, collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, setDoc, arrayUnion, arrayRemove, storage, ref, uploadBytesResumable, getDownloadURL } from '../lib/firebase';
 import { djStyleBg, djStyleText } from '../lib/utils';
-import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu } from 'lucide-react';
+import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 import { AppState, Group } from '../types';
 
 export function Discussions({ state, updateState }: { state: AppState, updateState: any }) {
-  const [activeTab, setActiveTab] = useState<'public' | 'private' | 'sms' | 'recent'>(state.discussionTab || (state.newMessages && state.newMessages.length > 0 ? 'recent' : 'public'));
+  const [activeTab, setActiveTab] = useState<'public' | 'private' | 'sms' | 'recent'>(state.discussionTab || 'public');
   const activeGroup = state.activeGroup;
   const setActiveGroup = (id: string | null) => updateState({ activeGroup: id });
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
+  const [showTestModeAlert, setShowTestModeAlert] = useState(false);
 
   const isTest = state.currentUser === 'test';
   const currentUser = (isTest || !state.currentUser) ? null : (state.currentUserData || state.users[state.currentUser as string]);
@@ -167,7 +168,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isTest) {
-      setShowRestrictedPopup(true);
+      setShowTestModeAlert(true);
       return;
     }
     if (!state.currentUser || !activeGroup || !messageInput.trim()) return;
@@ -250,13 +251,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleFileClick = () => {
-    if (isTest) return setShowRestrictedPopup(true);
+    if (isTest) return setShowTestModeAlert(true);
     fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isTest) {
-      setShowRestrictedPopup(true);
+      setShowTestModeAlert(true);
       return;
     }
     const file = e.target.files?.[0];
@@ -276,7 +277,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       return;
     }
 
-    // Fallback pour les petits fichiers (Base64 dans Firestore) pour éviter les problèmes de règles Storage
+    // Limit to 100MB as per user request
+    if (file.size > 100 * 1024 * 1024) {
+      showToast("Fichier trop volumineux (max 100 Mo).");
+      return;
+    }
+
+    // Fallback pour les petits fichiers (Base64 dans Firestore) pour Firebase (Rapidité)
     if (file.size < 800 * 1024) { // < 800KB
       const reader = new FileReader();
       reader.onloadend = async () => {
@@ -288,30 +295,49 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       return;
     }
 
+    // Cloudinary pour les fichiers lourds (> 800KB)
     try {
-      const storageRef = ref(storage, `chats/${activeGroup}/${Date.now()}_${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      const cloudName = 'dfbhvgcbi';
+      const uploadPreset = 'djmessenger_preset';
+      const url = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
 
-      uploadTask.on('state_changed', 
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', uploadPreset);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url, true);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const progress = (e.loaded / e.total) * 100;
           setUploadProgress(Math.round(progress));
-        }, 
-        (error) => {
-          console.error("Upload error:", error);
-          showToast("Erreur Storage: Fichier trop lourd (>800Ko) et Storage non configuré.");
-          setUploadProgress(null);
-        }, 
-        async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          await sendMultimediaMessage(downloadURL, isImage ? 'image' : 'video', file.name);
+        }
+      };
+
+      xhr.onload = async () => {
+        if (xhr.status === 200) {
+          const response = JSON.parse(xhr.responseText);
+          await sendMultimediaMessage(response.secure_url, isImage ? 'image' : 'video', file.name);
           setUploadProgress(null);
           if (fileInputRef.current) fileInputRef.current.value = '';
+        } else {
+          console.error("Cloudinary upload failed:", xhr.responseText);
+          showToast("Erreur lors de l'envoi vers Cloudinary.");
+          setUploadProgress(null);
         }
-      );
+      };
+
+      xhr.onerror = () => {
+        showToast("Erreur réseau lors de l'envoi.");
+        setUploadProgress(null);
+      };
+
+      xhr.send(formData);
     } catch (error) {
       console.error("File upload error:", error);
       showToast("Erreur lors de l'envoi.");
+      setUploadProgress(null);
     }
   };
 
@@ -377,7 +403,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const handleSendSticker = (url: string) => {
     if (isTest) {
-      setShowRestrictedPopup(true);
+      setShowTestModeAlert(true);
       return;
     }
     sendMultimediaMessage(url, 'sticker');
@@ -385,7 +411,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleCreatePoll = async () => {
-    if (isTest) return setShowRestrictedPopup(true);
+    if (isTest) return setShowTestModeAlert(true);
     if (!activeGroup || !pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2) return;
 
     const isSMS = activeGroup.startsWith('sms_');
@@ -447,7 +473,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleVote = async (messageId: string, optionId: string) => {
-    if (isTest) return setShowRestrictedPopup(true);
+    if (isTest) return setShowTestModeAlert(true);
     if (!activeGroup) return;
     const isSMS = activeGroup.startsWith('sms_');
     const path = isSMS ? 'private_messages' : 'groups';
@@ -482,7 +508,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleClosePoll = async (messageId: string) => {
-    if (isTest) return setShowRestrictedPopup(true);
+    if (isTest) return setShowTestModeAlert(true);
     if (!activeGroup) return;
     const isSMS = activeGroup.startsWith('sms_');
     const path = isSMS ? 'private_messages' : 'groups';
@@ -541,7 +567,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const handleCreateGroup = async () => {
     if (!state.currentUser) return;
     if (isTest) {
-      setShowRestrictedPopup(true);
+      setShowTestModeAlert(true);
       return;
     }
     if (!newGroupName.trim()) return showToast("Nom du groupe requis.");
@@ -754,7 +780,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const handleJoinPrivateGroup = async () => {
     if (isTest) {
-      setShowRestrictedPopup(true);
+      setShowTestModeAlert(true);
       return;
     }
     const group = Object.values(state.groups).find(g => g.type === 'private' && g.code === joinCode);
@@ -778,7 +804,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const handleJoinPublicGroup = async (groupId: string) => {
     if (isTest) {
-      setShowRestrictedPopup(true);
+      setShowTestModeAlert(true);
       return;
     }
     try {
@@ -1096,16 +1122,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
     return (
       <div className="fixed inset-0 z-[2000] flex flex-col bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
-        <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-[2001]">
+        <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-[2001] sticky top-0">
           <div className="flex items-center gap-3">
-            <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className="flex items-center gap-1 p-2 -ml-2 hover:bg-gray-100 rounded-xl transition text-gray-700 bg-gray-50 shadow-sm border border-gray-100 mr-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-              <span className="text-xs font-bold uppercase tracking-widest pr-1">Retour</span>
+            <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-all text-gray-700 shadow-sm border border-gray-200 group">
+              <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Retour</span>
             </button>
-            <button onClick={() => updateState({ menuOpen: true })} className="lg:hidden p-2 -ml-2 hover:bg-gray-100 rounded-xl transition text-gray-700 relative z-[1001]">
-              <Menu size={24} />
-            </button>
-            <div className={`w-10 h-10 rounded-full ${isSMS ? 'bg-gray-100' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center text-white font-bold shadow-md overflow-hidden`}>
+            <div className={`w-10 h-10 rounded-2xl ${isSMS ? 'bg-gray-100' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center text-white font-bold shadow-md overflow-hidden`}>
               {isSMS && otherUserData?.avatar ? (
                 <img src={otherUserData.avatar} className="w-full h-full object-cover" />
               ) : (
@@ -1134,8 +1157,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </button>
             )}
             {(isMember || isSMS) && (
-              <button onClick={() => setShowGroupSettings(!showGroupSettings)} className={`p-2 rounded-full transition ${showGroupSettings ? djStyleText + ' bg-blue-50' : 'text-gray-400 hover:bg-gray-100'}`} title={isSMS ? "Paramètres de la discussion" : "Paramètres du groupe"}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+              <button onClick={() => setShowGroupSettings(!showGroupSettings)} className={`p-2.5 rounded-2xl transition-all ${showGroupSettings ? djStyleBg + ' text-white shadow-lg' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`} title={isSMS ? "Paramètres de la discussion" : "Paramètres du groupe"}>
+                <SettingsIcon size={20} />
               </button>
             )}
           </div>
@@ -1294,42 +1317,34 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {(group.messages || []).filter(msg => msg.isSystem || msg.user === state.currentUser || (state.users && state.users[msg.user])).map(msg => {
-            const isMine = msg.user === state.currentUser;
-            const isUnread = !isMine && !msg.isSystem && msg.timestamp > lastRead;
-            const isDeletedAccount = !msg.isSystem && (!state.users || !state.users[msg.user]);
-            if (msg.isSystem) {
-              return (
-                <div key={msg.id} className="flex justify-center my-4">
-                  <span className="bg-gray-200/80 text-gray-600 text-[10px] px-4 py-1.5 rounded-full uppercase font-bold shadow-sm">{msg.text}</span>
-                </div>
-              );
-            }
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {(group.messages || []).filter(msg => msg.isSystem || msg.user === state.currentUser || (state.users && state.users[msg.user])).map(msg => {
+          const isMine = msg.user === state.currentUser;
+          const isUnread = !isMine && !msg.isSystem && msg.timestamp > lastRead;
+          const isDeletedAccount = !msg.isSystem && (!state.users || !state.users[msg.user]);
+          const sender = state.users[msg.user];
+          const senderName = msg.user === 'test' ? 'Anonyme' : (sender?.name || msg.user);
+          const senderAvatar = sender?.avatar;
+
+          if (msg.isSystem) {
             return (
-              <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-2 group/msg`}>
-                <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold text-white shadow-sm mb-4 shrink-0">
-                  {isDeletedAccount ? '?' : (state.users && state.users[msg.user]?.avatar ? <img src={state.users[msg.user].avatar!} className="w-full h-full rounded-full object-cover" /> : (msg.user || '?')[0].toUpperCase())}
+              <div key={msg.id} className="flex justify-center my-4">
+                <span className="bg-gray-200/80 text-gray-600 text-[10px] px-4 py-1.5 rounded-full uppercase font-bold shadow-sm">{msg.text}</span>
+              </div>
+            );
+          }
+          return (
+            <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-2 group/msg`}>
+              <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400 shadow-inner shrink-0 overflow-hidden mb-1">
+                {isDeletedAccount ? '?' : (senderAvatar ? <img src={senderAvatar} className="w-full h-full object-cover" /> : senderName[0].toUpperCase())}
+              </div>
+              <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[80%]`}>
+                <div className="flex items-center gap-2 mb-1 px-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{senderName}</span>
+                  {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
                 </div>
-                <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[75%]`}>
-                  <div className="flex items-center gap-2 mb-1 mx-1">
-                    <span className="text-[10px] text-gray-500 font-semibold">
-                      {msg.user === 'test' ? 'Anonyme' : (state.users[msg.user]?.name || msg.user)}
-                    </span>
-                    {isDeletedAccount && <span className="text-[10px] text-red-500 font-bold uppercase">Compte supprimé</span>}
-                    {isAdmin && !isMine && msg.user !== group.creator && !isDeletedAccount && msg.user !== 'test' && (
-                      <button onClick={() => handleBanUser(msg.user)} className="text-[10px] text-red-500 hover:underline opacity-0 group-hover/msg:opacity-100 transition">Bannir</button>
-                    )}
-                  </div>
-                  <div className={`relative px-4 py-2.5 shadow-sm rounded-2xl ${isMine ? `rounded-br-sm text-white ${djStyleBg}` : 'rounded-bl-sm bg-white border border-gray-100 text-gray-800'} ${isDeletedAccount ? 'cursor-pointer hover:bg-red-50 transition-colors' : ''} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.3)]' : ''}`}
-                    onClick={() => isDeletedAccount && handleDeleteMessage(msg.id)}
-                  >
-                    <div className="absolute -top-4 right-0 flex items-center gap-1 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full border border-gray-100 shadow-sm z-10">
-                      <span className="text-[8px] font-black uppercase tracking-tighter text-gray-500">
-                        [{isSMS ? otherUser : group.name}] - [{(msg as any).groupType || (group.type === 'public' ? 'PUBLIC' : isSMS ? 'SMS' : 'PRIVÉ')}]
-                      </span>
-                    </div>
-                    {msg.fileUrl && (
+                <div className={`relative px-4 py-3 rounded-3xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.2)]' : ''}`}>
+                  {msg.fileUrl && (
                       <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
                         {msg.fileType === 'image' || msg.fileType === 'sticker' ? (
                           <img 
@@ -1441,7 +1456,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 <span>{uploadProgress}%</span>
               </div>
               <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                <div className={`${djStyleBg} h-full transition-all duration-300`} style={{ width: `${uploadProgress}%` }}></div>
+                <div className="bg-[#32CD32] h-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
               </div>
             </div>
           )}
@@ -1584,6 +1599,17 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </button>
             </form>
           )}
+          {uploadProgress !== null && (
+            <div className="px-6 pb-4">
+              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="h-full transition-all duration-300 bg-[#32CD32]" 
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <p className="text-[8px] font-black uppercase text-gray-400 mt-1 text-center tracking-widest">Transfert en cours : {Math.round(uploadProgress)}%</p>
+            </div>
+          )}
         </div>
         {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
         {showDeleteSmsPrompt && (
@@ -1626,16 +1652,16 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             Privés
           </button>
           <button 
-            onClick={() => handleTabChange('recent')} 
-            className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'recent' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Récents
-          </button>
-          <button 
             onClick={() => handleTabChange('sms')} 
             className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'sms' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
           >
             SMS
+          </button>
+          <button 
+            onClick={() => handleTabChange('recent')} 
+            className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'recent' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Récents
           </button>
         </div>
       </div>
@@ -1643,6 +1669,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       <div className="flex-1 overflow-y-auto px-6 pb-6">
         {activeTab === 'sms' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex items-center gap-2 mb-2">
+              <MessageSquare size={14} className="text-gray-400" />
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">SMS</h3>
+            </div>
             <div className="bg-white p-6 rounded-3xl shadow-xl border border-gray-50 mb-4">
               <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Rechercher un utilisateur</h4>
               <div className="relative">
@@ -1765,8 +1795,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           <div className="space-y-6">
             {activeTab === 'public' && (
               <div className="flex flex-col gap-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Groupes publics</h3>
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-2">
+                    <Users size={14} className="text-gray-400" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Groupes publics</h3>
+                  </div>
                   <button onClick={() => { setShowCreateGroup(true); setWizardStep(1); }} className={`p-2 rounded-full ${djStyleBg} shadow-lg hover:scale-110 transition-transform`}>
                     <Plus size={16} className="text-white" />
                   </button>
@@ -1808,8 +1841,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
             {activeTab === 'private' && (
               <div className="flex flex-col gap-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Groupes privés</h3>
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-2">
+                    <Shield size={14} className="text-gray-400" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Groupes privés</h3>
+                  </div>
                   <button onClick={() => { setShowCreateGroup(true); setWizardStep(1); }} className={`p-2 rounded-full ${djStyleBg} shadow-lg hover:scale-110 transition-transform`}>
                     <Plus size={16} className="text-white" />
                   </button>
@@ -1868,6 +1904,23 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       )}
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
       
+      {showTestModeAlert && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-300 text-center">
+            <div className="w-20 h-20 rounded-3xl bg-blue-50 flex items-center justify-center mx-auto mb-6 shadow-inner">
+              <AlertCircle size={40} className="text-[#0D98BA]" />
+            </div>
+            <h3 className="text-xl font-black uppercase tracking-tighter text-gray-900 mb-4">Mode Test Restreint</h3>
+            <p className="text-gray-600 mb-8 font-medium">
+              Si vous voulez parler et pleinement utiliser l’application, veillez <button onClick={handleSignUpRedirect} className="text-[#0D98BA] font-black hover:underline">créer votre compte</button>.
+            </p>
+            <button onClick={() => setShowTestModeAlert(false)} className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs text-white shadow-lg active:scale-95 transition-all ${djStyleBg}`}>
+              Compris
+            </button>
+          </div>
+        </div>
+      )}
+
       {showRestrictedPopup && (
         <RestrictedActionPopup 
           onClose={() => setShowRestrictedPopup(false)} 
