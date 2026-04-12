@@ -4,7 +4,7 @@ import { djStyleBg, djStyleText } from '../lib/utils';
 import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
-import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs } from '../lib/firebase';
+import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs, reauthenticateWithPopup, googleProvider } from '../lib/firebase';
 import { updateProfile, updatePassword, deleteUser } from 'firebase/auth';
 
 const renderMessageText = (text: string) => {
@@ -1254,9 +1254,20 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
     } catch (error: any) {
       console.error("Erreur lors de la suppression du compte:", error);
       if (error.code === 'auth/requires-recent-login') {
-        showToast("Sécurité : Reconnecte-toi avant de supprimer ton compte.");
-        await signOut(auth);
-        handleLogout();
+        showToast("Sécurité : Re-vérification de ton identité nécessaire...");
+        try {
+          if (auth.currentUser) {
+            await reauthenticateWithPopup(auth.currentUser, googleProvider);
+            await auth.currentUser.delete();
+            handleLogout();
+            showToast("Compte supprimé avec succès.");
+          }
+        } catch (reauthError) {
+          console.error("Re-authentification échouée:", reauthError);
+          showToast("Échec de la vérification. Reconnecte-toi manuellement.");
+          await signOut(auth);
+          handleLogout();
+        }
       } else {
         showToast("Erreur lors de la suppression: " + (error.message || "Inconnue"));
       }
