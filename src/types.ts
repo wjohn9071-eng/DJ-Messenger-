@@ -23,6 +23,8 @@ export interface User {
   tutorialCompleted?: boolean;
   botQuestionsToday?: number;
   lastBotQuestionDate?: string;
+  problemsToday?: number;
+  lastProblemDate?: string;
   lastReadTimestamps?: Record<string, string>; // groupId -> ISO timestamp
 }
 

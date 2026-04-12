@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from './store';
 import Auth from './components/Auth';
 import Home from './components/Home';
 import { Discussions } from './components/Discussions';
-import { Profile, Friends, AdminUsers, DJSociety, Updates, Settings } from './components/Views';
+import { Profile, Friends, AdminUsers, DJSociety, Updates, Settings, Staff } from './components/Views';
 import { TutorialGame } from './components/TutorialGame';
 import { PWAUpdateModal } from './components/PWAUpdateModal';
 import { Menu, Home as HomeIcon, MessageSquare, Users, Lightbulb, Bell, Settings as SettingsIcon, HelpCircle, User as UserIcon, Plus, Shield } from 'lucide-react';
@@ -104,49 +104,48 @@ export default function App() {
     
     const botGroupId = `bot-private-${state.currentUser}`;
     const simulatedGroupId = 'simulated-group';
-    const helpGroupId = `sms-dj-bot-${state.currentUser}`;
+    const helpGroupId = `sms_dj_bot_${state.currentUser}`;
     
     const hasBotGroup = !!state.groups[botGroupId];
     const hasSimulatedGroup = !!state.groups[simulatedGroupId];
     const hasHelpGroup = !!state.groups[helpGroupId];
-    const hasDJBotUser = !!state.users['DJ Bot'];
+    const hasDJBotUser = !!state.users['DJ Bot'] || !!state.users['dj-bot'];
     
     // Check if any group has messages from 'Bot DJ' or 'DJ Help'
     const hasBotMessages = (Object.values(state.groups) as Group[]).some(g => 
-      g.messages.some(m => m.user === 'Bot DJ' || m.user === 'DJ Help')
+      g.messages.some(m => m.user === 'Bot DJ' || m.user === 'DJ Help' || m.user === 'Simulateur DJ (Faux)')
     );
 
-    if (hasBotGroup || hasSimulatedGroup || hasBotMessages || !hasHelpGroup || !hasDJBotUser) {
+    if (hasBotGroup || hasSimulatedGroup || hasBotMessages || !hasDJBotUser) {
       setTimeout(() => {
         updateState((prev: AppState) => {
           const newGroups = { ...prev.groups };
-        const newUsers = { ...prev.users };
+          const newUsers = { ...prev.users };
         
-        // 0. Ensure DJ Bot user exists
-        if (!newUsers['DJ Bot']) {
-          newUsers['DJ Bot'] = {
-            id: 'dj-bot',
-            uid: 'dj-bot',
-            name: 'DJ Bot',
-            email: 'bot@djsociety.com',
-            isAdmin: true,
-            friends: [],
-            avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=dj-bot'
-          };
-        }
+          // 0. Ensure DJ Bot user exists
+          if (!newUsers['dj-bot']) {
+            newUsers['dj-bot'] = {
+              id: 'dj-bot',
+              uid: 'dj-bot',
+              name: 'DJ Bot',
+              email: 'bot@djsociety.com',
+              isAdmin: true,
+              friends: [],
+              avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=dj-bot'
+            };
+          }
 
-        // 1. Remove old bot groups and simulation artifacts
-        delete newGroups[botGroupId];
-        delete newGroups[simulatedGroupId];
-        delete newGroups[`sms-dj-help-${state.currentUser}`];
-        
-        // 2. Remove all messages from 'Bot DJ', 'DJ Help' or 'Simulateur DJ (Faux)' in all groups
-        Object.keys(newGroups).forEach(id => {
-          newGroups[id] = {
-            ...newGroups[id],
-            messages: newGroups[id].messages.filter(m => m.user !== 'Bot DJ' && m.user !== 'DJ Help' && m.user !== 'Simulateur DJ (Faux)')
-          };
-        });
+          // 1. Remove old bot groups and simulation artifacts
+          delete newGroups[botGroupId];
+          delete newGroups[simulatedGroupId];
+          
+          // 2. Remove all messages from 'Bot DJ', 'DJ Help' or 'Simulateur DJ (Faux)' in all groups
+          Object.keys(newGroups).forEach(id => {
+            newGroups[id] = {
+              ...newGroups[id],
+              messages: newGroups[id].messages.filter(m => m.user !== 'Bot DJ' && m.user !== 'DJ Help' && m.user !== 'Simulateur DJ (Faux)')
+            };
+          });
 
         // 3. Ensure DJ Bot SMS exists
         if (!newGroups[helpGroupId]) {
@@ -217,7 +216,7 @@ export default function App() {
     const sendTip = async () => {
       const randomTip = tips[Math.floor(Math.random() * tips.length)];
       const newMsg = {
-        user: 'DJ Bot',
+        user: 'dj-bot',
         text: randomTip,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         timestamp: new Date().toISOString(),
@@ -251,7 +250,7 @@ export default function App() {
           if (questionsToday >= 5) {
             const response = "Désolé, vous avez atteint votre limite de 5 questions pour aujourd'hui. Revenez demain pour plus de conseils !";
             const botResponse = {
-              user: 'DJ Bot',
+              user: 'dj-bot',
               text: response,
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               timestamp: new Date().toISOString(),
@@ -297,7 +296,7 @@ export default function App() {
           }
 
           const botResponse = {
-            user: 'DJ Bot',
+            user: 'dj-bot',
             text: response,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             timestamp: new Date().toISOString(),
@@ -341,6 +340,7 @@ export default function App() {
     { id: 'discussions', label: 'Discussions', icon: MessageSquare },
     { id: 'friends', label: 'Amis', icon: Users },
     { id: 'djsociety', label: 'DJ Society', icon: Lightbulb },
+    { id: 'staff', label: 'Staff', icon: Shield },
     { id: 'updates', label: 'Mises à jour', icon: Bell },
     { id: 'settings', label: 'Paramètres', icon: SettingsIcon },
     { id: 'tutorial', label: 'Tutoriel', icon: HelpCircle },
@@ -356,6 +356,7 @@ export default function App() {
       case 'discussions': return <Discussions state={state} updateState={updateState} />;
       case 'friends': return <Friends state={state} updateState={updateState} setView={setView} />;
       case 'admin_users': return <AdminUsers state={state} updateState={updateState} />;
+      case 'staff': return <Staff state={state} updateState={updateState} />;
       case 'djsociety': return <DJSociety state={state} updateState={updateState} />;
       case 'updates': return <Updates />;
       case 'settings': return <Settings state={state} updateState={updateState} handleLogout={handleLogout} />;
@@ -396,7 +397,7 @@ export default function App() {
   return (
     <div className="flex h-screen w-full overflow-hidden transition-colors duration-500 overscroll-none" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)', touchAction: 'pan-x pan-y' }}>
       {/* Sidebar / Hamburger Menu */}
-      <aside className={`fixed inset-y-0 left-0 z-[9999] w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-[9999] w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden p-1.5 bg-white">
@@ -467,9 +468,9 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300 ${state.menuOpen ? 'lg:ml-72 ml-0' : 'ml-0'}`}>
+      <main className={`flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300 lg:ml-72`}>
         <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[1000]">
-          <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001]">
+          <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001] lg:hidden">
             <Menu size={24} className="text-gray-600" />
           </button>
           <h1 className={`ml-2 font-black uppercase tracking-tighter text-xl ${djStyleText}`}>

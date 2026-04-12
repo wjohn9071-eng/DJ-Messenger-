@@ -4,7 +4,7 @@ import { AppState } from '../types';
 
 export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string) => void, updateState: any, startSimulation: () => void }) {
   const [showUpdateNotice, setShowUpdateNotice] = React.useState(() => {
-    return localStorage.getItem('update_notice_dismissed_2.4.0') !== 'true';
+    return localStorage.getItem('update_notice_dismissed_2.5.0') !== 'true';
   });
   const isTest = state.currentUser === 'test';
   const currentUserData = !isTest && state.currentUser ? (state.currentUserData || state.users[state.currentUser as string]) : null;
@@ -62,7 +62,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           {welcomeMessage}
         </p>
 
-        {state.newMessages && state.newMessages.filter(id => !id.startsWith('sms-dj-help-') && id !== 'simulated-group').length > 0 && (
+        {state.newMessages && state.newMessages.filter(id => !id.startsWith('sms_dj_bot_') && id !== 'simulated-group').length > 0 && (
           <button 
             onClick={handleNotificationClick}
             className="bg-red-50 p-4 rounded-2xl shadow-sm border border-red-100 w-full mb-8 animate-bounce hover:bg-red-100 transition"
@@ -79,15 +79,16 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
             <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Dimanche 12 avril 2026</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Cloudinary :</b> Support des fichiers jusqu'à 100 Mo avec stockage intelligent (Cloudinary pour le lourd, Firebase pour le léger).</li>
-              <li><b>PWA Update :</b> Nouveau système de détection de mise à jour avec interface dédiée pour rester toujours à la pointe.</li>
-              <li><b>Staff & Admin :</b> Hiérarchie Admin &gt; Super Admin &gt; Staff avec suppression de messages sécurisée.</li>
-              <li><b>Discussions :</b> Mini-onglets (Publics, Privés, SMS) pour une navigation ultra-fluide.</li>
+              <li><b>Staff Tab :</b> Nouvel onglet pour contacter l'équipe en privé (limité à 9 messages/jour).</li>
+              <li><b>Badges de Rôle :</b> Affichage des badges (Grand Admin, Super Admin, Staff) pour une meilleure identification.</li>
+              <li><b>Sécurité :</b> Masquage total des IDs utilisateurs et correction de la suppression de compte.</li>
+              <li><b>Amis & SMS :</b> Correction de l'ajout d'amis et de la suppression des discussions SMS.</li>
+              <li><b>Responsive :</b> Interface adaptée aux téléphones et Android TV.</li>
             </ul>
             <button 
               onClick={() => {
                 setShowUpdateNotice(false);
-                localStorage.setItem('update_notice_dismissed_2.4.0', 'true');
+                localStorage.setItem('update_notice_dismissed_2.5.0', 'true');
               }}
               className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
             >

@@ -1323,7 +1323,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           const isUnread = !isMine && !msg.isSystem && msg.timestamp > lastRead;
           const isDeletedAccount = !msg.isSystem && (!state.users || !state.users[msg.user]);
           const sender = state.users[msg.user];
-          const senderName = msg.user === 'test' ? 'Anonyme' : (sender?.name || msg.user);
+          let senderName = 'Inconnu';
+          if (msg.user === 'test') {
+            senderName = 'Anonyme';
+          } else if (msg.user === 'dj-bot' || msg.user === 'DJ Bot') {
+            senderName = 'DJ Bot';
+          } else if (sender?.name) {
+            senderName = sender.name;
+          }
           const senderAvatar = sender?.avatar;
 
           if (msg.isSystem) {
@@ -1341,9 +1348,12 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[80%]`}>
                 <div className="flex items-center gap-2 mb-1 px-1">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{senderName}</span>
+                  {sender?.isSuperAdmin && <span className="text-[8px] font-black uppercase bg-purple-600 text-white px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(147,51,234,0.5)]">SUPER ADMIN</span>}
+                  {sender?.isGrandAdmin && !sender?.isSuperAdmin && <span className="text-[8px] font-black uppercase bg-red-600 text-white px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(220,38,38,0.5)]">ADMIN</span>}
+                  {sender?.isAdmin && !sender?.isGrandAdmin && !sender?.isSuperAdmin && <span className="text-[8px] font-black uppercase bg-[#0D98BA] text-white px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(13,152,186,0.5)]">STAFF</span>}
                   {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
                 </div>
-                <div className={`relative px-4 py-3 rounded-3xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.2)]' : ''}`}>
+                <div className={`relative px-4 py-3 rounded-3xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.2)]' : ''} ${(sender?.isAdmin || sender?.isGrandAdmin || sender?.isSuperAdmin) ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)]' : ''}`}>
                   {msg.fileUrl && (
                       <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
                         {msg.fileType === 'image' || msg.fileType === 'sticker' ? (

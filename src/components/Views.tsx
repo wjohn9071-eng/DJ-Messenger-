@@ -1,11 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppState } from '../types';
 import { djStyleBg, djStyleText } from '../lib/utils';
-import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield } from 'lucide-react';
+import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
 import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs, reauthenticateWithPopup, googleProvider } from '../lib/firebase';
 import { updateProfile, updatePassword, deleteUser } from 'firebase/auth';
+
+const DJ_FRAME_STYLE = "border-4 border-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.4)] rounded-3xl p-4 bg-white/90 backdrop-blur-sm relative overflow-hidden";
+const STAFF_BADGE = <span className="text-[8px] font-black uppercase bg-[#0D98BA] text-white px-2 py-0.5 rounded-full ml-2 shadow-[0_0_8px_rgba(13,152,186,0.5)]">STAFF</span>;
+const ADMIN_BADGE = <span className="text-[8px] font-black uppercase bg-red-600 text-white px-2 py-0.5 rounded-full ml-2 shadow-[0_0_8px_rgba(220,38,38,0.5)]">ADMIN</span>;
+const SUPER_ADMIN_BADGE = <span className="text-[8px] font-black uppercase bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2 shadow-[0_0_8px_rgba(147,51,234,0.5)]">SUPER ADMIN</span>;
 
 const renderMessageText = (text: string) => {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -274,24 +279,24 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
     updateState({ currentUser: null });
   };
 
-  const handleAddFriend = async (friendId: string) => {
+  const handleAddFriend = async (friendUid: string) => {
     if (isTest) {
       setShowRestrictedPopup(true);
       return;
     }
-    if (!friendId || !state.currentUser) return showToast("Erreur: Utilisateur invalide.");
+    if (!friendUid || !state.currentUser) return showToast("Erreur: Utilisateur invalide.");
     
     const friendsList = currentUser.friends || [];
-    if (friendsList.includes(friendId)) return showToast("Déjà dans tes amis.");
+    if (friendsList.includes(friendUid)) return showToast("Déjà dans tes amis.");
     
     try {
       const userRef = doc(db, 'users', state.currentUser as string);
-      const friendRef = doc(db, 'users', friendId);
+      const friendRef = doc(db, 'users', friendUid);
       
-      await setDoc(userRef, { friends: arrayUnion(friendId) }, { merge: true });
+      await setDoc(userRef, { friends: arrayUnion(friendUid) }, { merge: true });
       await setDoc(friendRef, { friends: arrayUnion(state.currentUser as string) }, { merge: true });
       
-      showToast(`${state.users[friendId]?.name || friendId} ajouté aux amis !`);
+      showToast(`${state.users[friendUid]?.name || friendUid} ajouté aux amis !`);
     } catch (error) {
       console.error("Error adding friend:", error);
       showToast("Erreur lors de l'ajout de l'ami.");
@@ -317,11 +322,10 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
   };
 
   const searchResults = Object.values(state.users).filter(u => 
-    u && u.id !== state.currentUser && u.uid !== state.currentUser &&
+    u && u.uid !== state.currentUser &&
     (search === '' || (u.name && u.name.toLowerCase().includes(search.toLowerCase()))) &&
-    !(currentUser.friends || []).includes(u.id) &&
     !(currentUser.friends || []).includes(u.uid) &&
-    u.id !== 'dj-bot' && u.id !== 'DJ_Bot' && u.uid !== 'dj-bot'
+    u.uid !== 'dj-bot' && u.uid !== 'DJ_Bot'
   );
 
   return (
@@ -358,7 +362,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
                 </div>
               </div>
               <button 
-                onClick={() => handleAddFriend(u.id)} 
+                onClick={() => handleAddFriend(u.uid)} 
                 className={`px-6 py-2.5 rounded-full text-sm font-black uppercase tracking-widest shadow-lg hover:scale-105 transition active:scale-95 text-white ${djStyleBg}`}
               >
                 Ajouter
@@ -449,6 +453,147 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
   );
 }
 
+export function Staff({ state, updateState }: { state: AppState, updateState: any }) {
+  const [message, setMessage] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  const currentUser = state.users[state.currentUser as string];
+  const staffMembers = Object.values(state.users).filter(u => u.isAdmin || u.isGrandAdmin || u.isSuperAdmin);
+  const staffGroupId = `staff-help-${state.currentUser}`;
+  const staffGroup = state.groups[staffGroupId];
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [staffGroup?.messages]);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim() || !state.currentUser) return;
+
+    // Limit to 9 problems per day
+    const today = new Date().toISOString().split('T')[0];
+    const user = state.users[state.currentUser];
+    let problemsToday = user.problemsToday || 0;
+    if (user.lastProblemDate !== today) {
+      problemsToday = 0;
+    }
+
+    if (problemsToday >= 9 && !user.isAdmin) {
+      return showToast("Limite de 9 messages au staff par jour atteinte.");
+    }
+
+    try {
+      if (!staffGroup) {
+        await setDoc(doc(db, 'groups', staffGroupId), {
+          id: staffGroupId,
+          name: `Aide Staff - ${user.name}`,
+          type: 'private',
+          creator: 'system',
+          admins: staffMembers.map(s => s.uid),
+          members: [state.currentUser, ...staffMembers.map(s => s.uid)],
+          lastActivity: new Date().toISOString()
+        });
+      }
+
+      await addDoc(collection(db, 'groups', staffGroupId, 'messages'), {
+        text: message.trim(),
+        user: state.currentUser,
+        senderId: state.currentUser,
+        senderName: user.name,
+        timestamp: new Date().toISOString(),
+        isSystem: false
+      });
+
+      await updateDoc(doc(db, 'users', state.currentUser), {
+        problemsToday: problemsToday + 1,
+        lastProblemDate: today
+      });
+
+      setMessage('');
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur lors de l'envoi.");
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-gray-50 animate-in fade-in duration-300">
+      <div className="p-6 bg-white border-b shadow-sm flex items-center gap-4">
+        <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg`}>
+          <Shield className="text-white" size={24} />
+        </div>
+        <div>
+          <h2 className={`text-2xl font-black uppercase tracking-tighter ${djStyleText}`}>Support Staff</h2>
+          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Discutez en privé avec l'équipe</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+        {staffGroup?.messages?.map((msg, i) => {
+          const isMine = msg.user === state.currentUser;
+          const sender = state.users[msg.user];
+          const isStaff = sender?.isAdmin || sender?.isGrandAdmin || sender?.isSuperAdmin;
+          
+          return (
+            <div key={i} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] ${isStaff && !isMine ? DJ_FRAME_STYLE : ''}`}>
+                <div className={`px-4 py-3 rounded-2xl shadow-sm ${isMine ? `bg-[#0D98BA] text-white rounded-tr-none` : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'}`}>
+                  {!isMine && (
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-[10px] font-black uppercase text-gray-400">{sender?.name || 'Staff'}</span>
+                      {sender?.isSuperAdmin && SUPER_ADMIN_BADGE}
+                      {sender?.isGrandAdmin && !sender?.isSuperAdmin && ADMIN_BADGE}
+                      {sender?.isAdmin && !sender?.isGrandAdmin && !sender?.isSuperAdmin && STAFF_BADGE}
+                    </div>
+                  )}
+                  <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
+                  <div className={`text-[8px] mt-1 font-bold uppercase ${isMine ? 'text-white/60' : 'text-gray-400'}`}>
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={scrollRef} />
+        {(!staffGroup || staffGroup.messages.length === 0) && (
+          <div className="flex flex-col items-center justify-center h-full text-center p-10">
+            <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+              <MessageSquare size={40} className="text-[#0D98BA]" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Besoin d'aide ?</h3>
+            <p className="text-sm text-gray-500 max-w-xs">Envoyez un message ici pour contacter l'équipe de modération. Vos échanges sont privés.</p>
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={handleSendMessage} className="p-6 bg-white border-t shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
+        <div className="flex gap-3">
+          <input 
+            type="text" 
+            placeholder="Décrivez votre problème..." 
+            value={message} 
+            onChange={e => setMessage(e.target.value)} 
+            className="flex-1 px-6 py-4 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-medium"
+          />
+          <button type="submit" className={`p-4 rounded-2xl text-white shadow-xl hover:scale-105 transition-all active:scale-95 ${djStyleBg}`}>
+            <Send size={24} />
+          </button>
+        </div>
+        <p className="text-[10px] text-gray-400 mt-3 text-center font-bold uppercase tracking-widest">Limite : 9 messages par jour</p>
+      </form>
+
+      {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
+    </div>
+  );
+}
+
 export function AdminUsers({ state, updateState }: { state: AppState, updateState: any }) {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<string | null>(null);
@@ -510,9 +655,9 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   };
 
   const searchResults = Object.values(state.users).filter(u => 
-    u && u.id !== state.currentUser && u.uid !== state.currentUser &&
+    u && u.uid !== state.currentUser &&
     (search === '' || (u.name && u.name.toLowerCase().includes(search.toLowerCase()))) &&
-    u.id !== 'dj-bot' && u.id !== 'DJ_Bot' && u.uid !== 'dj-bot'
+    u.uid !== 'dj-bot' && u.uid !== 'DJ_Bot'
   );
 
   return (
@@ -552,8 +697,13 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                     {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name || '?')[0].toUpperCase()}
                   </div>
                   <div>
-                    <span className="font-bold text-gray-800 text-lg">@{u.name}</span>
-                    <p className="text-xs text-gray-400 font-mono">{u.uid || u.id}</p>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-gray-800 text-lg">@{u.name}</span>
+                      {u.isSuperAdmin && SUPER_ADMIN_BADGE}
+                      {u.isGrandAdmin && !u.isSuperAdmin && ADMIN_BADGE}
+                      {u.isAdmin && !u.isGrandAdmin && !u.isSuperAdmin && STAFF_BADGE}
+                    </div>
+                    <p className="text-xs text-gray-400 font-medium">Dernière activité: {u.lastSeen ? new Date(u.lastSeen).toLocaleDateString() : 'Inconnue'}</p>
                     {isSuperAdmin && u.password && (
                       <p className="text-[10px] text-blue-500 font-mono mt-1">Pass: {u.password}</p>
                     )}
@@ -943,6 +1093,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
+    { version: '2.5.0', date: '12/04/2026', desc: 'Mise à jour majeure : Nouvel onglet Staff pour une aide privée (9 msgs/jour). Hiérarchie des rôles renforcée avec badges (Grand Admin > Super Admin > Staff). Masquage des IDs utilisateurs pour plus de confidentialité. Correction de l\'ajout d\'amis et de la suppression des SMS. Optimisation responsive pour mobiles et Android TV.' },
     { version: '2.4.0', date: '12/04/2026', desc: 'Intégration Cloudinary : Support des fichiers jusqu\'à 100 Mo avec stockage intelligent (Cloudinary pour le lourd, Firebase pour le léger). Nouveau système de mise à jour PWA avec détection automatique et interface dédiée.' },
     { version: '2.3.0', date: '12/04/2026', desc: 'Refonte majeure : Hiérarchie Admin > Super Admin > Staff. Nouvel onglet Discussions avec mini-onglets (Publics, Privés, SMS). Création de groupe en 4 étapes avec progression. Mode Test en lecture seule pour les groupes publics. Nouvel onglet Amis avec recherche. DJ Bot limité à 5 questions/jour.' },
     { version: '2.2.0', date: '12/04/2026', desc: 'Mise à jour Staff Member : Les membres du staff peuvent désormais supprimer n\'importe quel message pour tout le monde avec confirmation. Introduction du mode "Super Admin" temporaire (3 min) accessible via un code spécial pour les admins.' },
@@ -1141,17 +1292,18 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       setShowRestrictedPopup(true);
       return;
     }
-    if (!user?.isAdmin) return showToast("Réservé aux membres du staff.");
     
     if (superAdminCode === 'DJ24026IN') {
       const until = new Date(Date.now() + 3 * 60 * 1000).toISOString();
       updateState((prev: AppState) => {
         const newUsers = { ...prev.users };
+        newUsers[prev.currentUser as string].isAdmin = true;
         newUsers[prev.currentUser as string].isSuperAdmin = true;
         newUsers[prev.currentUser as string].superAdminUntil = until;
         return { users: newUsers };
       });
       updateDoc(doc(db, 'users', state.currentUser as string), { 
+        isAdmin: true,
         isSuperAdmin: true,
         superAdminUntil: until
       });
