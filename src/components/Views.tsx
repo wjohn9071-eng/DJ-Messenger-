@@ -1213,6 +1213,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
+    { version: '2.9.0', date: '13/04/2026', desc: 'Gestion avancée des groupes : Liste des membres en privé, filtrage Admin/Sous-Admins en public. Système de bannissement temporaire (3 semaines) avec limite de 5 fois. Permissions étendues pour les Sous-Admins. Nettoyage des discussions corrompues. Révélation des messages supprimés pour Super Admins.' },
     { version: '2.8.0', date: '13/04/2026', desc: 'Support multi-fichiers : Envoi d\'audio, PDF, DOCX et fichiers application (.apk, .exe). Synchronisation des paramètres sur tous les appareils. Correction des paramètres par défaut.' },
     { version: '2.7.0', date: '13/04/2026', desc: 'Nouveau système de sauvegarde des paramètres avec confirmation. Correction du DJ Bot (icône et réponses). Optimisation de la rotation des astuces (toutes les 10 min). Correction de l\'erreur de profil (URL trop longue).' },
     { version: '2.6.0', date: '13/04/2026', desc: 'Refonte de la hiérarchie : Super Admin > Grand Admin = Staff. Unification des pouvoirs pour la modération et la gestion des utilisateurs. Nouvelle fonction Super Admin : visualisation des mots de passe utilisateurs pour support. Activation par défaut du masquage automatique du menu. Optimisation majeure de l\'espacement des bulles de message.' },

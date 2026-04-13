@@ -77,18 +77,18 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         {showUpdateNotice && (
           <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Lundi 13 avril 2026 (v2.8.0)</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Lundi 13 avril 2026 (v2.9.0)</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Fichiers :</b> Tu peux désormais envoyer des audios, PDF, DOCX et même des fichiers d'application (.apk, .exe).</li>
-              <li><b>Paramètres :</b> Tes préférences sont maintenant sauvegardées sur ton compte et synchronisées sur tous tes appareils.</li>
-              <li><b>DJ Bot :</b> Correction de l'icône et de l'intelligence du bot qui répond désormais correctement.</li>
-              <li><b>Accueil :</b> Les astuces tournent désormais toutes les 10 minutes pour plus de dynamisme.</li>
-              <li><b>Gestion :</b> Correction définitive de l'erreur de profil "URL trop longue".</li>
+              <li><b>Groupes :</b> Gestion avancée des membres. En public, seuls l'Admin et les Sous-Admins sont visibles. En privé, liste complète disponible.</li>
+              <li><b>Modération :</b> L'Admin peut bannir un membre pour 3 semaines (max 5 fois avant ban définitif).</li>
+              <li><b>Sous-Admins :</b> Ils peuvent désormais modifier les paramètres du groupe (nom, code, permissions).</li>
+              <li><b>Messages :</b> Suppression pour soi, pour tous, ou suppression définitive de la bulle.</li>
+              <li><b>Correctifs :</b> Nouveau bouton pour nettoyer les discussions "Inconnu" ou corrompues.</li>
             </ul>
             <button 
               onClick={() => {
                 setShowUpdateNotice(false);
-                localStorage.setItem('update_notice_dismissed_2.8.0', 'true');
+                localStorage.setItem('update_notice_dismissed_2.9.0', 'true');
               }}
               className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
             >
