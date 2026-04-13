@@ -172,11 +172,11 @@ export default function App() {
     }
   }, [state.currentUser]);
 
-  // DJ Bot: Auto-tips every 20 minutes and Response logic
-  useEffect(() => {
-    if (!state.currentUser || state.currentUser === 'test') return;
-    
-    const helpGroupId = `sms-dj-bot-${state.currentUser}`;
+    // DJ Bot: Auto-tips every 20 minutes and Response logic
+    useEffect(() => {
+      if (!state.currentUser || state.currentUser === 'test') return;
+      
+      const helpGroupId = `sms_${[state.currentUser, 'dj-bot'].sort().join('_')}`;
     
     const tips = [
       "Astuce : Les groupes publics sont accessibles à tous, mais les groupes privés nécessitent un code d'invitation ou une invitation directe.",
@@ -377,7 +377,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-full max-w-[1920px] mx-auto overflow-hidden transition-colors duration-500 overscroll-none" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)', touchAction: 'pan-x pan-y' }}>
+    <div className="flex h-screen w-full max-w-[1920px] mx-auto overflow-hidden transition-colors duration-500" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
       {/* Sidebar / Hamburger Menu */}
       <aside className={`fixed inset-y-0 left-0 z-[9999] w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center justify-between border-b border-white/10">
@@ -450,7 +450,7 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300 ${state.menuOpen ? 'lg:ml-72' : 'ml-0'}`}>
+      <main className={`flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300 ${state.menuOpen ? 'md:ml-72' : 'ml-0'}`}>
         <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[1000]">
           <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001]">
             <Menu size={24} className="text-gray-600" />
@@ -460,7 +460,7 @@ export default function App() {
           </h1>
         </header>
         
-        <div className="flex-1 relative h-full overflow-y-auto">
+        <div className="flex-1 relative overflow-y-auto w-full">
           {renderView()}
         </div>
       </main>
@@ -468,7 +468,7 @@ export default function App() {
       {/* Overlay for mobile when menu is open */}
       {state.menuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] lg:hidden" 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] md:hidden" 
           onClick={toggleMenu}
         />
       )}

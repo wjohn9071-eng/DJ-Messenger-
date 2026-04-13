@@ -74,7 +74,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
   }, [state.discussionTab]);
   const [messageInput, setMessageInput] = useState('');
-  const [deleteOptionsPrompt, setDeleteOptionsPrompt] = useState<{msgId: string, isMine: boolean, isCreator: boolean} | null>(null);
+  const [deleteOptionsPrompt, setDeleteOptionsPrompt] = useState<{msgId: string, isMine: boolean, isCreator: boolean, isDeletedForEveryone?: boolean} | null>(null);
   const [revealedMessages, setRevealedMessages] = useState<Record<string, number>>({});
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
@@ -901,9 +901,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const handleDeleteGroup = async (groupId: string) => {
     try {
-      await deleteDoc(doc(db, 'groups', groupId));
+      const isSMS = groupId.startsWith('sms_');
+      await deleteDoc(doc(db, isSMS ? 'private_messages' : 'groups', groupId));
       setActiveGroup(null);
-      showToast("Groupe supprimé.");
+      showToast(isSMS ? "Discussion supprimée." : "Groupe supprimé.");
     } catch (error) {
       console.error("Error deleting group:", error);
       showToast("Erreur lors de la suppression.");
@@ -1111,8 +1112,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const handleClearBrokenBotChats = async () => {
     const brokenChats = Object.values(state.privateMessages).filter(chat => 
       chat.id.startsWith('sms_') && 
-      chat.members.includes('DJ_Bot') && 
-      (!state.users['DJ_Bot'] || chat.id.includes('undefined') || chat.id.includes('null'))
+      (chat.members.includes('DJ_Bot') || chat.id.includes('undefined') || chat.id.includes('null') || chat.id.includes('sms-dj-bot'))
     );
 
     if (brokenChats.length === 0) return showToast("Aucune discussion corrompue trouvée.");
@@ -1189,7 +1189,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     return bPinned - aPinned;
   });
 
-  const helpGroupId = `sms_dj_bot_${state.currentUser}`;
+  const helpGroupId = `sms_${[state.currentUser, 'dj-bot'].sort().join('_')}`;
   const botGroup = state.privateMessages[helpGroupId];
 
   const visibleSMS = [
@@ -1235,7 +1235,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
     const handleDeleteSMS = async (smsId: string) => {
       try {
-        if (smsId.startsWith('sms_dj_bot_')) {
+        if (smsId.includes('dj-bot')) {
           await deleteDoc(doc(db, 'private_messages', smsId));
         } else {
           await deleteDoc(doc(db, 'private_messages', smsId));
@@ -1433,7 +1433,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h5 className="text-[10px] font-black uppercase text-gray-400 tracking-widest">
-                    Membres {group.type === 'private' ? `(${group.members.length})` : ''}
+                    {group.type === 'private' ? `Membres (${group.members.length})` : "Équipe d'administration"}
                   </h5>
                   {group.type === 'public' && isCreator && (
                     <button 
@@ -1576,7 +1576,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </div>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-0.5 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
         {(group.messages || []).filter(msg => msg.isSystem || msg.user === state.currentUser || (state.users && state.users[msg.user])).map(msg => {
           const isMine = msg.user === state.currentUser;
           const sender = state.users[msg.user];
@@ -1608,19 +1608,19 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             );
           }
           return (
-            <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-1.5 group/msg mb-0.5`}>
-              <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400 shadow-inner shrink-0 overflow-hidden mb-0.5">
+            <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-1.5 group/msg mb-0`}>
+              <div className="w-6 h-6 rounded-xl bg-gray-100 flex items-center justify-center text-[8px] font-bold text-gray-400 shadow-inner shrink-0 overflow-hidden">
                 {isDeletedAccount ? '?' : (senderAvatar ? <img src={senderAvatar} className="w-full h-full object-cover" /> : senderName[0].toUpperCase())}
               </div>
-              <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[85%] ${isStaff && !isMine ? DJ_FRAME_STYLE : ''}`}>
-                <div className="flex items-center gap-1.5 mb-0.5 px-1">
+              <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[85%]`}>
+                <div className="flex items-center gap-1 px-1">
                   <span className="text-[9px] font-black uppercase tracking-tighter text-gray-400">{senderName}</span>
                   {sender?.isSuperAdmin && SUPER_ADMIN_BADGE}
                   {sender?.isGrandAdmin && !sender?.isSuperAdmin && ADMIN_BADGE}
                   {sender?.isAdmin && !sender?.isGrandAdmin && !sender?.isSuperAdmin && STAFF_BADGE}
                   {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
                 </div>
-                <div className={`relative px-3 py-1.5 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''}`}>
+                <div className={`relative px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} ${isStaff && !isMine ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-50/50' : ''}`}>
                   {msg.fileUrl && (
                       <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
                         {msg.fileType === 'image' || msg.fileType === 'sticker' ? (
@@ -1718,20 +1718,20 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     {(isMine || isAdmin || isCreator || isDeletedForEveryone) && !isDeletedAccount && (
                       <div className={`absolute ${isMine ? '-left-12' : '-right-12'} top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover/msg:opacity-100 transition`}>
                         <button 
-                          onClick={() => setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator })} 
+                          onClick={() => setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator, isDeletedForEveryone })} 
                           className="p-1.5 text-red-500 hover:bg-red-50 rounded-full"
                         >
                           <Trash2 size={14} />
                         </button>
                         {isAdmin && !isMine && msg.user !== group.creator && (
-                          <button onClick={() => handleMuteUser(msg.user)} className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-full">
+                          <button onClick={() => handleToggleMute(msg.user)} className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-full">
                             <VolumeX size={14} />
                           </button>
                         )}
                       </div>
                     )}
                   </div>
-                  <span className="text-[9px] text-gray-400 mt-1 mx-1 font-medium">{msg.time}</span>
+                  <span className="text-[9px] text-gray-400 mx-1 font-medium">{msg.time}</span>
                 </div>
               </div>
             );
@@ -1757,6 +1757,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <button onClick={() => handleJoinPublicGroup(activeGroup)} className={`w-full py-3 rounded-2xl font-black uppercase tracking-widest text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}>
                 Être membre
               </button>
+            </div>
+          ) : (!isMember && group.type === 'private' && !isSMS) ? (
+            <div className="flex flex-col items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Mode Secret</p>
+              <p className="text-xs text-gray-400 italic">Vous êtes en lecture seule sur ce groupe privé.</p>
             </div>
           ) : (
             <form className="flex gap-2 items-center max-w-3xl mx-auto relative" onSubmit={handleSendMessage}>
@@ -1968,7 +1973,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-xs font-black uppercase tracking-widest text-gray-400">Rechercher un utilisateur</h4>
                 <button 
-                  onClick={() => handleStartSMS('DJ_Bot')}
+                  onClick={() => handleStartSMS('dj-bot')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-white font-black uppercase tracking-tighter text-[10px] shadow-lg hover:scale-105 active:scale-95 transition-all ${djStyleBg}`}
                 >
                   <Bot size={14} />
@@ -1990,7 +1995,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               
               <div className="mt-4 space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                 {Object.keys(state.users)
-                  .filter(u => u !== state.currentUser && state.users[u]?.uid !== state.currentUser && u !== 'DJ_Bot' && u !== 'dj-bot' && (state.users[u]?.name?.toLowerCase().includes(smsSearch.toLowerCase()) || u.toLowerCase().includes(smsSearch.toLowerCase())))
+                  .filter(u => u !== state.currentUser && state.users[u]?.uid !== state.currentUser && u !== 'dj-bot' && (state.users[u]?.name?.toLowerCase().includes(smsSearch.toLowerCase()) || u.toLowerCase().includes(smsSearch.toLowerCase())))
                   .map(u => (
                       <button 
                         key={u} 
@@ -2009,7 +2014,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                         <ChevronRight size={18} className="text-gray-300 group-hover:text-[#0D98BA] transition-colors" />
                       </button>
                     ))}
-                  {Object.keys(state.users).filter(u => u !== state.currentUser && u !== 'DJ_Bot' && (state.users[u].name?.toLowerCase().includes(smsSearch.toLowerCase()) || u.toLowerCase().includes(smsSearch.toLowerCase()))).length === 0 && (
+                  {Object.keys(state.users).filter(u => u !== state.currentUser && u !== 'dj-bot' && (state.users[u].name?.toLowerCase().includes(smsSearch.toLowerCase()) || u.toLowerCase().includes(smsSearch.toLowerCase()))).length === 0 && (
                     <p className="text-center text-xs text-gray-400 py-4 italic">Aucun utilisateur trouvé.</p>
                   )}
                 </div>
@@ -2214,9 +2219,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'me')}
                 className="w-full py-4 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition"
               >
-                Supprimer pour moi uniquement
+                {deleteOptionsPrompt.isDeletedForEveryone ? "Supprimer la bulle pour moi" : "Supprimer pour moi uniquement"}
               </button>
-              {(deleteOptionsPrompt.isMine || deleteOptionsPrompt.isCreator || currentUser?.isAdmin) && (
+              {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || deleteOptionsPrompt.isCreator || currentUser?.isAdmin) && (
                 <button 
                   onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'everyone')}
                   className="w-full py-4 rounded-2xl bg-red-50 text-red-500 font-bold hover:bg-red-100 transition"
@@ -2229,7 +2234,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'bubble')}
                   className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition"
                 >
-                  Supprimer la bulle (Définitif)
+                  Supprimer la bulle pour tous (Définitif)
                 </button>
               )}
               <button 

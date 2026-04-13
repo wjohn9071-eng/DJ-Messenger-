@@ -215,7 +215,7 @@ export function useAppStore() {
 
   // Browser Notifications Helper
   const sendNotification = useCallback((title: string, body: string) => {
-    if (Notification.permission === 'granted' && stateRef.current.currentUserData?.notifications) {
+    if (Notification.permission === 'granted' && stateRef.current.currentUserData?.notificationsEnabled) {
       new Notification(title, { body, icon: '/logo192.png' });
     }
   }, []);

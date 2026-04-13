@@ -73,6 +73,7 @@ export interface Group {
   messages: Message[];
   allowOthersToSpeak?: boolean;
   allowOthersToInvite?: boolean;
+  lastActivity?: string;
 }
 
 export interface Proposal {
@@ -97,6 +98,7 @@ export interface PrivateChat {
   type?: 'sms';
   creator?: string;
   admins?: string[];
+  subAdmins?: string[];
   banned?: string[];
   muted?: string[];
   allowOthersToSpeak?: boolean;

@@ -4,7 +4,7 @@ import { AppState } from '../types';
 
 export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string) => void, updateState: any, startSimulation: () => void }) {
   const [showUpdateNotice, setShowUpdateNotice] = React.useState(() => {
-    return localStorage.getItem('update_notice_dismissed_2.7.0') !== 'true';
+    return localStorage.getItem('update_notice_dismissed_2.8.0') !== 'true';
   });
   const isTest = state.currentUser === 'test';
   const currentUserData = !isTest && state.currentUser ? (state.currentUserData || state.users[state.currentUser as string]) : null;
@@ -77,19 +77,18 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         {showUpdateNotice && (
           <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Dimanche 12 avril 2026</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Lundi 13 avril 2026</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Gestion des Messages :</b> Supprimez vos messages pour vous ou pour tout le monde. Les Super Admins peuvent voir les messages supprimés pendant 3 min.</li>
-              <li><b>Rôles de Groupe :</b> Le créateur est Admin du groupe. Possibilité de nommer des Sous-Admins avec des droits de modération.</li>
-              <li><b>Bannissement :</b> Système de ban de 3 semaines. Après 5 bans, l'exclusion du groupe est définitive.</li>
-              <li><b>Membres :</b> Liste détaillée des membres dans les groupes privés. Seul l'admin est visible dans les groupes publics.</li>
-              <li><b>Staff :</b> Nouvelle interface pour les membres du staff pour gérer plus facilement les demandes d'aide.</li>
-              <li><b>DJ Bot :</b> Nettoyage automatique des discussions corrompues pour un chat plus fluide.</li>
+              <li><b>Interface :</b> Meilleure adaptation sur les grands écrans (PC, Tablettes, Smart TV) avec un menu latéral qui ne masque plus le contenu.</li>
+              <li><b>DJ Bot :</b> Retour de la discussion SMS avec DJ Bot. Il est désormais caché de la liste des utilisateurs.</li>
+              <li><b>Groupes Publics :</b> Simplification de l'affichage, plus de mention de membres car tout le monde y a accès.</li>
+              <li><b>Groupes Privés :</b> Les membres du staff peuvent désormais voir et modérer les groupes privés en mode "Secret" (lecture seule).</li>
+              <li><b>PWA :</b> L'application peut désormais être utilisée en mode paysage sur mobile.</li>
             </ul>
             <button 
               onClick={() => {
                 setShowUpdateNotice(false);
-                localStorage.setItem('update_notice_dismissed_2.7.0', 'true');
+                localStorage.setItem('update_notice_dismissed_2.8.0', 'true');
               }}
               className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
             >

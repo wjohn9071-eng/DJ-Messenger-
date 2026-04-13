@@ -4,7 +4,7 @@
   "description": "L'application de messagerie de la DJ Society",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "shortcuts": [
     {
       "name": "Discussions",
