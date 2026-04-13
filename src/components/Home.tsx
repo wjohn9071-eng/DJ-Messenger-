@@ -82,7 +82,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
               <li><b>Groupes :</b> Gestion avancée des membres. En public, seuls l'Admin et les Sous-Admins sont visibles. En privé, liste complète disponible.</li>
               <li><b>Modération :</b> L'Admin peut bannir un membre pour 3 semaines (max 5 fois avant ban définitif).</li>
               <li><b>Sous-Admins :</b> Ils peuvent désormais modifier les paramètres du groupe (nom, code, permissions).</li>
-              <li><b>Messages :</b> Suppression via un menu "3 points" à côté de chaque message.</li>
+              <li><b>Messages :</b> Nouveau menu "3 points" blanc et visible à côté de chaque message pour les options.</li>
               <li><b>Correctifs :</b> Nouveau bouton pour supprimer les discussions vides (0 membres).</li>
             </ul>
             <button 

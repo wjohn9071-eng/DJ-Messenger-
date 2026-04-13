@@ -1775,17 +1775,17 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isDeletedForEveryone) && !isDeletedAccount && (
-                      <div className={`absolute ${isMine ? '-left-10' : '-right-10'} top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover/msg:opacity-100 transition duration-200`}>
+                      <div className={`absolute ${isMine ? '-left-9' : '-right-9'} top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10`}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator, isDeletedForEveryone }); }} 
-                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                          className="p-1.5 bg-white shadow-md border border-gray-100 text-gray-600 hover:text-red-500 rounded-full transition-all active:scale-90"
                           title="Options du message"
                         >
-                          <MoreVertical size={16} />
+                          <MoreVertical size={14} />
                         </button>
                         {isAdmin && !isMine && msg.user !== group.creator && (
-                          <button onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-full transition-all">
-                            <VolumeX size={14} />
+                          <button onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} className="p-1.5 bg-white shadow-md border border-gray-100 text-orange-500 rounded-full transition-all active:scale-90">
+                            <VolumeX size={12} />
                           </button>
                         )}
                       </div>
