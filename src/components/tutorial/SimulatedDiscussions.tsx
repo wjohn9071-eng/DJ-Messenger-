@@ -305,29 +305,33 @@ export function SimulatedDiscussions({ state, updateState }: { state: AppState, 
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {(group.messages || []).map(msg => {
+        <div className="flex-1 overflow-y-auto p-1.5 custom-scrollbar">
+          {(group.messages || []).map((msg, idx, arr) => {
+            const prevMsg = idx > 0 ? arr[idx - 1] : null;
+            const isSameSender = prevMsg && prevMsg.user === msg.user && !msg.isSystem && !prevMsg.isSystem;
             const isMine = msg.user === state.currentUser;
             const isUnread = !isMine && !msg.isSystem && msg.timestamp > lastRead;
             if (msg.isSystem) {
               return (
-                <div key={msg.id} className="flex justify-center my-4">
-                  <span className="bg-gray-200/80 text-gray-600 text-[10px] px-4 py-1.5 rounded-full uppercase font-bold shadow-sm">{msg.text}</span>
+                <div key={msg.id} className="flex justify-center my-2">
+                  <span className="bg-gray-200/80 text-gray-600 text-[10px] px-4 py-1 rounded-full uppercase font-bold shadow-sm">{msg.text}</span>
                 </div>
               );
             }
             return (
-              <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-2 group/msg`}>
+              <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-1.5 group/msg ${isSameSender ? 'mt-0.5' : 'mt-2'}`}>
                 {!isMine && (
-                  <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold text-white shadow-sm mb-4 shrink-0">
-                    {(state.users && msg.user && state.users[msg.user]?.avatar) ? <img src={state.users[msg.user].avatar!} className="w-full h-full rounded-full object-cover" /> : (msg.user ? msg.user[0].toUpperCase() : '?')}
+                  <div className={`w-6 h-6 rounded-xl bg-gray-300 flex items-center justify-center text-[8px] font-bold text-white shadow-sm shrink-0 overflow-hidden ${isSameSender ? 'opacity-0' : 'opacity-100'}`}>
+                    {(state.users && msg.user && state.users[msg.user]?.avatar) ? <img src={state.users[msg.user].avatar!} className="w-full h-full object-cover" /> : (msg.user ? msg.user[0].toUpperCase() : '?')}
                   </div>
                 )}
-                <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[75%]`}>
-                  <div className="flex items-center gap-2 mb-1 mx-1">
-                    <span className="text-[10px] text-gray-500 font-semibold">{msg.user}</span>
-                  </div>
-                  <div className={`relative px-4 py-2.5 shadow-sm rounded-2xl ${isMine ? `rounded-br-sm text-white ${djStyleBg}` : 'rounded-bl-sm bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.3)]' : ''}`}>
+                <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[85%]`}>
+                  {!isSameSender && (
+                    <div className="flex items-center gap-1 mb-0.5 mx-1">
+                      <span className="text-[9px] text-gray-400 font-black uppercase tracking-tighter">{msg.user}</span>
+                    </div>
+                  )}
+                  <div className={`relative px-2.5 py-1 shadow-sm rounded-2xl ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.3)]' : ''}`}>
                     {msg.fileUrl && (
                       <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
                         {msg.fileType === 'image' || msg.fileType === 'sticker' ? (
@@ -387,9 +391,9 @@ export function SimulatedDiscussions({ state, updateState }: { state: AppState, 
                         </div>
                       </div>
                     )}
-                    <p className="text-sm break-words leading-relaxed">{renderMessageText(msg.text)}</p>
+                    <p className="text-sm break-words leading-tight">{renderMessageText(msg.text)}</p>
                   </div>
-                  <span className="text-[9px] text-gray-400 mt-1 mx-1 font-medium">{msg.time}</span>
+                  <span className="text-[9px] text-gray-400 mx-1 font-medium">{msg.time}</span>
                 </div>
               </div>
             );

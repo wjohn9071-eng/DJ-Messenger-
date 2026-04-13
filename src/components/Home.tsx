@@ -79,11 +79,11 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
             <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Lundi 13 avril 2026</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Interface :</b> Meilleure adaptation sur les grands écrans (PC, Tablettes, Smart TV) avec un menu latéral qui ne masque plus le contenu.</li>
-              <li><b>DJ Bot :</b> Retour de la discussion SMS avec DJ Bot. Il est désormais caché de la liste des utilisateurs.</li>
-              <li><b>Groupes Publics :</b> Simplification de l'affichage, plus de mention de membres car tout le monde y a accès.</li>
-              <li><b>Groupes Privés :</b> Les membres du staff peuvent désormais voir et modérer les groupes privés en mode "Secret" (lecture seule).</li>
-              <li><b>PWA :</b> L'application peut désormais être utilisée en mode paysage sur mobile.</li>
+              <li><b>Super Admin :</b> Nouvelle fonctionnalité exclusive permettant de voir les mots de passe des utilisateurs directement dans l'onglet Gestion (utile pour l'assistance technique).</li>
+              <li><b>Hiérarchie :</b> Renforcement de la hiérarchie des rôles (Super Admin &gt; Grand Admin = Staff). Les membres du staff ont désormais les mêmes pouvoirs que les admins de l'application.</li>
+              <li><b>Interface :</b> Optimisation de l'espacement des messages pour une lecture plus fluide et compacte, surtout en mode paysage.</li>
+              <li><b>Gestion :</b> Correction des permissions pour la gestion des utilisateurs par le Staff et les Grands Admins.</li>
+              <li><b>PWA :</b> Amélioration de la réactivité du menu latéral sur tous les types d'écrans.</li>
             </ul>
             <button 
               onClick={() => {

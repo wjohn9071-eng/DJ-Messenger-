@@ -11,7 +11,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const activeGroup = state.activeGroup;
   const setActiveGroup = (id: string | null) => updateState({ activeGroup: id });
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
-  const [showTestModeAlert, setShowTestModeAlert] = useState(false);
 
   const isTest = state.currentUser === 'test';
   const currentUser = (isTest || !state.currentUser) ? null : (state.currentUserData || state.users[state.currentUser as string]);
@@ -20,7 +19,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     ...Object.values(state.groups || {})
       .filter(g => {
         // Other groups can be seen by members or admins
-        return (g.type === 'public' || (g.members && g.members.includes(state.currentUser as string)) || currentUser?.isAdmin) && !g.id.startsWith('sms-dj-help-') && (!g.id.startsWith('sms_dj_bot_') || !isTest);
+        return (g.type === 'public' || (g.members && g.members.includes(state.currentUser as string)) || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && !g.id.startsWith('sms-dj-help-') && (!g.id.startsWith('sms_dj_bot_') || !isTest);
       })
       .map(g => {
         const lastRead = currentUser?.lastReadTimestamps?.[g.id] || '0';
@@ -171,7 +170,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isTest) {
-      setShowTestModeAlert(true);
+      setShowRestrictedPopup(true);
       return;
     }
     if (!state.currentUser || !activeGroup || !messageInput.trim()) return;
@@ -273,7 +272,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         if (group?.banned?.includes(state.currentUser as string)) return showToast("Tu es banni de ce groupe.");
         if (group?.muted?.includes(state.currentUser as string)) return showToast("Tu es muet dans ce groupe.");
         
-        const isAdmin = group?.admins?.includes(state.currentUser as string) || currentUser?.isAdmin;
+        const isAdmin = group?.admins?.includes(state.currentUser as string) || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
         const isCreator = group?.creator === state.currentUser;
         if (!(group?.allowOthersToSpeak ?? true) && !isAdmin && !isCreator) {
           return showToast("Seuls les admins peuvent parler ici.");
@@ -298,13 +297,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleFileClick = () => {
-    if (isTest) return setShowTestModeAlert(true);
+    if (isTest) return setShowRestrictedPopup(true);
     fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isTest) {
-      setShowTestModeAlert(true);
+      setShowRestrictedPopup(true);
       return;
     }
     const file = e.target.files?.[0];
@@ -450,7 +449,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const handleSendSticker = (url: string) => {
     if (isTest) {
-      setShowTestModeAlert(true);
+      setShowRestrictedPopup(true);
       return;
     }
     sendMultimediaMessage(url, 'sticker');
@@ -458,7 +457,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleCreatePoll = async () => {
-    if (isTest) return setShowTestModeAlert(true);
+    if (isTest) return setShowRestrictedPopup(true);
     if (!activeGroup || !pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2) return;
 
     const isSMS = activeGroup.startsWith('sms_');
@@ -520,7 +519,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleVote = async (messageId: string, optionId: string) => {
-    if (isTest) return setShowTestModeAlert(true);
+    if (isTest) return setShowRestrictedPopup(true);
     if (!activeGroup) return;
     const isSMS = activeGroup.startsWith('sms_');
     const path = isSMS ? 'private_messages' : 'groups';
@@ -555,7 +554,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleClosePoll = async (messageId: string) => {
-    if (isTest) return setShowTestModeAlert(true);
+    if (isTest) return setShowRestrictedPopup(true);
     if (!activeGroup) return;
     const isSMS = activeGroup.startsWith('sms_');
     const path = isSMS ? 'private_messages' : 'groups';
@@ -614,7 +613,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const handleCreateGroup = async () => {
     if (!state.currentUser) return;
     if (isTest) {
-      setShowTestModeAlert(true);
+      setShowRestrictedPopup(true);
       return;
     }
     if (!newGroupName.trim()) return showToast("Nom du groupe requis.");
@@ -845,7 +844,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const handleJoinPrivateGroup = async () => {
     if (isTest) {
-      setShowTestModeAlert(true);
+      setShowRestrictedPopup(true);
       return;
     }
     const group = Object.values(state.groups).find(g => g.type === 'private' && g.code === joinCode);
@@ -869,7 +868,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const handleJoinPublicGroup = async (groupId: string) => {
     if (isTest) {
-      setShowTestModeAlert(true);
+      setShowRestrictedPopup(true);
       return;
     }
     try {
@@ -886,6 +885,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleLeaveGroup = async (groupId: string) => {
+    if (isTest) return setShowRestrictedPopup(true);
     try {
       const groupRef = doc(db, 'groups', groupId);
       await updateDoc(groupRef, {
@@ -900,6 +900,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleDeleteGroup = async (groupId: string) => {
+    if (isTest) return setShowRestrictedPopup(true);
     try {
       const isSMS = groupId.startsWith('sms_');
       await deleteDoc(doc(db, isSMS ? 'private_messages' : 'groups', groupId));
@@ -1009,10 +1010,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleToggleSubAdmin = async (userId: string) => {
+    if (isTest) return setShowRestrictedPopup(true);
     if (!activeGroup || !state.groups || !state.groups[activeGroup]) return;
     const group = state.groups[activeGroup];
     const isCreator = group.creator === state.currentUser;
-    if (!isCreator && !currentUser?.isAdmin) return showToast("Seul l'admin du groupe peut nommer des sous-admins.");
+    if (!isCreator && !currentUser?.isAdmin && !currentUser?.isGrandAdmin && !currentUser?.isSuperAdmin) return showToast("Seul l'admin du groupe ou le Staff peut nommer des sous-admins.");
     
     const isSubAdmin = (group.subAdmins || []).includes(userId);
     try {
@@ -1074,10 +1076,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleBanUser = async (userToBan: string) => {
+    if (isTest) return setShowRestrictedPopup(true);
     if (!activeGroup || !state.groups || !state.groups[activeGroup]) return;
     const group = state.groups[activeGroup];
     const isCreator = group.creator === state.currentUser;
-    if (!isCreator && !currentUser?.isAdmin) return showToast("Seul l'admin du groupe peut bannir.");
+    if (!isCreator && !currentUser?.isAdmin && !currentUser?.isGrandAdmin && !currentUser?.isSuperAdmin) return showToast("Seul l'admin du groupe ou le Staff peut bannir.");
     if (userToBan === group.creator) return showToast("Impossible de bannir le créateur.");
 
     try {
@@ -1110,6 +1113,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleClearBrokenBotChats = async () => {
+    if (isTest) return setShowRestrictedPopup(true);
     const brokenChats = Object.values(state.privateMessages).filter(chat => 
       chat.id.startsWith('sms_') && 
       (chat.members.includes('DJ_Bot') || chat.id.includes('undefined') || chat.id.includes('null') || chat.id.includes('sms-dj-bot'))
@@ -1129,7 +1133,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const handleToggleMute = async (userToMute: string) => {
     if (!activeGroup || !state.groups || !state.groups[activeGroup]) return;
     const group = state.groups[activeGroup];
-    if (!(group.admins || []).includes(state.currentUser as string) && !currentUser?.isAdmin) return showToast("Non autorisé.");
+    if (!(group.admins || []).includes(state.currentUser as string) && !currentUser?.isAdmin && !currentUser?.isGrandAdmin && !currentUser?.isSuperAdmin) return showToast("Non autorisé.");
     if (userToMute === group.creator) return showToast("Impossible de couper le micro au créateur.");
 
     const isMuted = (group.muted || []).includes(userToMute);
@@ -1577,8 +1581,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </div>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-        {(group.messages || []).filter(msg => msg.isSystem || msg.user === state.currentUser || (state.users && state.users[msg.user])).map(msg => {
+        <div className="flex-1 overflow-y-auto p-1.5 custom-scrollbar">
+        {(group.messages || []).filter(msg => msg.isSystem || msg.user === state.currentUser || (state.users && state.users[msg.user])).map((msg, idx, arr) => {
+          const prevMsg = idx > 0 ? arr[idx - 1] : null;
+          const isSameSender = prevMsg && prevMsg.user === msg.user && !msg.isSystem && !prevMsg.isSystem;
           const isMine = msg.user === state.currentUser;
           const sender = state.users[msg.user];
           const isUnread = !isMine && !msg.isSystem && msg.timestamp > lastRead;
@@ -1603,24 +1609,26 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
           if (msg.isSystem) {
             return (
-              <div key={msg.id} className="flex justify-center my-4">
-                <span className="bg-gray-200/80 text-gray-600 text-[10px] px-4 py-1.5 rounded-full uppercase font-bold shadow-sm">{msg.text}</span>
+              <div key={msg.id} className="flex justify-center my-2">
+                <span className="bg-gray-200/80 text-gray-600 text-[10px] px-4 py-1 rounded-full uppercase font-bold shadow-sm">{msg.text}</span>
               </div>
             );
           }
           return (
-            <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-1.5 group/msg mb-0`}>
-              <div className="w-6 h-6 rounded-xl bg-gray-100 flex items-center justify-center text-[8px] font-bold text-gray-400 shadow-inner shrink-0 overflow-hidden">
+            <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-1.5 group/msg ${isSameSender ? 'mt-0.5' : 'mt-2'}`}>
+              <div className={`w-6 h-6 rounded-xl bg-gray-100 flex items-center justify-center text-[8px] font-bold text-gray-400 shadow-inner shrink-0 overflow-hidden ${isSameSender ? 'opacity-0' : 'opacity-100'}`}>
                 {isDeletedAccount ? '?' : (senderAvatar ? <img src={senderAvatar} className="w-full h-full object-cover" /> : senderName[0].toUpperCase())}
               </div>
               <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                <div className="flex items-center gap-1 px-1">
-                  <span className="text-[9px] font-black uppercase tracking-tighter text-gray-400">{senderName}</span>
-                  {sender?.isSuperAdmin && SUPER_ADMIN_BADGE}
-                  {sender?.isGrandAdmin && !sender?.isSuperAdmin && ADMIN_BADGE}
-                  {sender?.isAdmin && !sender?.isGrandAdmin && !sender?.isSuperAdmin && STAFF_BADGE}
-                  {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
-                </div>
+                {!isSameSender && (
+                  <div className="flex items-center gap-1 px-1 mb-0.5">
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-gray-400">{senderName}</span>
+                    {sender?.isSuperAdmin && SUPER_ADMIN_BADGE}
+                    {sender?.isGrandAdmin && !sender?.isSuperAdmin && ADMIN_BADGE}
+                    {sender?.isAdmin && !sender?.isGrandAdmin && !sender?.isSuperAdmin && STAFF_BADGE}
+                    {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
+                  </div>
+                )}
                 <div className={`relative px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} ${isStaff && !isMine ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-50/50' : ''}`}>
                   {msg.fileUrl && (
                       <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
@@ -1704,7 +1712,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                         </div>
                       </div>
                     )}
-                    <p className={`text-sm break-words leading-relaxed ${isDeletedForEveryone && !isRevealed ? 'italic text-gray-400' : ''}`}>
+                    <p className={`text-sm break-words leading-tight ${isDeletedForEveryone && !isRevealed ? 'italic text-gray-400' : ''}`}>
                       {isDeletedForEveryone && !isRevealed ? (
                         <span 
                           className={currentUser?.isSuperAdmin ? 'cursor-pointer hover:underline' : ''}
@@ -2222,7 +2230,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               >
                 {deleteOptionsPrompt.isDeletedForEveryone ? "Supprimer la bulle pour moi" : "Supprimer pour moi uniquement"}
               </button>
-              {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || deleteOptionsPrompt.isCreator || currentUser?.isAdmin) && (
+              {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || deleteOptionsPrompt.isCreator || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
                 <button 
                   onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'everyone')}
                   className="w-full py-4 rounded-2xl bg-red-50 text-red-500 font-bold hover:bg-red-100 transition"
@@ -2230,7 +2238,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   Supprimer pour tout le monde
                 </button>
               )}
-              {(deleteOptionsPrompt.isCreator || currentUser?.isAdmin) && (
+              {(deleteOptionsPrompt.isCreator || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
                 <button 
                   onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'bubble')}
                   className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition"
@@ -2256,23 +2264,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       )}
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
       
-      {showTestModeAlert && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-300 text-center">
-            <div className="w-20 h-20 rounded-3xl bg-blue-50 flex items-center justify-center mx-auto mb-6 shadow-inner">
-              <AlertCircle size={40} className="text-[#0D98BA]" />
-            </div>
-            <h3 className="text-xl font-black uppercase tracking-tighter text-gray-900 mb-4">Mode Test Restreint</h3>
-            <p className="text-gray-600 mb-8 font-medium">
-              Si vous voulez parler et pleinement utiliser l’application, veillez <button onClick={handleSignUpRedirect} className="text-[#0D98BA] font-black hover:underline">créer votre compte</button>.
-            </p>
-            <button onClick={() => setShowTestModeAlert(false)} className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs text-white shadow-lg active:scale-95 transition-all ${djStyleBg}`}>
-              Compris
-            </button>
-          </div>
-        </div>
-      )}
-
       {showRestrictedPopup && (
         <RestrictedActionPopup 
           onClose={() => setShowRestrictedPopup(false)} 

@@ -642,17 +642,19 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-1.5 custom-scrollbar">
-        {staffGroup?.messages?.map((msg, i) => {
+      <div className="flex-1 overflow-y-auto p-1.5 custom-scrollbar">
+        {staffGroup?.messages?.map((msg, idx, arr) => {
+          const prevMsg = idx > 0 ? arr[idx - 1] : null;
+          const isSameSender = prevMsg && prevMsg.user === msg.user;
           const isMine = msg.user === state.currentUser;
           const sender = state.users[msg.user];
           const isStaff = sender?.isAdmin || sender?.isGrandAdmin || sender?.isSuperAdmin;
           
           return (
-            <div key={i} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+            <div key={idx} className={`flex ${isMine ? 'justify-end' : 'justify-start'} ${isSameSender ? 'mt-0.5' : 'mt-2'}`}>
               <div className={`max-w-[85%] md:max-w-[75%] ${isStaff && !isMine ? DJ_FRAME_STYLE : ''}`}>
-                <div className={`px-3 py-2 rounded-2xl shadow-sm ${isMine ? `bg-[#0D98BA] text-white rounded-tr-none` : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'}`}>
-                  {!isMine && (
+                <div className={`px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `bg-[#0D98BA] text-white rounded-tr-none` : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'}`}>
+                  {!isMine && !isSameSender && (
                     <div className="flex items-center gap-1 mb-0.5">
                       <span className="text-[9px] font-black uppercase text-gray-400 tracking-tighter">{sender?.name || 'Staff'}</span>
                       {sender?.isSuperAdmin && SUPER_ADMIN_BADGE}
@@ -660,8 +662,8 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
                       {sender?.isAdmin && !sender?.isGrandAdmin && !sender?.isSuperAdmin && STAFF_BADGE}
                     </div>
                   )}
-                  <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
-                  <div className={`text-[8px] mt-1 font-bold uppercase ${isMine ? 'text-white/60' : 'text-gray-400'}`}>
+                  <p className="text-sm font-medium leading-tight">{msg.text}</p>
+                  <div className={`text-[8px] mt-0.5 font-bold uppercase ${isMine ? 'text-white/60' : 'text-gray-400'}`}>
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
@@ -710,8 +712,11 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   const [toast, setToast] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{message: string, action: () => void} | null>(null);
   
-  const isSuperAdmin = state.currentUserData?.isSuperAdmin;
-  const isGrandAdmin = state.currentUserData?.isGrandAdmin;
+    const currentUser = state.currentUser ? state.users[state.currentUser] : null;
+    const isStaff = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
+    const isSuperAdmin = currentUser?.isSuperAdmin;
+    const isGrandAdmin = currentUser?.isGrandAdmin;
+    const isAdmin = currentUser?.isAdmin;
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -719,7 +724,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   };
 
   const handleToggleAdmin = async (uid: string, currentStatus: boolean) => {
-    if (!isGrandAdmin && !isSuperAdmin) return showToast("Seul le Grand Admin ou Super Admin peut modifier les droits.");
+    if (!isAdmin && !isGrandAdmin && !isSuperAdmin) return showToast("Seul le Staff, Grand Admin ou Super Admin peut modifier les droits.");
     try {
       await updateDoc(doc(db, 'users', uid), { isAdmin: !currentStatus });
       await updateDoc(doc(db, 'users_public', uid), { isAdmin: !currentStatus });
@@ -731,7 +736,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   };
 
   const handleDeleteUser = async (uid: string) => {
-    if (!isSuperAdmin && !isGrandAdmin) return showToast("Réservé aux Super Admins.");
+    if (!isSuperAdmin && !isGrandAdmin && !isAdmin) return showToast("Réservé au Staff, Grand Admin et Super Admin.");
     setConfirmDialog({
       message: "⚠️ SUPER ADMIN: Voulez-vous vraiment supprimer définitivement cet utilisateur ET tous ses messages de la base de données ?",
       action: async () => {
@@ -814,10 +819,13 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                       {u.isGrandAdmin && !u.isSuperAdmin && ADMIN_BADGE}
                       {u.isAdmin && !u.isGrandAdmin && !u.isSuperAdmin && STAFF_BADGE}
                     </div>
-                    <p className="text-xs text-gray-400 font-medium">Dernière activité: {u.lastSeen ? new Date(u.lastSeen).toLocaleDateString() : 'Inconnue'}</p>
                     {isSuperAdmin && u.password && (
-                      <p className="text-[10px] text-blue-500 font-mono mt-1">Pass: {u.password}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Key size={10} className="text-blue-500" />
+                        <p className="text-[10px] text-blue-600 font-black uppercase tracking-tighter">Mot de passe: {u.password}</p>
+                      </div>
                     )}
+                    <p className="text-xs text-gray-400 font-medium mt-1">Dernière activité: {u.lastSeen ? new Date(u.lastSeen).toLocaleDateString() : 'Inconnue'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1204,6 +1212,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
+    { version: '2.6.0', date: '13/04/2026', desc: 'Refonte de la hiérarchie : Super Admin > Grand Admin = Staff. Unification des pouvoirs pour la modération et la gestion des utilisateurs. Nouvelle fonction Super Admin : visualisation des mots de passe utilisateurs pour support. Optimisation majeure de l\'espacement des bulles de message (regroupement par expéditeur, marges réduites). Amélioration de la réactivité de la sidebar sur tous les supports.' },
     { version: '2.5.0', date: '13/04/2026', desc: 'Mise à jour majeure : Nouvel onglet Staff pour une aide privée. Hiérarchie des rôles renforcée (Grand Admin > Super Admin > Staff). Masquage des IDs utilisateurs. Optimisation responsive pour PC, Tablettes et Smart TV. Retour de la discussion SMS avec DJ Bot. Mode Secret pour les Admins/Staff dans les groupes privés. Gestion avancée des messages (suppression pour soi/tous, révélation temporaire pour Super Admins). Rôles de groupe (Admin/Sous-Admins). Mode paysage activé pour PWA.' },
     { version: '2.4.0', date: '12/04/2026', desc: 'Intégration Cloudinary : Support des fichiers jusqu\'à 100 Mo avec stockage intelligent (Cloudinary pour le lourd, Firebase pour le léger). Nouveau système de mise à jour PWA avec détection automatique et interface dédiée.' },
     { version: '2.3.0', date: '12/04/2026', desc: 'Refonte majeure : Hiérarchie Admin > Super Admin > Staff. Nouvel onglet Discussions avec mini-onglets (Publics, Privés, SMS). Création de groupe en 4 étapes avec progression. Mode Test en lecture seule pour les groupes publics. Nouvel onglet Amis avec recherche. DJ Bot limité à 5 questions/jour.' },
