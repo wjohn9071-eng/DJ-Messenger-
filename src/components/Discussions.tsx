@@ -1140,24 +1140,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
   };
 
-  const handleClearBrokenBotChats = async () => {
+  const handleDeleteDiscussion = async (groupId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (isTest) return setShowRestrictedPopup(true);
-    const brokenChats = Object.values(state.privateMessages).filter(chat => 
-      chat.id.startsWith('sms_') && 
-      (chat.members.includes('DJ_Bot') || chat.id.includes('undefined') || chat.id.includes('null') || chat.id.includes('sms-dj-bot'))
-    );
-
-    if (brokenChats.length === 0) return showToast("Aucune discussion corrompue trouvée.");
-
+    if (!window.confirm("Voulez-vous vraiment supprimer cette discussion vide ?")) return;
     try {
-      for (const chat of brokenChats) {
-        await deleteDoc(doc(db, 'private_messages', chat.id));
-      }
-      showToast(`${brokenChats.length} discussion(s) supprimée(s).`);
-    } catch (error) {
+      await deleteDoc(doc(db, 'groups', groupId));
+      showToast("Discussion supprimée.");
+    } catch (err) {
       showToast("Erreur lors de la suppression.");
     }
   };
+
   const handleToggleMute = async (userToMute: string) => {
     if (!activeGroup || !state.groups || !state.groups[activeGroup]) return;
     const group = state.groups[activeGroup];
@@ -1659,7 +1653,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
                   </div>
                 )}
-                <div className={`relative px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} ${isStaff && !isMine ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-50/50' : ''}`}>
+                <div 
+                  onClick={() => (isMine || isAdmin || isCreator || isDeletedForEveryone) && !isDeletedAccount && setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator, isDeletedForEveryone })}
+                  className={`relative px-2.5 py-1 rounded-2xl shadow-sm cursor-pointer hover:opacity-90 transition-opacity ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} ${isStaff && !isMine ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-50/50' : ''}`}>
                   {msg.fileUrl && (
                       <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
                         {msg.fileType === 'image' || msg.fileType === 'sticker' ? (
@@ -1781,15 +1777,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isDeletedForEveryone) && !isDeletedAccount && (
-                      <div className={`absolute ${isMine ? '-left-12' : '-right-12'} top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover/msg:opacity-100 transition`}>
-                        <button 
-                          onClick={() => setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator, isDeletedForEveryone })} 
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-full"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                      <div className={`absolute ${isMine ? '-left-8' : '-right-8'} top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover/msg:opacity-100 transition`}>
                         {isAdmin && !isMine && msg.user !== group.creator && (
-                          <button onClick={() => handleToggleMute(msg.user)} className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-full">
+                          <button onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-full">
                             <VolumeX size={14} />
                           </button>
                         )}
@@ -1999,7 +1989,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <div className="p-6 pb-0">
         <h2 className={`text-2xl font-bold mb-6 ${djStyleText}`}>Discussions</h2>
-          <div className="flex gap-1.5 p-1 bg-gray-200/50 backdrop-blur-sm rounded-2xl mb-4 shadow-inner">
+          <div className="flex gap-1.5 p-1 bg-gray-200/50 backdrop-blur-sm rounded-2xl mb-6 shadow-inner">
             <button 
               onClick={() => handleTabChange('public')} 
               className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'public' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
@@ -2025,15 +2015,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               Récents
             </button>
           </div>
-
-          {/* Cleanup Button for Broken Chats */}
-          <button 
-            onClick={handleClearBrokenBotChats}
-            className="w-full mb-4 py-2.5 px-4 bg-orange-50 text-orange-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-100 transition border border-orange-100 flex items-center justify-center gap-2 shadow-sm"
-          >
-            <Bot size={14} />
-            Nettoyer discussions corrompues
-          </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pb-6">
@@ -2262,6 +2243,15 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           )}
                         </div>
                         <span className="text-xs text-gray-400 whitespace-nowrap">{g.messages && g.messages.length > 0 ? g.messages[g.messages.length - 1]?.time : ''}</span>
+                        {(!g.members || g.members.length === 0) && (
+                          <button 
+                            onClick={(e) => handleDeleteDiscussion(g.id, e)}
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
+                            title="Supprimer la discussion vide"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                       <p className={`text-sm truncate ${state.newMessages?.includes(g.id) ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
                         {g.messages && g.messages.length > 0 ? g.messages[g.messages.length - 1]?.text : 'Aucun message'}
