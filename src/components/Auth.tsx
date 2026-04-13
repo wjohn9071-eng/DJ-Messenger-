@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowLeft, ImagePlus, X } from 'lucide-react';
 import { djStyleBg, djStyleText, DJ_LOGO_SVG, compressImage } from '../lib/utils';
 import { AppState } from '../types';
-import { auth, googleProviderWithPrompt, signInWithPopup, db, doc, setDoc, getDoc } from '../lib/firebase';
+import { auth, googleProvider, googleProviderWithPrompt, signInWithPopup, db, doc, setDoc, getDoc } from '../lib/firebase';
 import { GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 export default function Auth({ state, updateState }: { state: AppState, updateState: any }) {
@@ -21,9 +21,11 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
 
   const handleGoogleLogin = async () => {
     try {
-      // Use the provider with prompt to ensure account selection works in iframes
-      const result = await signInWithPopup(auth, googleProviderWithPrompt);
+      console.log("Starting Google Login with Popup...");
+      // Try with standard provider first, it's often more stable
+      const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+      console.log("Google Login Success:", user.uid);
       
       // Ensure user document exists in Firestore
       const userRef = doc(db, 'users', user.uid);
@@ -73,7 +75,10 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
         }
       }
     } catch (error: any) {
-      console.error("Google Login Error:", error);
+      console.error("Google Login Error Full Object:", JSON.stringify(error, null, 2));
+      console.error("Google Login Error Code:", error.code);
+      console.error("Google Login Error Message:", error.message);
+      
       if (error.code === 'auth/unauthorized-domain') {
         showToast("Erreur: Ce domaine n'est pas autorisé dans la console Firebase.");
       } else if (error.code === 'auth/popup-closed-by-user') {

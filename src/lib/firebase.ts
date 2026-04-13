@@ -22,18 +22,15 @@ import {
   where, 
   getDocs 
 } from 'firebase/firestore';
-import { initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, reauthenticateWithPopup } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, reauthenticateWithPopup } from 'firebase/auth';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
-// Initialisation Auth plus robuste pour les iframes et Vercel
-export const auth = initializeAuth(app, {
-  persistence: browserLocalPersistence,
-  popupRedirectResolver: browserPopupRedirectResolver,
-});
+// Initialisation Auth standard
+export const auth = getAuth(app);
 
 // Optimisation Firestore pour éviter les erreurs "Offline" et "Network Request Failed"
 // Utilisation de la nouvelle API de cache pour éviter les warnings de dépréciation
