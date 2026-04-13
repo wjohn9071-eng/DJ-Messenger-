@@ -213,9 +213,17 @@ export function useAppStore() {
     return () => unsubscribe();
   }, []);
 
+  // Browser Notifications Helper
+  const sendNotification = useCallback((title: string, body: string) => {
+    if (Notification.permission === 'granted' && stateRef.current.currentUserData?.notifications) {
+      new Notification(title, { body, icon: '/logo192.png' });
+    }
+  }, []);
+
   // Real-time Groups & Messages
   useEffect(() => {
     const unsubMessages: Record<string, () => void> = {};
+    const lastMsgIds: Record<string, string> = {};
     
     const unsubscribe = onSnapshot(collection(db, 'groups'), (snapshot) => {
       const groups: Record<string, Group> = {};
@@ -235,6 +243,16 @@ export function useAppStore() {
                 user: data.user || data.senderId // Ensure user is the UID
               } as Message);
             });
+
+            // Notification logic
+            if (messages.length > 0) {
+              const lastMsg = messages[messages.length - 1];
+              if (lastMsgIds[groupDoc.id] && lastMsgIds[groupDoc.id] !== lastMsg.id && lastMsg.user !== stateRef.current.currentUser) {
+                sendNotification(`DJ Messenger - ${groupData.name}`, `${lastMsg.senderName || 'Nouveau message'}: ${lastMsg.text}`);
+              }
+              lastMsgIds[groupDoc.id] = lastMsg.id || '';
+            }
+
             setState(prev => ({
               ...prev,
               groups: {
@@ -288,6 +306,7 @@ export function useAppStore() {
     if (!state.currentUser) return;
     
     const unsubMessages: Record<string, () => void> = {};
+    const lastMsgIds: Record<string, string> = {};
     
     const unsubscribe = onSnapshot(collection(db, 'private_messages'), (snapshot) => {
       const privateMessages: Record<string, PrivateChat> = {};
@@ -314,6 +333,17 @@ export function useAppStore() {
                 time: new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
               } as Message);
             });
+
+            // Notification logic
+            if (messages.length > 0) {
+              const lastMsg = messages[messages.length - 1];
+              if (lastMsgIds[chatDoc.id] && lastMsgIds[chatDoc.id] !== lastMsg.id && lastMsg.user !== stateRef.current.currentUser) {
+                const otherUser = stateRef.current.users[lastMsg.user]?.name || 'Quelqu\'un';
+                sendNotification(`DJ Messenger - SMS de ${otherUser}`, lastMsg.text);
+              }
+              lastMsgIds[chatDoc.id] = lastMsg.id || '';
+            }
+
             setState(prev => ({
               ...prev,
               privateMessages: {

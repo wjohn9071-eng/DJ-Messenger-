@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState } from '../types';
 import { djStyleBg, djStyleText } from '../lib/utils';
-import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send } from 'lucide-react';
+import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
 import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs, reauthenticateWithPopup, googleProvider } from '../lib/firebase';
 import { updateProfile, updatePassword, deleteUser } from 'firebase/auth';
 
-const DJ_FRAME_STYLE = "border-4 border-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.4)] rounded-3xl p-4 bg-white/90 backdrop-blur-sm relative overflow-hidden";
-const STAFF_BADGE = <span className="text-[8px] font-black uppercase bg-[#0D98BA] text-white px-2 py-0.5 rounded-full ml-2 shadow-[0_0_8px_rgba(13,152,186,0.5)]">STAFF</span>;
-const ADMIN_BADGE = <span className="text-[8px] font-black uppercase bg-red-600 text-white px-2 py-0.5 rounded-full ml-2 shadow-[0_0_8px_rgba(220,38,38,0.5)]">ADMIN</span>;
-const SUPER_ADMIN_BADGE = <span className="text-[8px] font-black uppercase bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2 shadow-[0_0_8px_rgba(147,51,234,0.5)]">SUPER ADMIN</span>;
+export const DJ_FRAME_STYLE = "border-4 border-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.4)] rounded-3xl p-4 bg-white/90 backdrop-blur-sm relative overflow-hidden";
+export const STAFF_BADGE = <span className="text-[8px] font-black uppercase bg-[#0D98BA] text-white px-2 py-0.5 rounded-full ml-2 shadow-[0_0_8px_rgba(13,152,186,0.5)]">STAFF</span>;
+export const ADMIN_BADGE = <span className="text-[8px] font-black uppercase bg-red-600 text-white px-2 py-0.5 rounded-full ml-2 shadow-[0_0_8px_rgba(220,38,38,0.5)]">ADMIN</span>;
+export const SUPER_ADMIN_BADGE = <span className="text-[8px] font-black uppercase bg-purple-600 text-white px-2 py-0.5 rounded-full ml-2 shadow-[0_0_8px_rgba(147,51,234,0.5)]">SUPER ADMIN</span>;
 
 const renderMessageText = (text: string) => {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -293,9 +293,20 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
       const userRef = doc(db, 'users', state.currentUser as string);
       const friendRef = doc(db, 'users', friendUid);
       
-      await setDoc(userRef, { friends: arrayUnion(friendUid) }, { merge: true });
-      await setDoc(friendRef, { friends: arrayUnion(state.currentUser as string) }, { merge: true });
+      await updateDoc(userRef, { friends: arrayUnion(friendUid) });
+      await updateDoc(friendRef, { friends: arrayUnion(state.currentUser as string) });
       
+      updateState((prev: AppState) => {
+        const newUsers = { ...prev.users };
+        if (newUsers[state.currentUser as string]) {
+          newUsers[state.currentUser as string].friends = [...(newUsers[state.currentUser as string].friends || []), friendUid];
+        }
+        if (newUsers[friendUid]) {
+          newUsers[friendUid].friends = [...(newUsers[friendUid].friends || []), state.currentUser as string];
+        }
+        return { users: newUsers };
+      });
+
       showToast(`${state.users[friendUid]?.name || friendUid} ajouté aux amis !`);
     } catch (error) {
       console.error("Error adding friend:", error);
@@ -457,11 +468,15 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
   const [message, setMessage] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [activeHelpRequest, setActiveHelpRequest] = useState<string | null>(null);
   
   const currentUser = state.users[state.currentUser as string];
+  const isStaffMember = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
   const staffMembers = Object.values(state.users).filter(u => u.isAdmin || u.isGrandAdmin || u.isSuperAdmin);
   const staffGroupId = `staff-help-${state.currentUser}`;
-  const staffGroup = state.groups[staffGroupId];
+  
+  const helpRequests = Object.values(state.groups).filter(g => g.id.startsWith('staff-help-'));
+  const staffGroup = activeHelpRequest ? state.groups[activeHelpRequest] : state.groups[staffGroupId];
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -476,7 +491,10 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
     e.preventDefault();
     if (!message.trim() || !state.currentUser) return;
 
-    // Limit to 9 problems per day
+    const targetGroupId = activeHelpRequest || staffGroupId;
+    const targetGroup = state.groups[targetGroupId];
+
+    // Limit to 9 problems per day for normal users
     const today = new Date().toISOString().split('T')[0];
     const user = state.users[state.currentUser];
     let problemsToday = user.problemsToday || 0;
@@ -484,14 +502,14 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
       problemsToday = 0;
     }
 
-    if (problemsToday >= 9 && !user.isAdmin) {
+    if (problemsToday >= 9 && !user.isAdmin && !activeHelpRequest) {
       return showToast("Limite de 9 messages au staff par jour atteinte.");
     }
 
     try {
-      if (!staffGroup) {
-        await setDoc(doc(db, 'groups', staffGroupId), {
-          id: staffGroupId,
+      if (!targetGroup) {
+        await setDoc(doc(db, 'groups', targetGroupId), {
+          id: targetGroupId,
           name: `Aide Staff - ${user.name}`,
           type: 'private',
           creator: 'system',
@@ -501,7 +519,7 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
         });
       }
 
-      await addDoc(collection(db, 'groups', staffGroupId, 'messages'), {
+      await addDoc(collection(db, 'groups', targetGroupId, 'messages'), {
         text: message.trim(),
         user: state.currentUser,
         senderId: state.currentUser,
@@ -510,10 +528,12 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
         isSystem: false
       });
 
-      await updateDoc(doc(db, 'users', state.currentUser), {
-        problemsToday: problemsToday + 1,
-        lastProblemDate: today
-      });
+      if (!activeHelpRequest) {
+        await updateDoc(doc(db, 'users', state.currentUser), {
+          problemsToday: problemsToday + 1,
+          lastProblemDate: today
+        });
+      }
 
       setMessage('');
     } catch (error) {
@@ -522,19 +542,87 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
     }
   };
 
+  if (isStaffMember && !activeHelpRequest) {
+    return (
+      <div className="flex flex-col h-full bg-gray-50 animate-in fade-in duration-300">
+        <div className="p-6 bg-white border-b shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg`}>
+              <Shield className="text-white" size={24} />
+            </div>
+            <div>
+              <h2 className={`text-2xl font-black uppercase tracking-tighter ${djStyleText}`}>
+                {currentUser?.isSuperAdmin ? "Espace Super Admin" : (currentUser?.isGrandAdmin ? "Espace Grand Admin" : (currentUser?.isAdmin ? "Espace Staff" : "Requêtes d'aide"))}
+              </h2>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Gérez les problèmes des utilisateurs</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+          {helpRequests.sort((a, b) => new Date(b.lastActivity || '').getTime() - new Date(a.lastActivity || '').getTime()).map(req => {
+            const lastMsg = req.messages?.[req.messages.length - 1];
+            return (
+              <div 
+                key={req.id} 
+                onClick={() => setActiveHelpRequest(req.id)} 
+                className="p-5 bg-white rounded-3xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all group"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-black uppercase tracking-tight text-gray-800 group-hover:text-[#0D98BA] transition-colors">{req.name}</h3>
+                  <span className="text-[9px] font-bold text-gray-400 uppercase">{new Date(req.lastActivity || '').toLocaleDateString()}</span>
+                </div>
+                <p className="text-sm text-gray-500 line-clamp-1 mb-3">{lastMsg?.text || 'Aucun message'}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex -space-x-2">
+                    {req.members.slice(0, 3).map(m => (
+                      <div key={m} className="w-6 h-6 rounded-full border-2 border-white bg-gray-200 overflow-hidden shadow-sm">
+                        {state.users[m]?.avatar ? <img src={state.users[m].avatar} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] font-bold">{state.users[m]?.name?.[0]}</div>}
+                      </div>
+                    ))}
+                  </div>
+                  <button className="text-[10px] font-black uppercase text-[#0D98BA] flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                    Répondre <ChevronRight size={12} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {helpRequests.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <MessageSquare size={48} className="text-gray-200 mb-4" />
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Aucune requête d'aide pour le moment</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-gray-50 animate-in fade-in duration-300">
-      <div className="p-6 bg-white border-b shadow-sm flex items-center gap-4">
-        <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg`}>
-          <Shield className="text-white" size={24} />
-        </div>
-        <div>
-          <h2 className={`text-2xl font-black uppercase tracking-tighter ${djStyleText}`}>Support Staff</h2>
-          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Discutez en privé avec l'équipe</p>
+      <div className="p-6 bg-white border-b shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {activeHelpRequest && (
+            <button onClick={() => setActiveHelpRequest(null)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+              <ChevronLeft size={24} className="text-gray-400" />
+            </button>
+          )}
+          <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg`}>
+            <Shield className="text-white" size={24} />
+          </div>
+          <div>
+            <h2 className={`text-2xl font-black uppercase tracking-tighter ${djStyleText}`}>
+              {activeHelpRequest ? staffGroup?.name : "Support Staff"}
+            </h2>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
+              {activeHelpRequest ? "Assistance utilisateur" : "Discutez en privé avec l'équipe"}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-1.5 custom-scrollbar">
         {staffGroup?.messages?.map((msg, i) => {
           const isMine = msg.user === state.currentUser;
           const sender = state.users[msg.user];
@@ -542,11 +630,11 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
           
           return (
             <div key={i} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] ${isStaff && !isMine ? DJ_FRAME_STYLE : ''}`}>
-                <div className={`px-4 py-3 rounded-2xl shadow-sm ${isMine ? `bg-[#0D98BA] text-white rounded-tr-none` : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'}`}>
+              <div className={`max-w-[85%] md:max-w-[75%] ${isStaff && !isMine ? DJ_FRAME_STYLE : ''}`}>
+                <div className={`px-3 py-2 rounded-2xl shadow-sm ${isMine ? `bg-[#0D98BA] text-white rounded-tr-none` : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'}`}>
                   {!isMine && (
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="text-[10px] font-black uppercase text-gray-400">{sender?.name || 'Staff'}</span>
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <span className="text-[9px] font-black uppercase text-gray-400 tracking-tighter">{sender?.name || 'Staff'}</span>
                       {sender?.isSuperAdmin && SUPER_ADMIN_BADGE}
                       {sender?.isGrandAdmin && !sender?.isSuperAdmin && ADMIN_BADGE}
                       {sender?.isAdmin && !sender?.isGrandAdmin && !sender?.isSuperAdmin && STAFF_BADGE}
@@ -577,7 +665,7 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
         <div className="flex gap-3">
           <input 
             type="text" 
-            placeholder="Décrivez votre problème..." 
+            placeholder="Répondre..." 
             value={message} 
             onChange={e => setMessage(e.target.value)} 
             className="flex-1 px-6 py-4 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-medium"
@@ -586,10 +674,13 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
             <Send size={24} />
           </button>
         </div>
-        <p className="text-[10px] text-gray-400 mt-3 text-center font-bold uppercase tracking-widest">Limite : 9 messages par jour</p>
+        {!activeHelpRequest && <p className="text-[10px] text-gray-400 mt-3 text-center font-bold uppercase tracking-widest">Limite : 9 messages par jour</p>}
       </form>
-
-      {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest shadow-2xl backdrop-blur-md z-50 animate-in slide-in-from-bottom-4">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
@@ -1093,6 +1184,8 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
+    { version: '2.7.0', date: '12/04/2026', desc: 'Gestion avancée des messages : suppression pour soi ou pour tous, révélation temporaire pour les Super Admins. Rôles de groupe : Admin du groupe (créateur) et Sous-Admins. Système de bannissement (3 semaines, limite de 5). Liste des membres détaillée dans les groupes privés. Nettoyage des discussions DJ Bot corrompues.' },
+    { version: '2.6.0', date: '12/04/2026', desc: 'Optimisation majeure de l\'interface pour PC, Tablettes et Smart TV. Correction de l\'espacement des messages et accélération de l\'envoi. Retour de la discussion SMS avec DJ Bot. Nouveau système de gestion des membres pour les groupes privés avec recherche. Mode Secret pour les Admins/Staff dans les groupes privés.' },
     { version: '2.5.0', date: '12/04/2026', desc: 'Mise à jour majeure : Nouvel onglet Staff pour une aide privée (9 msgs/jour). Hiérarchie des rôles renforcée avec badges (Grand Admin > Super Admin > Staff). Masquage des IDs utilisateurs pour plus de confidentialité. Correction de l\'ajout d\'amis et de la suppression des SMS. Optimisation responsive pour mobiles et Android TV.' },
     { version: '2.4.0', date: '12/04/2026', desc: 'Intégration Cloudinary : Support des fichiers jusqu\'à 100 Mo avec stockage intelligent (Cloudinary pour le lourd, Firebase pour le léger). Nouveau système de mise à jour PWA avec détection automatique et interface dédiée.' },
     { version: '2.3.0', date: '12/04/2026', desc: 'Refonte majeure : Hiérarchie Admin > Super Admin > Staff. Nouvel onglet Discussions avec mini-onglets (Publics, Privés, SMS). Création de groupe en 4 étapes avec progression. Mode Test en lecture seule pour les groupes publics. Nouvel onglet Amis avec recherche. DJ Bot limité à 5 questions/jour.' },

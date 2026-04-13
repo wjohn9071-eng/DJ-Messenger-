@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { db, collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, setDoc, arrayUnion, arrayRemove, storage, ref, uploadBytesResumable, getDownloadURL } from '../lib/firebase';
 import { djStyleBg, djStyleText } from '../lib/utils';
-import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users } from 'lucide-react';
+import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search } from 'lucide-react';
+import { DJ_FRAME_STYLE, STAFF_BADGE, ADMIN_BADGE, SUPER_ADMIN_BADGE } from './Views';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 import { AppState, Group } from '../types';
 
@@ -19,7 +20,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     ...Object.values(state.groups || {})
       .filter(g => {
         // Other groups can be seen by members or admins
-        return (g.type === 'public' || (g.members && g.members.includes(state.currentUser as string)) || currentUser?.isAdmin) && !g.id.startsWith('sms-dj-help-') && (!g.id.startsWith('sms-dj-bot-') || !isTest);
+        return (g.type === 'public' || (g.members && g.members.includes(state.currentUser as string)) || currentUser?.isAdmin) && !g.id.startsWith('sms-dj-help-') && (!g.id.startsWith('sms_dj_bot_') || !isTest);
       })
       .map(g => {
         const lastRead = currentUser?.lastReadTimestamps?.[g.id] || '0';
@@ -73,6 +74,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
   }, [state.discussionTab]);
   const [messageInput, setMessageInput] = useState('');
+  const [deleteOptionsPrompt, setDeleteOptionsPrompt] = useState<{msgId: string, isMine: boolean, isCreator: boolean} | null>(null);
+  const [revealedMessages, setRevealedMessages] = useState<Record<string, number>>({});
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [newGroupName, setNewGroupName] = useState('');
@@ -179,9 +182,53 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       console.error("Group not found for activeGroup:", activeGroup);
       return;
     }
+
+    // Admin/Staff Ghost Access Check: Cannot speak if not a member
+    const isStaff = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
+    const isMember = group?.members?.includes(state.currentUser as string);
+    if (!isSMS && isStaff && !isMember && group?.type === 'private') {
+      return showToast("Mode Secret : Vous pouvez lire mais pas parler.");
+    }
     
     const msgText = messageInput.trim();
     setMessageInput('');
+
+    // Optimistic UI update
+    const optimisticMsg = {
+      id: `temp-${Date.now()}`,
+      text: msgText,
+      user: state.currentUser,
+      senderId: state.currentUser,
+      senderName: currentUser?.name || state.currentUser || 'Utilisateur',
+      timestamp: new Date().toISOString(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isSystem: false,
+      isOptimistic: true
+    };
+
+    if (isSMS) {
+      updateState((prev: AppState) => {
+        const newPMs = { ...prev.privateMessages };
+        if (newPMs[activeGroup]) {
+          newPMs[activeGroup] = {
+            ...newPMs[activeGroup],
+            messages: [...(newPMs[activeGroup].messages || []), optimisticMsg]
+          };
+        }
+        return { privateMessages: newPMs };
+      });
+    } else {
+      updateState((prev: AppState) => {
+        const newGroups = { ...prev.groups };
+        if (newGroups[activeGroup]) {
+          newGroups[activeGroup] = {
+            ...newGroups[activeGroup],
+            messages: [...(newGroups[activeGroup].messages || []), optimisticMsg]
+          };
+        }
+        return { groups: newGroups };
+      });
+    }
 
     let otherUser = '';
     if (isSMS) {
@@ -778,6 +825,24 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     );
   };
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setRevealedMessages(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.keys(next).forEach(id => {
+          if (next[id] < now) {
+            delete next[id];
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleJoinPrivateGroup = async () => {
     if (isTest) {
       setShowTestModeAlert(true);
@@ -898,41 +963,65 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     updateState({ discussionTab: tab });
   };
 
-  const handleDeleteMessage = async (msgId: string) => {
+  const handleDeleteMessage = async (msgId: string, option: 'me' | 'everyone' | 'bubble' = 'me') => {
     if (!activeGroup) return;
     const isSMS = activeGroup.startsWith('sms_');
+    const path = isSMS ? 'private_messages' : 'groups';
     const group = state.groups[activeGroup] || state.privateMessages[activeGroup];
     if (!group) return;
 
     const msg = group.messages?.find(m => m.id === msgId);
     if (!msg) return;
 
-    const isDeletedAccount = !state.users || !state.users[msg.user];
-    const user = state.users && state.currentUser ? state.users[state.currentUser as string] : null;
-    
-    const isAdmin = !isSMS && ((group as Group).admins?.includes(state.currentUser as string) || user?.isAdmin);
-    const isCreator = !isSMS && (group as Group).creator === state.currentUser;
-    
-    const canDelete = msg.user === state.currentUser || isAdmin || isCreator || isDeletedAccount;
-    
-    if (!canDelete) return showToast("Non autorisé.");
-
-    if (isAdmin && msg.user !== state.currentUser) {
-      setStaffDeletePrompt(msgId);
-      return;
-    }
-
-    if (isDeletedAccount) {
-      setDeletePrompt({ msgId, user: msg.user });
-      return;
-    }
-
     try {
-      const msgRef = doc(db, isSMS ? 'private_messages' : 'groups', activeGroup, 'messages', msgId);
-      await deleteDoc(msgRef);
+      const msgRef = doc(db, path, activeGroup, 'messages', msgId);
+      
+      if (option === 'me') {
+        await updateDoc(msgRef, {
+          deletedForUsers: arrayUnion(state.currentUser)
+        });
+        showToast("Message supprimé pour vous.");
+      } else if (option === 'everyone') {
+        await updateDoc(msgRef, {
+          deletedForEveryone: true,
+          originalText: msg.text,
+          text: 'Message supprimé',
+          deletedAt: new Date().toISOString()
+        });
+        showToast("Message supprimé pour tous.");
+      } else if (option === 'bubble') {
+        await deleteDoc(msgRef);
+        showToast("Bulle supprimée.");
+      }
+      setDeleteOptionsPrompt(null);
     } catch (error) {
       console.error("Error deleting message:", error);
       showToast("Erreur lors de la suppression.");
+    }
+  };
+
+  const handleRevealMessage = (msgId: string) => {
+    if (!currentUser?.isSuperAdmin) return;
+    const threeMinutesLater = Date.now() + 3 * 60 * 1000;
+    setRevealedMessages(prev => ({ ...prev, [msgId]: threeMinutesLater }));
+    showToast("Message révélé pour 3 minutes.");
+  };
+
+  const handleToggleSubAdmin = async (userId: string) => {
+    if (!activeGroup || !state.groups || !state.groups[activeGroup]) return;
+    const group = state.groups[activeGroup];
+    const isCreator = group.creator === state.currentUser;
+    if (!isCreator && !currentUser?.isAdmin) return showToast("Seul l'admin du groupe peut nommer des sous-admins.");
+    
+    const isSubAdmin = (group.subAdmins || []).includes(userId);
+    try {
+      const groupRef = doc(db, 'groups', activeGroup);
+      await updateDoc(groupRef, {
+        subAdmins: isSubAdmin ? arrayRemove(userId) : arrayUnion(userId)
+      });
+      showToast(isSubAdmin ? "Sous-admin retiré." : "Sous-admin nommé.");
+    } catch (error) {
+      showToast("Erreur lors de la modification.");
     }
   };
 
@@ -986,23 +1075,58 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const handleBanUser = async (userToBan: string) => {
     if (!activeGroup || !state.groups || !state.groups[activeGroup]) return;
     const group = state.groups[activeGroup];
-    if (!(group.admins || []).includes(state.currentUser as string) && !currentUser?.isAdmin) return showToast("Non autorisé.");
+    const isCreator = group.creator === state.currentUser;
+    if (!isCreator && !currentUser?.isAdmin) return showToast("Seul l'admin du groupe peut bannir.");
     if (userToBan === group.creator) return showToast("Impossible de bannir le créateur.");
 
     try {
+      const banHistory = group.banHistory || {};
+      const userBanInfo = banHistory[userToBan] || { count: 0, until: '' };
+      
+      if (userBanInfo.count >= 5) {
+        return showToast("Cet utilisateur est banni définitivement (5 renvois).");
+      }
+
+      const threeWeeksLater = new Date();
+      threeWeeksLater.setDate(threeWeeksLater.getDate() + 21);
+      
+      const newBanInfo = {
+        count: userBanInfo.count + 1,
+        until: threeWeeksLater.toISOString()
+      };
+
       const groupRef = doc(db, 'groups', activeGroup);
       await updateDoc(groupRef, {
         banned: arrayUnion(userToBan),
-        members: arrayRemove(userToBan)
+        members: arrayRemove(userToBan),
+        [`banHistory.${userToBan}`]: newBanInfo
       });
-      showToast(`${userToBan} banni.`);
+      showToast(`${userToBan} banni pour 3 semaines.`);
     } catch (error) {
       console.error("Error banning user:", error);
       showToast("Erreur lors du bannissement.");
     }
   };
 
-  const handleMuteUser = async (userToMute: string) => {
+  const handleClearBrokenBotChats = async () => {
+    const brokenChats = Object.values(state.privateMessages).filter(chat => 
+      chat.id.startsWith('sms_') && 
+      chat.members.includes('DJ_Bot') && 
+      (!state.users['DJ_Bot'] || chat.id.includes('undefined') || chat.id.includes('null'))
+    );
+
+    if (brokenChats.length === 0) return showToast("Aucune discussion corrompue trouvée.");
+
+    try {
+      for (const chat of brokenChats) {
+        await deleteDoc(doc(db, 'private_messages', chat.id));
+      }
+      showToast(`${brokenChats.length} discussion(s) supprimée(s).`);
+    } catch (error) {
+      showToast("Erreur lors de la suppression.");
+    }
+  };
+  const handleToggleMute = async (userToMute: string) => {
     if (!activeGroup || !state.groups || !state.groups[activeGroup]) return;
     const group = state.groups[activeGroup];
     if (!(group.admins || []).includes(state.currentUser as string) && !currentUser?.isAdmin) return showToast("Non autorisé.");
@@ -1052,9 +1176,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     if (activeTab === 'private') {
       // For private tab, show groups that are NOT direct messages (more than 2 members or has a code)
       // AND only show if user is member or creator
-      // AND for private groups, only show if user is already a member (entered code)
+      // OR if user is Admin/Staff/SuperAdmin (Ghost access)
+      const isStaff = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
       return g.type === 'private' && 
-             ((g.members || []).includes(state.currentUser as string) || g.creator === state.currentUser || currentUser?.isAdmin) &&
+             ((g.members || []).includes(state.currentUser as string) || g.creator === state.currentUser || isStaff) &&
              ((g.members || []).length > 2 || g.code);
     }
     return false; // Recent and SMS handled separately
@@ -1064,16 +1189,20 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     return bPinned - aPinned;
   });
 
-  const helpGroupId = `sms-dj-bot-${state.currentUser}`;
-  const botGroup = state.groups[helpGroupId];
+  const helpGroupId = `sms_dj_bot_${state.currentUser}`;
+  const botGroup = state.privateMessages[helpGroupId];
 
   const visibleSMS = [
     ...Object.values(state.privateMessages || {}).filter(chat => {
       const otherMember = chat?.members?.find(m => m !== state.currentUser);
-      return chat && chat.members && chat.members.includes(state.currentUser as string) && (!chat.members.includes('dj-bot') || !isTest) && otherMember;
+      return chat && chat.members && chat.members.includes(state.currentUser as string) && otherMember;
     }),
-    ...(botGroup && !isTest ? [botGroup] : [])
-  ];
+    ...(botGroup ? [botGroup] : [])
+  ].sort((a, b) => {
+    const timeA = new Date(a.lastActivity || a.createdAt || 0).getTime();
+    const timeB = new Date(b.lastActivity || b.createdAt || 0).getTime();
+    return timeB - timeA;
+  });
 
   if (activeGroup) {
     let group = state.groups?.[activeGroup] || state.privateMessages?.[activeGroup];
@@ -1098,7 +1227,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     const otherUserData = otherUid ? state.users[otherUid] : null;
     const otherUser = otherUserData?.name || otherUid;
 
-    const isAdmin = !isSMS && ((group as Group).admins?.includes(state.currentUser as string) || currentUser?.isAdmin);
+    const isAdmin = !isSMS && ((group as Group).admins?.includes(state.currentUser as string) || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin);
     const isCreator = !isSMS && (group as Group).creator === state.currentUser;
     const isMember = (group.members || []).includes(state.currentUser as string);
     const isPinned = currentUser?.pinnedGroups?.includes(activeGroup);
@@ -1106,17 +1235,17 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
     const handleDeleteSMS = async (smsId: string) => {
       try {
-        await deleteDoc(doc(db, 'private_messages', smsId));
+        if (smsId.startsWith('sms_dj_bot_')) {
+          await deleteDoc(doc(db, 'private_messages', smsId));
+        } else {
+          await deleteDoc(doc(db, 'private_messages', smsId));
+        }
         setActiveGroup(null);
         setShowDeleteSmsPrompt(null);
-        if (toast !== "Discussion supprimée.") {
-          setToast("Discussion supprimée.");
-          setTimeout(() => setToast(null), 3000);
-        }
+        showToast("Discussion supprimée.");
       } catch (error) {
         console.error("Error deleting SMS:", error);
-        setToast("Erreur lors de la suppression.");
-        setTimeout(() => setToast(null), 3000);
+        showToast("Erreur lors de la suppression.");
       }
     };
 
@@ -1137,7 +1266,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </div>
             <div>
               <h3 className="font-bold text-gray-800 leading-tight">{isSMS ? otherUser : group.name}</h3>
-              <p className="text-xs text-gray-500 font-medium">{isSMS ? (otherUserData?.lastSeen ? `Vu ${otherUserData.lastSeen}` : 'En ligne') : `${(group.members || []).length} membres`}</p>
+              {!isSMS && group.type === 'public' ? (
+                <p className="text-xs text-gray-500 font-medium italic">Groupe Ouvert</p>
+              ) : (
+                <p className="text-xs text-gray-500 font-medium">{isSMS ? (otherUserData?.lastSeen ? `Vu ${otherUserData.lastSeen}` : 'En ligne') : `${(group.members || []).length} membres`}</p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -1219,8 +1352,158 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             )}
 
+            {!isSMS && group.type === 'private' && (
+              <div className="space-y-4">
+                <h5 className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Ajouter un membre</h5>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="Rechercher un utilisateur..." 
+                    className="flex-1 px-4 py-2 rounded-xl bg-gray-50 border border-gray-100 text-sm outline-none focus:ring-2 focus:ring-[#0D98BA]"
+                    onChange={(e) => setSmsSearch(e.target.value)}
+                  />
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-2 custom-scrollbar">
+                  {Object.values(state.users)
+                    .filter(u => u.uid !== state.currentUser && u.uid !== 'dj-bot' && !group.members.includes(u.uid) && (u.name.toLowerCase().includes(smsSearch.toLowerCase()) || smsSearch === ''))
+                    .map(u => (
+                      <div key={u.uid} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                            {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span>{u.name[0]}</span>}
+                          </div>
+                          <span className="text-sm font-bold text-gray-700">{u.name}</span>
+                        </div>
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await updateDoc(doc(db, 'groups', activeGroup), {
+                                members: arrayUnion(u.uid)
+                              });
+                              showToast(`${u.name} ajouté !`);
+                            } catch (e) {
+                              showToast("Erreur lors de l'ajout.");
+                            }
+                          }}
+                          className="px-3 py-1 bg-[#0D98BA] text-white text-[10px] font-black uppercase rounded-lg shadow-sm"
+                        >
+                          Ajouter
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {!isSMS && group.type === 'public' && isCreator && (
+              <div className="space-y-4">
+                <h5 className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Nommer un sous-admin</h5>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="Rechercher un utilisateur..." 
+                    className="flex-1 px-4 py-2 rounded-xl bg-gray-50 border border-gray-100 text-sm outline-none focus:ring-2 focus:ring-[#0D98BA]"
+                    onChange={(e) => setSmsSearch(e.target.value)}
+                  />
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-2 custom-scrollbar">
+                  {Object.values(state.users)
+                    .filter(u => u.uid !== state.currentUser && u.uid !== 'dj-bot' && !(group.subAdmins || []).includes(u.uid) && (u.name.toLowerCase().includes(smsSearch.toLowerCase()) || smsSearch === ''))
+                    .map(u => (
+                      <div key={u.uid} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                            {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span>{u.name[0]}</span>}
+                          </div>
+                          <span className="text-sm font-bold text-gray-700">{u.name}</span>
+                        </div>
+                        <button 
+                          onClick={() => handleToggleSubAdmin(u.uid)}
+                          className="px-3 py-1 bg-blue-50 text-blue-500 hover:bg-blue-100 text-[10px] font-black uppercase rounded-lg shadow-sm transition-colors"
+                        >
+                          Nommer
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
             {!isSMS && (
               <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-[10px] font-black uppercase text-gray-400 tracking-widest">
+                    Membres {group.type === 'private' ? `(${group.members.length})` : ''}
+                  </h5>
+                  {group.type === 'public' && isCreator && (
+                    <button 
+                      onClick={() => setShowGroupSettings(true)} // Re-trigger search view if needed
+                      className="text-[10px] font-black uppercase text-[#0D98BA] hover:underline"
+                    >
+                      Gérer les sous-admins
+                    </button>
+                  )}
+                </div>
+                
+                <div className="max-h-60 overflow-y-auto space-y-2 custom-scrollbar">
+                  {group.members
+                    .filter(m => {
+                      if (group.type === 'public') {
+                        return m === group.creator || (group.subAdmins || []).includes(m);
+                      }
+                      return true;
+                    })
+                    .map((m: string) => {
+                      const u = state.users[m];
+                      const isMemberCreator = m === group.creator;
+                      const isMemberSubAdmin = (group.subAdmins || []).includes(m);
+                      
+                      return (
+                        <div key={m} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl group/member">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gray-200 flex items-center justify-center overflow-hidden shadow-inner">
+                              {u?.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span className="font-bold text-gray-400">{u?.name?.[0] || '?'}</span>}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-gray-800">{u?.name || 'Inconnu'}</span>
+                                {isMemberCreator && (
+                                  <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-red-100 text-red-600 rounded-full">Admin du groupe</span>
+                                )}
+                                {isMemberSubAdmin && (
+                                  <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full">Sous-Admin</span>
+                                )}
+                              </div>
+                              <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">
+                                {isMemberCreator ? 'Fondateur' : (isMemberSubAdmin ? 'Modérateur' : 'Membre')}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {isCreator && m !== state.currentUser && (
+                            <div className="flex items-center gap-1 opacity-0 group-hover/member:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => handleToggleSubAdmin(m)}
+                                className={`p-2 rounded-xl transition-colors ${isMemberSubAdmin ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400 hover:bg-blue-50 hover:text-blue-500'}`}
+                                title={isMemberSubAdmin ? "Retirer sous-admin" : "Nommer sous-admin"}
+                              >
+                                <Shield size={14} />
+                              </button>
+                              {group.type === 'private' && (
+                                <button 
+                                  onClick={() => handleBanUser(m)} 
+                                  className="p-2 bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-500 rounded-xl transition-colors"
+                                  title="Bannir (3 semaines)"
+                                >
+                                  <UserX size={14} />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
                 <label className="flex items-center justify-between cursor-pointer group">
                   <span className="text-sm font-bold text-gray-700">Autoriser les autres à parler</span>
                   <div className="relative">
@@ -1274,29 +1557,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             )}
 
             <div className="pt-4 border-t space-y-3">
-              {!isSMS && (isCreator || (group.allowOthersToInvite ?? true)) && (
-                <button 
-                  onClick={async () => {
-                    const friend = prompt("Nom de l'ami à ajouter :");
-                    if (friend && state.users[friend]) {
-                      try {
-                        await updateDoc(doc(db, 'groups', activeGroup), {
-                          members: arrayUnion(friend)
-                        });
-                        showToast(`${state.users[friend].name || friend} ajouté !`);
-                      } catch (err) {
-                        console.error("Error adding member:", err);
-                        showToast("Erreur lors de l'ajout.");
-                      }
-                    } else if (friend) {
-                      showToast("Utilisateur introuvable.");
-                    }
-                  }}
-                  className="w-full py-3 rounded-xl bg-blue-50 text-[#0D98BA] font-bold text-sm hover:bg-blue-100 transition"
-                >
-                  Ajouter un membre
-                </button>
-              )}
               {!isSMS && isCreator && (
                 <button 
                   onClick={() => handleDeleteGroup(activeGroup)}
@@ -1316,17 +1576,24 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </div>
           </div>
         )}
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-0.5 custom-scrollbar">
         {(group.messages || []).filter(msg => msg.isSystem || msg.user === state.currentUser || (state.users && state.users[msg.user])).map(msg => {
           const isMine = msg.user === state.currentUser;
+          const sender = state.users[msg.user];
           const isUnread = !isMine && !msg.isSystem && msg.timestamp > lastRead;
           const isDeletedAccount = !msg.isSystem && (!state.users || !state.users[msg.user]);
-          const sender = state.users[msg.user];
+          const isStaff = sender?.isAdmin || sender?.isGrandAdmin || sender?.isSuperAdmin;
+          
+          const isDeletedForMe = msg.deletedForUsers?.includes(state.currentUser as string);
+          const isDeletedForEveryone = msg.deletedForEveryone;
+          const isRevealed = revealedMessages[msg.id] > Date.now();
+
+          if (isDeletedForMe) return null;
+
           let senderName = 'Inconnu';
           if (msg.user === 'test') {
             senderName = 'Anonyme';
-          } else if (msg.user === 'dj-bot' || msg.user === 'DJ Bot') {
+          } else if (msg.user === 'dj-bot' || msg.user === 'DJ Bot' || msg.user === 'system') {
             senderName = 'DJ Bot';
           } else if (sender?.name) {
             senderName = sender.name;
@@ -1341,19 +1608,19 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             );
           }
           return (
-            <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-2 group/msg`}>
-              <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400 shadow-inner shrink-0 overflow-hidden mb-1">
+            <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-1.5 group/msg mb-0.5`}>
+              <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400 shadow-inner shrink-0 overflow-hidden mb-0.5">
                 {isDeletedAccount ? '?' : (senderAvatar ? <img src={senderAvatar} className="w-full h-full object-cover" /> : senderName[0].toUpperCase())}
               </div>
-              <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[80%]`}>
-                <div className="flex items-center gap-2 mb-1 px-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{senderName}</span>
-                  {sender?.isSuperAdmin && <span className="text-[8px] font-black uppercase bg-purple-600 text-white px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(147,51,234,0.5)]">SUPER ADMIN</span>}
-                  {sender?.isGrandAdmin && !sender?.isSuperAdmin && <span className="text-[8px] font-black uppercase bg-red-600 text-white px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(220,38,38,0.5)]">ADMIN</span>}
-                  {sender?.isAdmin && !sender?.isGrandAdmin && !sender?.isSuperAdmin && <span className="text-[8px] font-black uppercase bg-[#0D98BA] text-white px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(13,152,186,0.5)]">STAFF</span>}
+              <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[85%] ${isStaff && !isMine ? DJ_FRAME_STYLE : ''}`}>
+                <div className="flex items-center gap-1.5 mb-0.5 px-1">
+                  <span className="text-[9px] font-black uppercase tracking-tighter text-gray-400">{senderName}</span>
+                  {sender?.isSuperAdmin && SUPER_ADMIN_BADGE}
+                  {sender?.isGrandAdmin && !sender?.isSuperAdmin && ADMIN_BADGE}
+                  {sender?.isAdmin && !sender?.isGrandAdmin && !sender?.isSuperAdmin && STAFF_BADGE}
                   {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
                 </div>
-                <div className={`relative px-4 py-3 rounded-3xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.2)]' : ''} ${(sender?.isAdmin || sender?.isGrandAdmin || sender?.isSuperAdmin) ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)]' : ''}`}>
+                <div className={`relative px-3 py-1.5 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''}`}>
                   {msg.fileUrl && (
                       <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
                         {msg.fileType === 'image' || msg.fileType === 'sticker' ? (
@@ -1436,10 +1703,24 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                         </div>
                       </div>
                     )}
-                    <p className="text-sm break-words leading-relaxed">{renderMessageText(msg.text)}</p>
-                    {(isMine || isAdmin || isCreator) && !isDeletedAccount && (
+                    <p className={`text-sm break-words leading-relaxed ${isDeletedForEveryone && !isRevealed ? 'italic text-gray-400' : ''}`}>
+                      {isDeletedForEveryone && !isRevealed ? (
+                        <span 
+                          className={currentUser?.isSuperAdmin ? 'cursor-pointer hover:underline' : ''}
+                          onClick={() => currentUser?.isSuperAdmin && handleRevealMessage(msg.id)}
+                        >
+                          Message supprimé
+                        </span>
+                      ) : (
+                        renderMessageText(isRevealed ? msg.originalText || msg.text : msg.text)
+                      )}
+                    </p>
+                    {(isMine || isAdmin || isCreator || isDeletedForEveryone) && !isDeletedAccount && (
                       <div className={`absolute ${isMine ? '-left-12' : '-right-12'} top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover/msg:opacity-100 transition`}>
-                        <button onClick={() => handleDeleteMessage(msg.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-full">
+                        <button 
+                          onClick={() => setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator })} 
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-full"
+                        >
                           <Trash2 size={14} />
                         </button>
                         {isAdmin && !isMine && msg.user !== group.creator && (
@@ -1684,7 +1965,16 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">SMS</h3>
             </div>
             <div className="bg-white p-6 rounded-3xl shadow-xl border border-gray-50 mb-4">
-              <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Rechercher un utilisateur</h4>
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-black uppercase tracking-widest text-gray-400">Rechercher un utilisateur</h4>
+                <button 
+                  onClick={() => handleStartSMS('DJ_Bot')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-white font-black uppercase tracking-tighter text-[10px] shadow-lg hover:scale-105 active:scale-95 transition-all ${djStyleBg}`}
+                >
+                  <Bot size={14} />
+                  Parler à DJ Bot
+                </button>
+              </div>
               <div className="relative">
                 <input 
                   type="text" 
@@ -1886,7 +2176,12 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-bold text-gray-900 truncate pr-2">{g.name}</h3>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h3 className="font-bold text-gray-900 truncate">{g.name}</h3>
+                          {activeTab === 'private' && !g.members?.includes(state.currentUser) && (
+                            <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full shrink-0">Ghost</span>
+                          )}
+                        </div>
                         <span className="text-xs text-gray-400 whitespace-nowrap">{g.messages && g.messages.length > 0 ? g.messages[g.messages.length - 1]?.time : ''}</span>
                       </div>
                       <p className={`text-sm truncate ${state.newMessages?.includes(g.id) ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
@@ -1906,6 +2201,47 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           </div>
         )}
       </div>
+
+      {deleteOptionsPrompt && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className={`p-6 ${djStyleBg} text-white text-center`}>
+              <Trash2 size={32} className="mx-auto mb-2" />
+              <h3 className="text-lg font-black uppercase tracking-tighter">Supprimer le message</h3>
+            </div>
+            <div className="p-6 space-y-3">
+              <button 
+                onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'me')}
+                className="w-full py-4 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition"
+              >
+                Supprimer pour moi uniquement
+              </button>
+              {(deleteOptionsPrompt.isMine || deleteOptionsPrompt.isCreator || currentUser?.isAdmin) && (
+                <button 
+                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'everyone')}
+                  className="w-full py-4 rounded-2xl bg-red-50 text-red-500 font-bold hover:bg-red-100 transition"
+                >
+                  Supprimer pour tout le monde
+                </button>
+              )}
+              {(deleteOptionsPrompt.isCreator || currentUser?.isAdmin) && (
+                <button 
+                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'bubble')}
+                  className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition"
+                >
+                  Supprimer la bulle (Définitif)
+                </button>
+              )}
+              <button 
+                onClick={() => setDeleteOptionsPrompt(null)}
+                className="w-full py-4 rounded-2xl text-gray-400 font-bold hover:text-gray-600 transition"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreateGroup && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">

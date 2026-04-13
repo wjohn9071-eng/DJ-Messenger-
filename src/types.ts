@@ -49,6 +49,10 @@ export interface Message {
   groupName?: string;
   groupType?: string;
   poll?: Poll;
+  deletedForEveryone?: boolean;
+  deletedForUsers?: string[]; // UIDs who deleted it for themselves
+  originalText?: string; // For super admin view
+  deletedAt?: string; // ISO timestamp for the 3-minute timer
 }
 
 export interface Group {
@@ -63,6 +67,8 @@ export interface Group {
   members: string[];
   banned: string[];
   muted: string[];
+  subAdmins?: string[];
+  banHistory?: Record<string, { count: number; until: string }>; // UID -> { count, until }
   code?: string;
   messages: Message[];
   allowOthersToSpeak?: boolean;
@@ -85,6 +91,7 @@ export interface PrivateChat {
   members: string[];
   messages: Message[];
   createdAt: string;
+  lastActivity?: string;
   // Added for compatibility with Group type in UI
   name?: string;
   type?: 'sms';
