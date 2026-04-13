@@ -358,7 +358,7 @@ export default function App() {
     updateState({ activeGroup: null });
     
     // Always close menu on mobile, or if autoHideSidebar is enabled
-    if (window.innerWidth < 1024 || user?.autoHideSidebar) {
+    if (window.innerWidth < 1024 || (user?.autoHideSidebar ?? true)) {
       updateState({ menuOpen: false });
     }
   };

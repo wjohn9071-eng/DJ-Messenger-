@@ -42,7 +42,7 @@ export interface Message {
   timestamp: string; // ISO string for comparison
   isSystem?: boolean;
   fileUrl?: string;
-  fileType?: 'image' | 'video' | 'sticker';
+  fileType?: 'image' | 'video' | 'sticker' | 'audio' | 'pdf' | 'docx' | 'app' | 'file';
   fileName?: string;
   senderId?: string;
   senderName?: string;

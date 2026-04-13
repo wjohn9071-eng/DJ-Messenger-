@@ -1213,6 +1213,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
+    { version: '2.8.0', date: '13/04/2026', desc: 'Support multi-fichiers : Envoi d\'audio, PDF, DOCX et fichiers application (.apk, .exe). Synchronisation des paramètres sur tous les appareils. Correction des paramètres par défaut.' },
     { version: '2.7.0', date: '13/04/2026', desc: 'Nouveau système de sauvegarde des paramètres avec confirmation. Correction du DJ Bot (icône et réponses). Optimisation de la rotation des astuces (toutes les 10 min). Correction de l\'erreur de profil (URL trop longue).' },
     { version: '2.6.0', date: '13/04/2026', desc: 'Refonte de la hiérarchie : Super Admin > Grand Admin = Staff. Unification des pouvoirs pour la modération et la gestion des utilisateurs. Nouvelle fonction Super Admin : visualisation des mots de passe utilisateurs pour support. Activation par défaut du masquage automatique du menu. Optimisation majeure de l\'espacement des bulles de message.' },
     { version: '2.5.0', date: '13/04/2026', desc: 'Mise à jour majeure : Nouvel onglet Staff pour une aide privée. Hiérarchie des rôles renforcée (Grand Admin > Super Admin > Staff). Masquage des IDs utilisateurs. Optimisation responsive pour PC, Tablettes et Smart TV. Retour de la discussion SMS avec DJ Bot. Mode Secret pour les Admins/Staff dans les groupes privés. Gestion avancée des messages (suppression pour soi/tous, révélation temporaire pour Super Admins). Rôles de groupe (Admin/Sous-Admins). Mode paysage activé pour PWA.' },
@@ -1262,6 +1263,15 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+
+  // Sync state with user data when it changes externally (e.g. from another device)
+  useEffect(() => {
+    if (user && !showSaveConfirm) {
+      setBgColor(user.bgColor || '#f0f2f5');
+      setNotifications(user.notificationsEnabled || false);
+      setAutoHideSidebar(user.autoHideSidebar ?? true);
+    }
+  }, [user, showSaveConfirm]);
 
   const showToast = (msg: string) => {
     setToast(msg);

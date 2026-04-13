@@ -77,12 +77,12 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         {showUpdateNotice && (
           <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Lundi 13 avril 2026 (v2.7.0)</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Lundi 13 avril 2026 (v2.8.0)</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Paramètres :</b> Nouveau système de détection de changement avec popup de confirmation pour sauvegarder vos préférences.</li>
-              <li><b>DJ Bot :</b> Correction de l'icône et de l'intelligence du bot qui répond désormais correctement à vos questions.</li>
+              <li><b>Fichiers :</b> Tu peux désormais envoyer des audios, PDF, DOCX et même des fichiers d'application (.apk, .exe).</li>
+              <li><b>Paramètres :</b> Tes préférences sont maintenant sauvegardées sur ton compte et synchronisées sur tous tes appareils.</li>
+              <li><b>DJ Bot :</b> Correction de l'icône et de l'intelligence du bot qui répond désormais correctement.</li>
               <li><b>Accueil :</b> Les astuces tournent désormais toutes les 10 minutes pour plus de dynamisme.</li>
-              <li><b>Super Admin :</b> Visualisation des mots de passe utilisateurs pour l'assistance technique.</li>
               <li><b>Gestion :</b> Correction définitive de l'erreur de profil "URL trop longue".</li>
             </ul>
             <button 

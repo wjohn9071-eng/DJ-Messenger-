@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { db, collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, setDoc, arrayUnion, arrayRemove, storage, ref, uploadBytesResumable, getDownloadURL } from '../lib/firebase';
 import { djStyleBg, djStyleText } from '../lib/utils';
-import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search } from 'lucide-react';
+import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search, FileText, FileAudio, File as FileIcon, Globe as GlobeIcon } from 'lucide-react';
 import { DJ_FRAME_STYLE, STAFF_BADGE, ADMIN_BADGE, SUPER_ADMIN_BADGE } from './Views';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 import { AppState, Group } from '../types';
@@ -317,11 +317,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
+    const isAudio = file.type.startsWith('audio/');
+    const isPdf = file.type === 'application/pdf';
+    const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx') || file.name.endsWith('.doc');
+    const isApp = file.name.endsWith('.apk') || file.name.endsWith('.exe') || file.name.endsWith('.ipa');
 
-    if (!isImage && !isVideo) {
-      showToast("Format non supporté (Images et Vidéos uniquement).");
-      return;
-    }
+    let fileType: 'image' | 'video' | 'audio' | 'pdf' | 'docx' | 'app' | 'file' = 'file';
+    if (isImage) fileType = 'image';
+    else if (isVideo) fileType = 'video';
+    else if (isAudio) fileType = 'audio';
+    else if (isPdf) fileType = 'pdf';
+    else if (isDocx) fileType = 'docx';
+    else if (isApp) fileType = 'app';
 
     // Limit to 100MB as per user request
     if (file.size > 100 * 1024 * 1024) {
@@ -330,18 +337,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
 
     // Fallback pour les petits fichiers (Base64 dans Firestore) pour Firebase (Rapidité)
-    if (file.size < 800 * 1024) { // < 800KB
+    if (file.size < 800 * 1024 && (isImage || isVideo || isAudio)) { // < 800KB and media
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64data = reader.result as string;
-        await sendMultimediaMessage(base64data, isImage ? 'image' : 'video', file.name);
+        await sendMultimediaMessage(base64data, fileType as any, file.name);
         if (fileInputRef.current) fileInputRef.current.value = '';
       };
       reader.readAsDataURL(file);
       return;
     }
 
-    // Cloudinary pour les fichiers lourds (> 800KB)
+    // Cloudinary pour les fichiers lourds (> 800KB) ou documents
     try {
       const cloudName = 'dfbhvgcbi';
       const uploadPreset = 'djmessenger_preset';
@@ -364,7 +371,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       xhr.onload = async () => {
         if (xhr.status === 200) {
           const response = JSON.parse(xhr.responseText);
-          await sendMultimediaMessage(response.secure_url, isImage ? 'image' : 'video', file.name);
+          await sendMultimediaMessage(response.secure_url, fileType as any, file.name);
           setUploadProgress(null);
           if (fileInputRef.current) fileInputRef.current.value = '';
         } else {
@@ -387,7 +394,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
   };
 
-  const sendMultimediaMessage = async (url: string, type: 'image' | 'video' | 'sticker', fileName?: string) => {
+  const sendMultimediaMessage = async (url: string, type: 'image' | 'video' | 'sticker' | 'audio' | 'pdf' | 'docx' | 'app' | 'file', fileName?: string) => {
     if (!activeGroup || !state.currentUser) return;
     const isSMS = activeGroup.startsWith('sms_');
     
@@ -398,9 +405,20 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       otherUser = state.users[otherUid!]?.name || otherUid || 'Inconnu';
     }
 
+    const typeIcons: Record<string, string> = {
+      image: "📷 Image",
+      video: "🎥 Vidéo",
+      sticker: "✨ Sticker",
+      audio: "🎵 Audio",
+      pdf: "📄 PDF",
+      docx: "📝 Document",
+      app: "📱 Application",
+      file: "📁 Fichier"
+    };
+
     try {
       const msgData = {
-        text: type === 'image' ? "📷 Image" : type === 'video' ? "🎥 Vidéo" : "✨ Sticker",
+        text: typeIcons[type] || "📁 Fichier",
         user: state.currentUser,
         fileUrl: url,
         fileType: type,
@@ -1645,7 +1663,33 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             controls 
                             className="max-w-full max-h-60 rounded-xl"
                           />
-                        ) : null}
+                        ) : msg.fileType === 'audio' ? (
+                          <div className="p-4 flex flex-col gap-2 bg-gray-100 rounded-xl">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-[#0D98BA] text-white rounded-lg shadow-md">
+                                <FileAudio size={20} />
+                              </div>
+                              <span className="text-xs font-bold truncate max-w-[150px]">{msg.fileName || 'Audio'}</span>
+                            </div>
+                            <audio src={msg.fileUrl} controls className="w-full h-8" />
+                          </div>
+                        ) : (
+                          <div className="p-4 flex items-center gap-4 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors cursor-pointer" onClick={() => handleDownload(msg.fileUrl!, msg.fileName || 'file')}>
+                            <div className={`p-3 rounded-2xl shadow-lg text-white ${
+                              msg.fileType === 'pdf' ? 'bg-red-500' : 
+                              msg.fileType === 'docx' ? 'bg-blue-600' : 
+                              msg.fileType === 'app' ? 'bg-green-600' : 'bg-gray-600'
+                            }`}>
+                              {msg.fileType === 'pdf' ? <FileText size={24} /> : 
+                               msg.fileType === 'docx' ? <FileText size={24} /> : 
+                               msg.fileType === 'app' ? <Plus size={24} /> : <FileIcon size={24} />}
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-black uppercase tracking-tight truncate">{msg.fileName || 'Fichier'}</span>
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{msg.fileType?.toUpperCase() || 'FILE'}</span>
+                            </div>
+                          </div>
+                        )}
                         <button 
                           onClick={() => handleDownload(msg.fileUrl!, msg.fileName || 'file')}
                           className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover/file:opacity-100 transition shadow-lg backdrop-blur-sm"
@@ -1779,7 +1823,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 ref={fileInputRef} 
                 onChange={handleFileChange} 
                 className="hidden" 
-                accept="image/*,video/mp4"
+                accept="image/*,video/*,audio/*,.pdf,.docx,.doc,.apk,.exe,.ipa"
               />
               <button 
                 type="button"
