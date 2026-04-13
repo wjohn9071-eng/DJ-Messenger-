@@ -1653,9 +1653,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
                   </div>
                 )}
-                <div 
-                  onClick={() => (isMine || isAdmin || isCreator || isDeletedForEveryone) && !isDeletedAccount && setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator, isDeletedForEveryone })}
-                  className={`relative px-2.5 py-1 rounded-2xl shadow-sm cursor-pointer hover:opacity-90 transition-opacity ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} ${isStaff && !isMine ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-50/50' : ''}`}>
+                <div className={`relative px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} ${isStaff && !isMine ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-50/50' : ''}`}>
                   {msg.fileUrl && (
                       <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
                         {msg.fileType === 'image' || msg.fileType === 'sticker' ? (
@@ -1777,9 +1775,16 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isDeletedForEveryone) && !isDeletedAccount && (
-                      <div className={`absolute ${isMine ? '-left-8' : '-right-8'} top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover/msg:opacity-100 transition`}>
+                      <div className={`absolute ${isMine ? '-left-10' : '-right-10'} top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover/msg:opacity-100 transition duration-200`}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator, isDeletedForEveryone }); }} 
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                          title="Options du message"
+                        >
+                          <MoreVertical size={16} />
+                        </button>
                         {isAdmin && !isMine && msg.user !== group.creator && (
-                          <button onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-full">
+                          <button onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-full transition-all">
                             <VolumeX size={14} />
                           </button>
                         )}
