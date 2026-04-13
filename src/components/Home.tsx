@@ -82,7 +82,8 @@ export default function Home({ state, setView, updateState, startSimulation }: {
               <li><b>Super Admin :</b> Nouvelle fonctionnalité exclusive permettant de voir les mots de passe des utilisateurs directement dans l'onglet Gestion (utile pour l'assistance technique).</li>
               <li><b>Hiérarchie :</b> Renforcement de la hiérarchie des rôles (Super Admin &gt; Grand Admin = Staff). Les membres du staff ont désormais les mêmes pouvoirs que les admins de l'application.</li>
               <li><b>Interface :</b> Optimisation de l'espacement des messages pour une lecture plus fluide et compacte, surtout en mode paysage.</li>
-              <li><b>Gestion :</b> Correction des permissions pour la gestion des utilisateurs par le Staff et les Grands Admins.</li>
+              <li><b>Gestion :</b> Correction de l'erreur de profil (URL trop longue) et optimisation des permissions.</li>
+              <li><b>Paramètres :</b> L'option "Masquer le menu automatiquement" est désormais activée par défaut.</li>
               <li><b>PWA :</b> Amélioration de la réactivité du menu latéral sur tous les types d'écrans.</li>
             </ul>
             <button 

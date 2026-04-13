@@ -117,5 +117,6 @@ export interface AppState {
   discussionTab?: 'public' | 'private' | 'sms' | 'recent';
   simulatedMessages?: Message[]; // Messages factices pour le tutoriel
   menuOpen?: boolean;
+  autoHideSidebar?: boolean;
   activeGroup?: string | null;
 }

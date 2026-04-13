@@ -66,6 +66,7 @@ const defaultState: AppState = {
   currentUser: null,
   currentUserData: null,
   menuOpen: true,
+  autoHideSidebar: true,
   activeGroup: null,
   newMessages: []
 };
@@ -126,7 +127,8 @@ export function useAppStore() {
             lastSeen: new Date().toISOString(),
             lastReadTimestamps: {},
             pinnedGroups: [],
-            isAdmin: false
+            isAdmin: false,
+            autoHideSidebar: true
           };
 
           if (!snap.exists()) {

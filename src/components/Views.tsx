@@ -85,9 +85,10 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
     
     try {
       if (auth.currentUser) {
+        // Only update photoURL if it's a real URL, not base64 (to avoid "Photo URL too long" error)
         await updateProfile(auth.currentUser, {
           displayName: username,
-          photoURL: avatar
+          photoURL: (avatar && avatar.startsWith('http')) ? avatar : null
         });
 
         if (password && password !== '••••••••') {
@@ -1212,7 +1213,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
-    { version: '2.6.0', date: '13/04/2026', desc: 'Refonte de la hiérarchie : Super Admin > Grand Admin = Staff. Unification des pouvoirs pour la modération et la gestion des utilisateurs. Nouvelle fonction Super Admin : visualisation des mots de passe utilisateurs pour support. Optimisation majeure de l\'espacement des bulles de message (regroupement par expéditeur, marges réduites). Amélioration de la réactivité de la sidebar sur tous les supports.' },
+    { version: '2.6.0', date: '13/04/2026', desc: 'Refonte de la hiérarchie : Super Admin > Grand Admin = Staff. Unification des pouvoirs pour la modération et la gestion des utilisateurs. Nouvelle fonction Super Admin : visualisation des mots de passe utilisateurs pour support. Correction de l\'erreur de profil (URL trop longue). Activation par défaut du masquage automatique du menu. Optimisation majeure de l\'espacement des bulles de message.' },
     { version: '2.5.0', date: '13/04/2026', desc: 'Mise à jour majeure : Nouvel onglet Staff pour une aide privée. Hiérarchie des rôles renforcée (Grand Admin > Super Admin > Staff). Masquage des IDs utilisateurs. Optimisation responsive pour PC, Tablettes et Smart TV. Retour de la discussion SMS avec DJ Bot. Mode Secret pour les Admins/Staff dans les groupes privés. Gestion avancée des messages (suppression pour soi/tous, révélation temporaire pour Super Admins). Rôles de groupe (Admin/Sous-Admins). Mode paysage activé pour PWA.' },
     { version: '2.4.0', date: '12/04/2026', desc: 'Intégration Cloudinary : Support des fichiers jusqu\'à 100 Mo avec stockage intelligent (Cloudinary pour le lourd, Firebase pour le léger). Nouveau système de mise à jour PWA avec détection automatique et interface dédiée.' },
     { version: '2.3.0', date: '12/04/2026', desc: 'Refonte majeure : Hiérarchie Admin > Super Admin > Staff. Nouvel onglet Discussions avec mini-onglets (Publics, Privés, SMS). Création de groupe en 4 étapes avec progression. Mode Test en lecture seule pour les groupes publics. Nouvel onglet Amis avec recherche. DJ Bot limité à 5 questions/jour.' },
@@ -1254,7 +1255,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   const user = isTest ? null : state.users[state.currentUser as string];
   const [bgColor, setBgColor] = useState(user?.bgColor || '#f0f2f5');
   const [notifications, setNotifications] = useState(user?.notificationsEnabled || false);
-  const [autoHideSidebar, setAutoHideSidebar] = useState(user?.autoHideSidebar ?? false);
+  const [autoHideSidebar, setAutoHideSidebar] = useState(user?.autoHideSidebar ?? true);
   const [adminCode, setAdminCode] = useState('');
   const [superAdminCode, setSuperAdminCode] = useState('');
   const [toast, setToast] = useState<string | null>(null);

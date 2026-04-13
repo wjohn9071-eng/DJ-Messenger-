@@ -53,7 +53,8 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
           lastSeen: new Date().toISOString(),
           lastReadTimestamps: {},
           pinnedGroups: [],
-          isAdmin: false
+          isAdmin: false,
+          autoHideSidebar: true
         };
         
         try {
@@ -121,7 +122,10 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
       const result = await createUserWithEmailAndPassword(auth, finalEmail, passInp);
       const user = result.user;
       
-      await updateProfile(user, { displayName: userInp, photoURL: avatarBase64 });
+      await updateProfile(user, { 
+        displayName: userInp, 
+        photoURL: (avatarBase64 && avatarBase64.startsWith('http')) ? avatarBase64 : null 
+      });
       
       const userData = {
         uid: user.uid,
@@ -134,7 +138,8 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
         lastSeen: new Date().toISOString(),
         lastReadTimestamps: {},
         pinnedGroups: [],
-        isAdmin: false
+        isAdmin: false,
+        autoHideSidebar: true
       };
       
       try {
