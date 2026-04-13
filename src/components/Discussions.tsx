@@ -1986,6 +1986,81 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             onSignUp={handleSignUpRedirect}
           />
         )}
+        {deleteOptionsPrompt && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
+              <div className={`p-6 ${djStyleBg} text-white text-center`}>
+                <Trash2 size={32} className="mx-auto mb-2" />
+                <h3 className="text-lg font-black uppercase tracking-tighter">Supprimer le message</h3>
+              </div>
+              <div className="p-6 space-y-3">
+                <button 
+                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'me')}
+                  className="w-full py-4 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition"
+                >
+                  {deleteOptionsPrompt.isDeletedForEveryone ? "Supprimer la bulle pour moi" : "Supprimer pour moi uniquement"}
+                </button>
+                {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || deleteOptionsPrompt.isCreator || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
+                  <button 
+                    onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'everyone')}
+                    className="w-full py-4 rounded-2xl bg-red-50 text-red-500 font-bold hover:bg-red-100 transition"
+                  >
+                    Supprimer pour tout le monde
+                  </button>
+                )}
+                {(deleteOptionsPrompt.isCreator || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
+                  <button 
+                    onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'bubble')}
+                    className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition"
+                  >
+                    Supprimer la bulle pour tous (Définitif)
+                  </button>
+                )}
+                <button 
+                  onClick={() => setDeleteOptionsPrompt(null)}
+                  className="w-full py-4 rounded-2xl text-gray-400 font-bold hover:text-gray-600 transition"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {deletePrompt && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+              <h3 className="text-xl font-bold text-gray-800 mb-2">Compte supprimé</h3>
+              <p className="text-gray-600 mb-6">Voulez-vous supprimer tous les messages de ce compte supprimé, ou seulement ce message ?</p>
+              <div className="flex flex-col gap-3">
+                <button onClick={confirmDeleteAll} className="w-full py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition">
+                  Supprimer TOUS ses messages
+                </button>
+                <button onClick={confirmDeleteOne} className="w-full py-3 rounded-xl font-bold text-red-500 bg-red-50 hover:bg-red-100 transition">
+                  Supprimer uniquement ce message
+                </button>
+                <button onClick={() => setDeletePrompt(null)} className="w-full py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition mt-2">
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {staffDeletePrompt && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+              <h3 className="text-xl font-bold text-gray-800 mb-2">Supprimer pour tout le monde</h3>
+              <p className="text-gray-600 mb-6">En tant que membre du staff, voulez-vous supprimer ce message pour TOUS les utilisateurs ? Cette action est irréversible.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setStaffDeletePrompt(null)} className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition">
+                  Annuler
+                </button>
+                <button onClick={confirmStaffDelete} className="flex-1 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition">
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -2277,7 +2352,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       </div>
 
       {deleteOptionsPrompt && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
             <div className={`p-6 ${djStyleBg} text-white text-center`}>
               <Trash2 size={32} className="mx-auto mb-2" />
@@ -2332,7 +2407,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       )}
 
       {deletePrompt && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
             <h3 className="text-xl font-bold text-gray-800 mb-2">Compte supprimé</h3>
             <p className="text-gray-600 mb-6">Voulez-vous supprimer tous les messages de ce compte supprimé, ou seulement ce message ?</p>
@@ -2352,7 +2427,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       )}
 
       {staffDeletePrompt && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
             <h3 className="text-xl font-bold text-gray-800 mb-2">Supprimer pour tout le monde</h3>
             <p className="text-gray-600 mb-6">En tant que membre du staff, voulez-vous supprimer ce message pour TOUS les utilisateurs ? Cette action est irréversible.</p>

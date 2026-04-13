@@ -8,7 +8,7 @@ interface RestrictedActionPopupProps {
 
 export function RestrictedActionPopup({ onClose, onSignUp }: RestrictedActionPopupProps) {
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-300 relative overflow-hidden text-center">
         {/* DJ Style Accents */}
         <div className={`absolute top-0 left-0 w-full h-2 ${djStyleBg}`} />
