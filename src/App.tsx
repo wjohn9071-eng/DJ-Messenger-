@@ -176,7 +176,7 @@ export default function App() {
     useEffect(() => {
       if (!state.currentUser || state.currentUser === 'test') return;
       
-      const helpGroupId = `sms_${[state.currentUser, 'dj-bot'].sort().join('_')}`;
+      const helpGroupId = `sms_dj_bot_${state.currentUser}`;
     
     const tips = [
       "Astuce : Les groupes publics sont accessibles à tous, mais les groupes privés nécessitent un code d'invitation ou une invitation directe.",
@@ -218,7 +218,7 @@ export default function App() {
     const interval = setInterval(sendTip, 20 * 60 * 1000);
     
     // Response logic: Check for new user messages in DJ Bot group
-    const helpGroup = state.groups[helpGroupId] || state.privateMessages[helpGroupId];
+    const helpGroup = state.privateMessages[helpGroupId];
     const currentUserData = state.users[state.currentUser as string];
 
     if (helpGroup && helpGroup.messages) {

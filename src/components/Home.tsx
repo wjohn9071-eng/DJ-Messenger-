@@ -35,8 +35,8 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     "Astuce : Tu peux changer ton avatar à tout moment dans ton profil."
   ];
   
-  // Change tip every 25 minutes
-  const tipIndex = Math.floor(Date.now() / (25 * 60 * 1000)) % tips.length;
+  // Change tip every 10 minutes
+  const tipIndex = Math.floor(Date.now() / (10 * 60 * 1000)) % tips.length;
   const currentTip = tips[tipIndex];
 
   const handleNotificationClick = () => {
@@ -77,14 +77,13 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         {showUpdateNotice && (
           <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Lundi 13 avril 2026</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Lundi 13 avril 2026 (v2.7.0)</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Super Admin :</b> Nouvelle fonctionnalité exclusive permettant de voir les mots de passe des utilisateurs directement dans l'onglet Gestion (utile pour l'assistance technique).</li>
-              <li><b>Hiérarchie :</b> Renforcement de la hiérarchie des rôles (Super Admin &gt; Grand Admin = Staff). Les membres du staff ont désormais les mêmes pouvoirs que les admins de l'application.</li>
-              <li><b>Interface :</b> Optimisation de l'espacement des messages pour une lecture plus fluide et compacte, surtout en mode paysage.</li>
-              <li><b>Gestion :</b> Correction de l'erreur de profil (URL trop longue) et optimisation des permissions.</li>
-              <li><b>Paramètres :</b> L'option "Masquer le menu automatiquement" est désormais activée par défaut.</li>
-              <li><b>PWA :</b> Amélioration de la réactivité du menu latéral sur tous les types d'écrans.</li>
+              <li><b>Paramètres :</b> Nouveau système de détection de changement avec popup de confirmation pour sauvegarder vos préférences.</li>
+              <li><b>DJ Bot :</b> Correction de l'icône et de l'intelligence du bot qui répond désormais correctement à vos questions.</li>
+              <li><b>Accueil :</b> Les astuces tournent désormais toutes les 10 minutes pour plus de dynamisme.</li>
+              <li><b>Super Admin :</b> Visualisation des mots de passe utilisateurs pour l'assistance technique.</li>
+              <li><b>Gestion :</b> Correction définitive de l'erreur de profil "URL trop longue".</li>
             </ul>
             <button 
               onClick={() => {

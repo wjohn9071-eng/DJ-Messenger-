@@ -59,7 +59,18 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 }
 
 const defaultState: AppState = {
-  users: {},
+  users: {
+    'dj-bot': {
+      id: 'dj-bot',
+      uid: 'dj-bot',
+      name: 'DJ Bot',
+      email: 'bot@djsociety.com',
+      isAdmin: true,
+      friends: [],
+      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=dj-bot',
+      autoHideSidebar: true
+    }
+  },
   groups: {},
   privateMessages: {},
   proposals: [],
@@ -204,8 +215,8 @@ export function useAppStore() {
       });
       setState(prev => {
         // Preserve DJ Bot if it exists
-        if (prev.users['DJ Bot']) {
-          users['DJ Bot'] = prev.users['DJ Bot'];
+        if (prev.users['dj-bot']) {
+          users['dj-bot'] = prev.users['dj-bot'];
         }
         return { ...prev, users };
       });

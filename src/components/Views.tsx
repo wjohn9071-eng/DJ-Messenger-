@@ -1213,7 +1213,8 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
 export function Updates() {
   const updates = [
-    { version: '2.6.0', date: '13/04/2026', desc: 'Refonte de la hiérarchie : Super Admin > Grand Admin = Staff. Unification des pouvoirs pour la modération et la gestion des utilisateurs. Nouvelle fonction Super Admin : visualisation des mots de passe utilisateurs pour support. Correction de l\'erreur de profil (URL trop longue). Activation par défaut du masquage automatique du menu. Optimisation majeure de l\'espacement des bulles de message.' },
+    { version: '2.7.0', date: '13/04/2026', desc: 'Nouveau système de sauvegarde des paramètres avec confirmation. Correction du DJ Bot (icône et réponses). Optimisation de la rotation des astuces (toutes les 10 min). Correction de l\'erreur de profil (URL trop longue).' },
+    { version: '2.6.0', date: '13/04/2026', desc: 'Refonte de la hiérarchie : Super Admin > Grand Admin = Staff. Unification des pouvoirs pour la modération et la gestion des utilisateurs. Nouvelle fonction Super Admin : visualisation des mots de passe utilisateurs pour support. Activation par défaut du masquage automatique du menu. Optimisation majeure de l\'espacement des bulles de message.' },
     { version: '2.5.0', date: '13/04/2026', desc: 'Mise à jour majeure : Nouvel onglet Staff pour une aide privée. Hiérarchie des rôles renforcée (Grand Admin > Super Admin > Staff). Masquage des IDs utilisateurs. Optimisation responsive pour PC, Tablettes et Smart TV. Retour de la discussion SMS avec DJ Bot. Mode Secret pour les Admins/Staff dans les groupes privés. Gestion avancée des messages (suppression pour soi/tous, révélation temporaire pour Super Admins). Rôles de groupe (Admin/Sous-Admins). Mode paysage activé pour PWA.' },
     { version: '2.4.0', date: '12/04/2026', desc: 'Intégration Cloudinary : Support des fichiers jusqu\'à 100 Mo avec stockage intelligent (Cloudinary pour le lourd, Firebase pour le léger). Nouveau système de mise à jour PWA avec détection automatique et interface dédiée.' },
     { version: '2.3.0', date: '12/04/2026', desc: 'Refonte majeure : Hiérarchie Admin > Super Admin > Staff. Nouvel onglet Discussions avec mini-onglets (Publics, Privés, SMS). Création de groupe en 4 étapes avec progression. Mode Test en lecture seule pour les groupes publics. Nouvel onglet Amis avec recherche. DJ Bot limité à 5 questions/jour.' },
@@ -1260,6 +1261,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   const [superAdminCode, setSuperAdminCode] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -1338,6 +1340,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   const saveSettings = () => {
     if (isTest) {
       setShowRestrictedPopup(true);
+      setShowSaveConfirm(false);
       return;
     }
     const hexColor = colorNameToHex(bgColor);
@@ -1350,6 +1353,12 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       return { users: newUsers };
     });
     
+    updateDoc(doc(db, 'users', state.currentUser as string), {
+      bgColor: hexColor,
+      notificationsEnabled: notifications,
+      autoHideSidebar: autoHideSidebar
+    }).catch(e => console.error("Error saving settings to Firestore:", e));
+
     document.documentElement.style.setProperty('--bg-color', hexColor);
     setBgColor(hexColor);
     
@@ -1374,7 +1383,17 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       setNotifications(false);
     }
     
+    setShowSaveConfirm(false);
     showToast("Paramètres sauvegardés !");
+  };
+
+  const cancelSettings = () => {
+    if (user) {
+      setBgColor(user.bgColor || '#f0f2f5');
+      setNotifications(user.notificationsEnabled || false);
+      setAutoHideSidebar(user.autoHideSidebar ?? true);
+    }
+    setShowSaveConfirm(false);
   };
 
   const handleAdminAuth = () => {
@@ -1549,6 +1568,12 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
 
   return (
     <div className="p-6 max-w-lg mx-auto animate-in fade-in duration-300 pb-20">
+      <ConfirmModal 
+        isOpen={showSaveConfirm} 
+        message="Voulez-vous sauvegarder les modifications apportées aux paramètres ?" 
+        onConfirm={saveSettings} 
+        onCancel={cancelSettings} 
+      />
       <h2 className={`text-2xl font-bold mb-6 ${djStyleText}`}>Paramètres</h2>
       
       <button onClick={saveSettings} className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg hover:opacity-90 transition active:scale-95 mb-8 text-lg ${djStyleBg}`}>
@@ -1562,8 +1587,8 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Couleur d'arrière-plan</label>
             <div className="flex gap-3">
-              <input type="color" value={colorNameToHex(bgColor)} onChange={e => setBgColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
-              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: red) ou #HEX" className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none bg-gray-50" />
+              <input type="color" value={colorNameToHex(bgColor)} onChange={e => { setBgColor(e.target.value); setShowSaveConfirm(true); }} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
+              <input type="text" value={bgColor} onChange={e => { setBgColor(e.target.value); setShowSaveConfirm(true); }} placeholder="Nom (ex: red) ou #HEX" className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none bg-gray-50" />
             </div>
           </div>
           <button onClick={saveSettings} className={`w-full py-3 rounded-xl font-bold text-white shadow-md hover:opacity-90 transition active:scale-95 ${djStyleBg}`}>
@@ -1584,6 +1609,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
                 onChange={e => {
                   const checked = e.target.checked;
                   setNotifications(checked);
+                  setShowSaveConfirm(true);
                   if (checked && 'Notification' in window) {
                     if (Notification.permission === 'default') {
                       Notification.requestPermission().then(permission => {
@@ -1618,7 +1644,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
             <label className="flex items-center justify-between cursor-pointer">
               <span className="text-sm font-semibold text-gray-700">Masquer le menu automatiquement</span>
               <div className="relative">
-                <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => setAutoHideSidebar(e.target.checked)} />
+                <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => { setAutoHideSidebar(e.target.checked); setShowSaveConfirm(true); }} />
                 <div className={`block w-14 h-8 rounded-full transition-colors ${autoHideSidebar ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
                 <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${autoHideSidebar ? 'transform translate-x-6' : ''}`}></div>
               </div>
