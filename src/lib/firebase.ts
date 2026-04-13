@@ -1,17 +1,31 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, collection, doc, setDoc, getDoc, onSnapshot, query, orderBy, limit, addDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, serverTimestamp, Timestamp, getDocFromServer, where, getDocs } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager,
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  limit, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  arrayUnion, 
+  arrayRemove, 
+  serverTimestamp, 
+  Timestamp, 
+  getDocFromServer, 
+  where, 
+  getDocs 
+} from 'firebase/firestore';
 import { initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, reauthenticateWithPopup } from 'firebase/auth';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
-// Configuration hardcodée pour une compatibilité totale Vercel & Offline
-const firebaseConfig = {
-  apiKey: "AIzaSyCKITVldKjMdPY4PvJWORy-79TAxVeJagg",
-  authDomain: "gen-lang-client-0241237641.firebaseapp.com",
-  projectId: "gen-lang-client-0241237641",
-  storageBucket: "gen-lang-client-0241237641.firebasestorage.app",
-  messagingSenderId: "914168217742",
-  appId: "1:914168217742:web:d0f775dcbbdba4b9ac09df"
-};
+import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
@@ -22,11 +36,13 @@ export const auth = initializeAuth(app, {
 });
 
 // Optimisation Firestore pour éviter les erreurs "Offline" et "Network Request Failed"
+// Utilisation de la nouvelle API de cache pour éviter les warnings de dépréciation
+// Et activation du support multi-onglets
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true, // Force le mode compatible (indispensable sur Vercel/Iframes)
-  experimentalAutoDetectLongPolling: false, // Ne pas essayer de détecter, forcer direct
-  ignoreUndefinedProperties: true,
-}, "ai-studio-5df211c0-97ca-437b-9459-24e04efe73d4");
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+}, firebaseConfig.firestoreDatabaseId);
 
 // Test de connexion silencieux avec gestion d'erreur améliorée
 async function testConnection() {

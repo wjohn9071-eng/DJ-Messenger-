@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, ArrowLeft, ImagePlus } from 'lucide-react';
-import { djStyleBg, djStyleText, DJ_LOGO_SVG } from '../lib/utils';
+import { Eye, EyeOff, ArrowLeft, ImagePlus, X } from 'lucide-react';
+import { djStyleBg, djStyleText, DJ_LOGO_SVG, compressImage } from '../lib/utils';
 import { AppState } from '../types';
 import { auth, googleProviderWithPrompt, signInWithPopup, db, doc, setDoc, getDoc } from '../lib/firebase';
 import { GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
@@ -152,13 +152,21 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
     }
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setAvatarBase64(reader.result as string);
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file);
+        setAvatarBase64(compressed);
+      } catch (err) {
+        console.error("Erreur compression image:", err);
+        showToast("Erreur lors du chargement de l'image.");
+      }
     }
+  };
+
+  const removeAvatar = () => {
+    setAvatarBase64(null);
   };
 
   return (
@@ -217,12 +225,24 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
             {authMode === 'register' && (
               <>
                 <div className="flex flex-col items-center gap-2 mb-6">
-                  <label className="relative cursor-pointer group">
-                    <div className="w-24 h-24 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden group-hover:border-[#00CED1] transition shadow-inner">
-                      {avatarBase64 ? <img src={avatarBase64} alt="Avatar" className="w-full h-full object-cover" /> : <ImagePlus className="text-gray-400 group-hover:text-[#00CED1] transition w-8 h-8" />}
-                    </div>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                  </label>
+                  <div className="relative group">
+                    <label className="relative cursor-pointer block">
+                      <div className="w-24 h-24 rounded-full bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden group-hover:border-[#00CED1] transition shadow-inner">
+                        {avatarBase64 ? <img src={avatarBase64} alt="Avatar" className="w-full h-full object-cover" /> : <ImagePlus className="text-gray-400 group-hover:text-[#00CED1] transition w-8 h-8" />}
+                      </div>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                    </label>
+                    {avatarBase64 && (
+                      <button 
+                        type="button"
+                        onClick={removeAvatar}
+                        className="absolute -top-1 -right-1 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all z-10"
+                        title="Supprimer la photo"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
                   <span className="text-xs font-medium text-gray-500">Photo de profil (optionnel)</span>
                 </div>
                 <div>

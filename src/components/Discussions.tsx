@@ -1194,8 +1194,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const visibleSMS = [
     ...Object.values(state.privateMessages || {}).filter(chat => {
+      const isSuperAdmin = state.currentUserData?.isSuperAdmin;
       const otherMember = chat?.members?.find(m => m !== state.currentUser);
-      return chat && chat.members && chat.members.includes(state.currentUser as string) && otherMember;
+      return chat && (chat.members?.includes(state.currentUser as string) || isSuperAdmin) && otherMember;
     }),
     ...(botGroup ? [botGroup] : [])
   ].sort((a, b) => {

@@ -377,10 +377,10 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-full max-w-[1920px] mx-auto overflow-hidden transition-colors duration-500" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
+    <div className="flex h-screen w-full overflow-hidden transition-colors duration-500" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
       {/* Sidebar / Hamburger Menu */}
-      <aside className={`fixed inset-y-0 left-0 z-[9999] w-72 bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-in-out ${state.menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 flex items-center justify-between border-b border-white/10">
+      <aside className={`fixed md:relative inset-y-0 left-0 z-[9999] bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-all duration-300 ease-in-out ${state.menuOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full md:translate-x-0 overflow-hidden'}`}>
+        <div className="p-6 flex items-center justify-between border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden p-1.5 bg-white">
               <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
@@ -450,7 +450,7 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300 ${state.menuOpen ? 'md:ml-72' : 'ml-0'}`}>
+      <main className="flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300">
         <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[1000]">
           <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001]">
             <Menu size={24} className="text-gray-600" />

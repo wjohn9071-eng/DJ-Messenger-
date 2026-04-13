@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState } from '../types';
-import { djStyleBg, djStyleText } from '../lib/utils';
+import { djStyleBg, djStyleText, compressImage } from '../lib/utils';
 import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
@@ -128,13 +128,21 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
     }
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setAvatar(reader.result as string);
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file);
+        setAvatar(compressed);
+      } catch (err) {
+        console.error("Erreur compression image:", err);
+        showToast("Erreur lors du chargement de l'image.");
+      }
     }
+  };
+
+  const removeAvatar = () => {
+    setAvatar(null);
   };
 
   return (
@@ -147,16 +155,28 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
       </div>
       
       <div className="flex flex-col items-center mb-10">
-        <label className="relative cursor-pointer group">
-          <div className="w-40 h-40 rounded-[2.5rem] bg-white border-8 border-white shadow-2xl flex items-center justify-center overflow-hidden group-hover:ring-8 ring-[#0D98BA]/20 transition-all relative">
-            {avatar ? <img src={avatar} alt="Avatar" className="w-full h-full object-cover" /> : <User size={64} className="text-gray-200" />}
-            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <ImagePlus className="text-white mb-2" size={32} />
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">Changer</span>
+        <div className="relative group">
+          <label className="relative cursor-pointer block">
+            <div className="w-40 h-40 rounded-[2.5rem] bg-white border-8 border-white shadow-2xl flex items-center justify-center overflow-hidden group-hover:ring-8 ring-[#0D98BA]/20 transition-all relative">
+              {avatar ? <img src={avatar} alt="Avatar" className="w-full h-full object-cover" /> : <User size={64} className="text-gray-200" />}
+              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <ImagePlus className="text-white mb-2" size={32} />
+                <span className="text-[10px] font-black text-white uppercase tracking-widest">Changer</span>
+              </div>
             </div>
-          </div>
-          <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-        </label>
+            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+          </label>
+          {avatar && (
+            <button 
+              type="button"
+              onClick={removeAvatar}
+              className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all z-10"
+              title="Supprimer la photo"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-6 bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/50 mb-8">
@@ -699,7 +719,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   };
 
   const handleToggleAdmin = async (uid: string, currentStatus: boolean) => {
-    if (!isGrandAdmin) return showToast("Seul le Grand Admin peut modifier les droits.");
+    if (!isGrandAdmin && !isSuperAdmin) return showToast("Seul le Grand Admin ou Super Admin peut modifier les droits.");
     try {
       await updateDoc(doc(db, 'users', uid), { isAdmin: !currentStatus });
       await updateDoc(doc(db, 'users_public', uid), { isAdmin: !currentStatus });
@@ -801,7 +821,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {isSuperAdmin && (
+                  {(isSuperAdmin || isGrandAdmin) && (
                     <button 
                       onClick={() => handleToggleAdmin(u.uid || u.id, !!u.isAdmin)}
                       className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${u.isAdmin ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-green-50 text-green-500 hover:bg-green-100'}`}

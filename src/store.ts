@@ -312,7 +312,9 @@ export function useAppStore() {
       const privateMessages: Record<string, PrivateChat> = {};
       snapshot.forEach(chatDoc => {
         const chatData = chatDoc.data() as PrivateChat;
-        if (!chatData.members?.includes(state.currentUser as string)) return;
+        const isSuperAdmin = stateRef.current.currentUserData?.isSuperAdmin;
+        
+        if (!chatData.members?.includes(state.currentUser as string) && !isSuperAdmin) return;
         
         privateMessages[chatDoc.id] = { 
           ...chatData, 
