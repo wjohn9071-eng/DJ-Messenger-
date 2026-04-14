@@ -42,8 +42,9 @@ export interface Message {
   timestamp: string; // ISO string for comparison
   isSystem?: boolean;
   fileUrl?: string;
-  fileType?: 'image' | 'video' | 'sticker' | 'audio' | 'pdf' | 'docx' | 'app' | 'file';
+  fileType?: 'image' | 'video' | 'sticker' | 'audio' | 'pdf' | 'docx' | 'app' | 'file' | 'zip' | 'folder';
   fileName?: string;
+  files?: { url: string; type: string; name: string }[];
   senderId?: string;
   senderName?: string;
   groupName?: string;
@@ -104,6 +105,7 @@ export interface PrivateChat {
   allowOthersToSpeak?: boolean;
   allowOthersToInvite?: boolean;
   code?: string;
+  avatar?: string;
 }
 
 export interface AppState {

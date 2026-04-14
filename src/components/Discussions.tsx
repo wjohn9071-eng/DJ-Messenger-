@@ -306,96 +306,99 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       setShowRestrictedPopup(true);
       return;
     }
-    const file = e.target.files?.[0];
-    if (!file || !activeGroup) return;
+    const files = Array.from(e.target.files || []) as File[];
+    if (files.length === 0 || !activeGroup) return;
 
-    // Limit to 200MB
-    if (file.size > 200 * 1024 * 1024) {
-      showToast("Fichier trop volumineux (max 200 Mo).");
-      return;
+    const uploadedFiles: {url: string, type: string, name: string}[] = [];
+    const cloudName = 'dfbhvgcbi';
+    const uploadPreset = 'djmessenger_preset';
+    const url = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      // Limit to 200MB
+      if (file.size > 200 * 1024 * 1024) {
+        showToast(`Le fichier ${file.name} est trop volumineux (max 200 Mo).`);
+        continue;
+      }
+
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+      const isAudio = file.type.startsWith('audio/');
+      const isPdf = file.type === 'application/pdf';
+      const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx') || file.name.endsWith('.doc');
+      const isApp = file.name.endsWith('.apk') || file.name.endsWith('.exe') || file.name.endsWith('.ipa');
+      const isZip = file.name.endsWith('.zip') || file.name.endsWith('.rar') || file.name.endsWith('.7z');
+      const isCode = file.name.endsWith('.html') || file.name.endsWith('.css') || file.name.endsWith('.js') || file.name.endsWith('.ts') || file.name.endsWith('.json');
+
+      let fileType = 'file';
+      if (isImage) fileType = 'image';
+      else if (isVideo) fileType = 'video';
+      else if (isAudio) fileType = 'audio';
+      else if (isPdf) fileType = 'pdf';
+      else if (isDocx) fileType = 'docx';
+      else if (isApp) fileType = 'app';
+      else if (isZip) fileType = 'zip';
+      else if (isCode) fileType = 'file'; // Treat code as file for now
+
+      // Fallback pour les petits fichiers (Base64 dans Firestore) pour Firebase (Rapidité)
+      if (file.size < 800 * 1024 && (isImage || isVideo || isAudio)) {
+        const base64data = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        uploadedFiles.push({ url: base64data, type: fileType, name: file.name });
+        continue;
+      }
+
+      // Cloudinary pour les fichiers lourds (> 800KB) ou documents
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', uploadPreset);
+
+        const response = await new Promise<any>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', url, true);
+
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const progress = (e.loaded / e.total) * 100;
+              // Show overall progress roughly
+              setUploadProgress(Math.round(((i * 100) + progress) / files.length));
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status === 200) {
+              resolve(JSON.parse(xhr.responseText));
+            } else {
+              reject(xhr.responseText);
+            }
+          };
+          xhr.onerror = () => reject("Network error");
+          xhr.send(formData);
+        });
+
+        uploadedFiles.push({ url: response.secure_url, type: fileType, name: file.name });
+      } catch (error) {
+        console.error(`File upload error for ${file.name}:`, error);
+        showToast(`Erreur lors de l'envoi de ${file.name}.`);
+      }
     }
 
-    const isImage = file.type.startsWith('image/');
-    const isVideo = file.type.startsWith('video/');
-    const isAudio = file.type.startsWith('audio/');
-    const isPdf = file.type === 'application/pdf';
-    const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx') || file.name.endsWith('.doc');
-    const isApp = file.name.endsWith('.apk') || file.name.endsWith('.exe') || file.name.endsWith('.ipa');
-
-    let fileType: 'image' | 'video' | 'audio' | 'pdf' | 'docx' | 'app' | 'file' = 'file';
-    if (isImage) fileType = 'image';
-    else if (isVideo) fileType = 'video';
-    else if (isAudio) fileType = 'audio';
-    else if (isPdf) fileType = 'pdf';
-    else if (isDocx) fileType = 'docx';
-    else if (isApp) fileType = 'app';
-
-    // Limit to 100MB as per user request
-    if (file.size > 100 * 1024 * 1024) {
-      showToast("Fichier trop volumineux (max 100 Mo).");
-      return;
+    if (uploadedFiles.length > 0) {
+      await sendMultimediaMessage(uploadedFiles);
     }
-
-    // Fallback pour les petits fichiers (Base64 dans Firestore) pour Firebase (Rapidité)
-    if (file.size < 800 * 1024 && (isImage || isVideo || isAudio)) { // < 800KB and media
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64data = reader.result as string;
-        await sendMultimediaMessage(base64data, fileType as any, file.name);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      };
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    // Cloudinary pour les fichiers lourds (> 800KB) ou documents
-    try {
-      const cloudName = 'dfbhvgcbi';
-      const uploadPreset = 'djmessenger_preset';
-      const url = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', uploadPreset);
-
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', url, true);
-
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const progress = (e.loaded / e.total) * 100;
-          setUploadProgress(Math.round(progress));
-        }
-      };
-
-      xhr.onload = async () => {
-        if (xhr.status === 200) {
-          const response = JSON.parse(xhr.responseText);
-          await sendMultimediaMessage(response.secure_url, fileType as any, file.name);
-          setUploadProgress(null);
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        } else {
-          console.error("Cloudinary upload failed:", xhr.responseText);
-          showToast("Erreur lors de l'envoi vers Cloudinary.");
-          setUploadProgress(null);
-        }
-      };
-
-      xhr.onerror = () => {
-        showToast("Erreur réseau lors de l'envoi.");
-        setUploadProgress(null);
-      };
-
-      xhr.send(formData);
-    } catch (error) {
-      console.error("File upload error:", error);
-      showToast("Erreur lors de l'envoi.");
-      setUploadProgress(null);
-    }
+    
+    setUploadProgress(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const sendMultimediaMessage = async (url: string, type: 'image' | 'video' | 'sticker' | 'audio' | 'pdf' | 'docx' | 'app' | 'file', fileName?: string) => {
-    if (!activeGroup || !state.currentUser) return;
+  const sendMultimediaMessage = async (files: {url: string, type: string, name: string}[]) => {
+    if (!activeGroup || !state.currentUser || files.length === 0) return;
     const isSMS = activeGroup.startsWith('sms_');
     
     let otherUser = '';
@@ -413,16 +416,22 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       pdf: "📄 PDF",
       docx: "📝 Document",
       app: "📱 Application",
+      zip: "🗜️ Archive",
+      folder: "📁 Dossier",
       file: "📁 Fichier"
     };
 
     try {
+      const firstFileType = files[0].type;
+      const text = files.length > 1 ? `📁 ${files.length} Fichiers` : (typeIcons[firstFileType] || "📁 Fichier");
+      
       const msgData = {
-        text: typeIcons[type] || "📁 Fichier",
+        text: text,
         user: state.currentUser,
-        fileUrl: url,
-        fileType: type,
-        fileName: fileName || '',
+        files: files,
+        fileUrl: files[0].url, // For backward compatibility
+        fileType: firstFileType, // For backward compatibility
+        fileName: files[0].name, // For backward compatibility
         senderId: state.currentUser,
         senderName: currentUser?.name || state.currentUser || 'Utilisateur',
         timestamp: new Date().toISOString(),
@@ -432,6 +441,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       };
 
       const path = isSMS ? 'private_messages' : 'groups';
+
       
       if (isSMS) {
         const chatRef = doc(db, 'private_messages', activeGroup);
@@ -470,7 +480,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       setShowRestrictedPopup(true);
       return;
     }
-    sendMultimediaMessage(url, 'sticker');
+    sendMultimediaMessage([{ url, type: 'sticker', name: 'Sticker' }]);
     setShowStickers(false);
   };
 
@@ -1288,6 +1298,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             <div className={`w-10 h-10 rounded-2xl ${isSMS ? 'bg-gray-100' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center text-white font-bold shadow-md overflow-hidden`}>
               {isSMS && otherUserData?.avatar ? (
                 <img src={otherUserData.avatar} className="w-full h-full object-cover" />
+              ) : !isSMS && group.avatar ? (
+                <img src={group.avatar} className="w-full h-full object-cover" />
               ) : (
                 <span>{(otherUser || group.name || '?')[0].toUpperCase()}</span>
               )}
@@ -1331,22 +1343,51 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <h4 className="font-black uppercase tracking-widest text-xs text-gray-400">Paramètres de {isSMS ? 'la discussion' : group.name}</h4>
               <div className="flex gap-2">
                 {!isSMS && (isCreator || isSubAdmin) && (
-                  <button 
-                    onClick={async () => {
-                      const newName = prompt("Nouveau nom du groupe :", group.name);
-                      if (newName && newName !== group.name) {
-                        try {
-                          await setDoc(doc(db, 'groups', activeGroup), { name: newName }, { merge: true });
-                          showToast("Groupe renommé !");
-                        } catch (err) {
-                          showToast("Erreur lors du renommage.");
+                  <>
+                    <button 
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.onchange = async (e: any) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 5 * 1024 * 1024) return showToast("Image trop grande (max 5Mo)");
+                          
+                          const reader = new FileReader();
+                          reader.onloadend = async () => {
+                            try {
+                              await setDoc(doc(db, 'groups', activeGroup), { avatar: reader.result }, { merge: true });
+                              showToast("Icône modifiée !");
+                            } catch (err) {
+                              showToast("Erreur lors de la modification.");
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        };
+                        input.click();
+                      }}
+                      className="text-[10px] font-black uppercase text-[#0D98BA] hover:underline"
+                    >
+                      Icône
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        const newName = prompt("Nouveau nom du groupe :", group.name);
+                        if (newName && newName !== group.name) {
+                          try {
+                            await setDoc(doc(db, 'groups', activeGroup), { name: newName }, { merge: true });
+                            showToast("Groupe renommé !");
+                          } catch (err) {
+                            showToast("Erreur lors du renommage.");
+                          }
                         }
-                      }
-                    }}
-                    className="text-[10px] font-black uppercase text-[#0D98BA] hover:underline"
-                  >
-                    Renommer
-                  </button>
+                      }}
+                      className="text-[10px] font-black uppercase text-[#0D98BA] hover:underline"
+                    >
+                      Renommer
+                    </button>
+                  </>
                 )}
                 {(!isCreator && !isSubAdmin) && <span className="text-[10px] font-black uppercase text-blue-500 bg-blue-50 px-2 py-1 rounded-full">Lecture seule</span>}
               </div>
@@ -1424,7 +1465,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             )}
 
-            {!isSMS && group.type === 'public' && isCreator && (
+            {!isSMS && isCreator && (
               <div className="space-y-4">
                 <h5 className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Nommer un sous-admin</h5>
                 <div className="flex gap-2">
@@ -1654,7 +1695,63 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   </div>
                 )}
                 <div className={`relative px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} ${isStaff && !isMine ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-50/50' : ''}`}>
-                  {msg.fileUrl && (
+                  {(msg.files && msg.files.length > 0) ? (
+                    <div className="mb-2 space-y-2">
+                      {msg.files.map((file, idx) => (
+                        <div key={idx} className="rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
+                          {file.type === 'image' || file.type === 'sticker' ? (
+                            <img 
+                              src={file.url} 
+                              alt={file.name || 'Image'} 
+                              className={`max-w-full h-auto object-contain ${file.type === 'sticker' ? 'w-24 h-24' : 'max-h-60'}`}
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : file.type === 'video' ? (
+                            <video 
+                              src={file.url} 
+                              controls 
+                              className="max-w-full max-h-60 rounded-xl"
+                            />
+                          ) : file.type === 'audio' ? (
+                            <div className="p-4 flex flex-col gap-2 bg-gray-100 rounded-xl">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-[#0D98BA] text-white rounded-lg shadow-md">
+                                  <FileAudio size={20} />
+                                </div>
+                                <span className="text-xs font-bold truncate max-w-[150px]">{file.name || 'Audio'}</span>
+                              </div>
+                              <audio src={file.url} controls className="w-full h-8" />
+                            </div>
+                          ) : (
+                            <div className="p-4 flex items-center gap-4 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors cursor-pointer" onClick={() => handleDownload(file.url, file.name || 'file')}>
+                              <div className={`p-3 rounded-2xl shadow-lg text-white ${
+                                file.type === 'pdf' ? 'bg-red-500' : 
+                                file.type === 'docx' ? 'bg-blue-600' : 
+                                file.type === 'app' ? 'bg-green-600' : 
+                                file.type === 'zip' ? 'bg-yellow-600' : 'bg-gray-600'
+                              }`}>
+                                {file.type === 'pdf' ? <FileText size={24} /> : 
+                                 file.type === 'docx' ? <FileText size={24} /> : 
+                                 file.type === 'app' ? <Plus size={24} /> : 
+                                 file.type === 'zip' ? <FileIcon size={24} /> : <FileIcon size={24} />}
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-black uppercase tracking-tight truncate">{file.name || 'Fichier'}</span>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{file.type?.toUpperCase() || 'FILE'}</span>
+                              </div>
+                            </div>
+                          )}
+                          <button 
+                            onClick={() => handleDownload(file.url, file.name || 'file')}
+                            className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover/file:opacity-100 transition shadow-lg backdrop-blur-sm"
+                            title="Télécharger"
+                          >
+                            <Download size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : msg.fileUrl && (
                       <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
                         {msg.fileType === 'image' || msg.fileType === 'sticker' ? (
                           <img 
@@ -1684,11 +1781,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             <div className={`p-3 rounded-2xl shadow-lg text-white ${
                               msg.fileType === 'pdf' ? 'bg-red-500' : 
                               msg.fileType === 'docx' ? 'bg-blue-600' : 
-                              msg.fileType === 'app' ? 'bg-green-600' : 'bg-gray-600'
+                              msg.fileType === 'app' ? 'bg-green-600' : 
+                              msg.fileType === 'zip' ? 'bg-yellow-600' : 'bg-gray-600'
                             }`}>
                               {msg.fileType === 'pdf' ? <FileText size={24} /> : 
                                msg.fileType === 'docx' ? <FileText size={24} /> : 
-                               msg.fileType === 'app' ? <Plus size={24} /> : <FileIcon size={24} />}
+                               msg.fileType === 'app' ? <Plus size={24} /> : 
+                               msg.fileType === 'zip' ? <FileIcon size={24} /> : <FileIcon size={24} />}
                             </div>
                             <div className="flex flex-col min-w-0">
                               <span className="text-xs font-black uppercase tracking-tight truncate">{msg.fileName || 'Fichier'}</span>
@@ -1774,10 +1873,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                         renderMessageText(isRevealed ? msg.originalText || msg.text : msg.text)
                       )}
                     </p>
-                    {(isMine || isAdmin || isCreator || isDeletedForEveryone) && !isDeletedAccount && (
+                    {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && (
                       <div className={`absolute ${isMine ? '-left-9' : '-right-9'} top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10`}>
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator, isDeletedForEveryone }); }} 
+                          onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
                           className="p-1.5 bg-white shadow-md border border-gray-100 text-gray-600 hover:text-red-500 rounded-full transition-all active:scale-90"
                           title="Options du message"
                         >
@@ -1830,7 +1929,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 ref={fileInputRef} 
                 onChange={handleFileChange} 
                 className="hidden" 
-                accept="image/*,video/*,audio/*,.pdf,.docx,.doc,.apk,.exe,.ipa"
+                multiple
+                accept="image/*,video/*,audio/*,.pdf,.docx,.doc,.apk,.exe,.ipa,.zip,.rar,.7z,.html,.css,.js,.ts,.json"
               />
               <button 
                 type="button"
@@ -2000,7 +2100,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 >
                   {deleteOptionsPrompt.isDeletedForEveryone ? "Supprimer la bulle pour moi" : "Supprimer pour moi uniquement"}
                 </button>
-                {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || deleteOptionsPrompt.isCreator || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
+                {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || deleteOptionsPrompt.isCreator || deleteOptionsPrompt.isSubAdmin || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
                   <button 
                     onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'everyone')}
                     className="w-full py-4 rounded-2xl bg-red-50 text-red-500 font-bold hover:bg-red-100 transition"
@@ -2008,7 +2108,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     Supprimer pour tout le monde
                   </button>
                 )}
-                {(deleteOptionsPrompt.isCreator || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
+                {(deleteOptionsPrompt.isCreator || deleteOptionsPrompt.isSubAdmin || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
                   <button 
                     onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'bubble')}
                     className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition"

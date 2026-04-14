@@ -32,6 +32,14 @@ const app = initializeApp(firebaseConfig);
 // Initialisation Auth standard
 export const auth = getAuth(app);
 
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  if (args.some(arg => typeof arg === 'string' && arg.includes('BloomFilter error'))) {
+    return;
+  }
+  originalWarn(...args);
+};
+
 // Optimisation Firestore pour éviter les erreurs "Offline" et "Network Request Failed"
 // Utilisation de la nouvelle API de cache pour éviter les warnings de dépréciation
 // Et activation du support multi-onglets
