@@ -1,10 +1,11 @@
-const CACHE_NAME = 'dj-messenger-v2';
+const CACHE_NAME = 'dj-messenger-v2.9.1';
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon.svg',
-  '/sw.js'
+  '/sw.js',
+  '/version.json'
 ];
 
 // Installation du Service Worker et mise en cache des ressources statiques

@@ -17,6 +17,79 @@ export default function App() {
   const [simulationMode, setSimulationMode] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+
+  // Version check logic
+  const checkUpdate = async () => {
+    try {
+      const response = await fetch(`/version.json?t=${Date.now()}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      
+      const storedVersion = localStorage.getItem('app_version');
+      
+      if (!storedVersion) {
+        localStorage.setItem('app_version', data.version);
+        setCurrentVersion(data.version);
+      } else if (storedVersion !== data.version) {
+        console.log('New version detected:', data.version);
+        localStorage.setItem('app_version', data.version);
+        // Force reload to get new assets
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error checking version:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Initial check
+    checkUpdate();
+
+    // Check on focus/visibility change
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const lastFocus = localStorage.getItem('last_focus_time');
+        const now = Date.now();
+        
+        // If it's been more than 5 minutes, force a reload to ensure fresh state
+        if (lastFocus && now - parseInt(lastFocus) > 5 * 60 * 1000) {
+          localStorage.setItem('last_focus_time', now.toString());
+          window.location.reload();
+        } else {
+          localStorage.setItem('last_focus_time', now.toString());
+          checkUpdate();
+        }
+      }
+    };
+
+    // Check on window focus
+    const handleFocus = () => {
+      const lastFocus = localStorage.getItem('last_focus_time');
+      const now = Date.now();
+      
+      // If it's been more than 5 minutes, force a reload
+      if (lastFocus && now - parseInt(lastFocus) > 5 * 60 * 1000) {
+        localStorage.setItem('last_focus_time', now.toString());
+        window.location.reload();
+      } else {
+        localStorage.setItem('last_focus_time', now.toString());
+        checkUpdate();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // Periodic check every 5 minutes
+    const interval = setInterval(checkUpdate, 5 * 60 * 1000);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     if (state.currentUser && state.users[state.currentUser]?.bgColor) {
