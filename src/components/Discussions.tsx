@@ -1118,8 +1118,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     if (!activeGroup || !state.groups || !state.groups[activeGroup]) return;
     const group = state.groups[activeGroup];
     const isCreator = group.creator === state.currentUser;
-    if (!isCreator && !currentUser?.isAdmin && !currentUser?.isGrandAdmin && !currentUser?.isSuperAdmin) return showToast("Seul l'admin du groupe ou le Staff peut bannir.");
+    const isSubAdmin = (group.subAdmins || []).includes(state.currentUser as string);
+    if (!isCreator && !isSubAdmin && !currentUser?.isAdmin && !currentUser?.isGrandAdmin && !currentUser?.isSuperAdmin) return showToast("Seul l'admin du groupe ou le Staff peut bannir.");
     if (userToBan === group.creator) return showToast("Impossible de bannir le créateur.");
+    if ((group.subAdmins || []).includes(userToBan) && !isCreator) return showToast("Un sous-admin ne peut pas bannir un autre sous-admin.");
 
     try {
       const banHistory = group.banHistory || {};
@@ -1338,7 +1340,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         </div>
 
         {showGroupSettings && (
-          <div className="bg-white border-b p-6 space-y-6 animate-in slide-in-from-top-4">
+          <div className="bg-white border-b p-6 space-y-6 animate-in slide-in-from-top-4 max-h-[50vh] overflow-y-auto custom-scrollbar shrink-0">
             <div className="flex justify-between items-center">
               <h4 className="font-black uppercase tracking-widest text-xs text-gray-400">Paramètres de {isSMS ? 'la discussion' : group.name}</h4>
               <div className="flex gap-2">
@@ -1354,16 +1356,26 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           if (!file) return;
                           if (file.size > 5 * 1024 * 1024) return showToast("Image trop grande (max 5Mo)");
                           
-                          const reader = new FileReader();
-                          reader.onloadend = async () => {
-                            try {
-                              await setDoc(doc(db, 'groups', activeGroup), { avatar: reader.result }, { merge: true });
-                              showToast("Icône modifiée !");
-                            } catch (err) {
-                              showToast("Erreur lors de la modification.");
-                            }
-                          };
-                          reader.readAsDataURL(file);
+                          showToast("Téléchargement de l'icône...");
+                          try {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            formData.append('upload_preset', 'djmessenger_preset');
+
+                            const response = await fetch('https://api.cloudinary.com/v1_1/dfbhvgcbi/upload', {
+                              method: 'POST',
+                              body: formData
+                            });
+                            
+                            if (!response.ok) throw new Error("Upload failed");
+                            const data = await response.json();
+                            
+                            await setDoc(doc(db, 'groups', activeGroup), { avatar: data.secure_url }, { merge: true });
+                            showToast("Icône modifiée !");
+                          } catch (err) {
+                            console.error(err);
+                            showToast("Erreur lors de la modification.");
+                          }
                         };
                         input.click();
                       }}
@@ -1421,7 +1433,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             )}
 
-            {!isSMS && group.type === 'private' && (
+            {!isSMS && group.type === 'private' && (isCreator || isSubAdmin) && (
               <div className="space-y-4">
                 <h5 className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Ajouter un membre</h5>
                 <div className="flex gap-2">
@@ -1550,15 +1562,17 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             </div>
                           </div>
                           
-                          {isCreator && m !== state.currentUser && (
-                            <div className="flex items-center gap-1 opacity-0 group-hover/member:opacity-100 transition-opacity">
-                              <button 
-                                onClick={() => handleToggleSubAdmin(m)}
-                                className={`p-2 rounded-xl transition-colors ${isMemberSubAdmin ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400 hover:bg-blue-50 hover:text-blue-500'}`}
-                                title={isMemberSubAdmin ? "Retirer sous-admin" : "Nommer sous-admin"}
-                              >
-                                <Shield size={14} />
-                              </button>
+                          {(isCreator || isSubAdmin) && m !== state.currentUser && m !== group.creator && !(group.subAdmins || []).includes(m) && (
+                            <div className="flex items-center gap-1">
+                              {isCreator && (
+                                <button 
+                                  onClick={() => handleToggleSubAdmin(m)}
+                                  className={`p-2 rounded-xl transition-colors ${isMemberSubAdmin ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400 hover:bg-blue-50 hover:text-blue-500'}`}
+                                  title={isMemberSubAdmin ? "Retirer sous-admin" : "Nommer sous-admin"}
+                                >
+                                  <Shield size={14} />
+                                </button>
+                              )}
                               {group.type === 'private' && (
                                 <button 
                                   onClick={() => handleBanUser(m)} 
