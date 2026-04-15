@@ -155,27 +155,34 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     
     // Clear notification for active group and update last read timestamp
     if (activeGroup && state.currentUser && !isTest) {
-      const nowISO = new Date().toISOString();
-      
       setTimeout(() => {
+        const nowISO = new Date().toISOString();
+        const groupMessages = state.groups?.[activeGroup]?.messages || state.privateMessages?.[activeGroup]?.messages || [];
+        const lastMsgTimestamp = groupMessages.length > 0 ? groupMessages[groupMessages.length - 1].timestamp : '0';
+        const readTimestamp = nowISO > lastMsgTimestamp ? nowISO : lastMsgTimestamp;
+        
         // Update Firestore
         const userRef = doc(db, 'users', state.currentUser as string);
         updateDoc(userRef, {
-          [`lastReadTimestamps.${activeGroup}`]: nowISO
+          [`lastReadTimestamps.${activeGroup}`]: readTimestamp
         }).catch(e => console.error("Error updating last read:", e));
 
         updateState((prev: AppState) => {
           const newMessages = prev.newMessages?.filter(id => id !== activeGroup) || [];
           const newUsers = { ...prev.users };
+          let newCurrentUserData = prev.currentUserData;
           if (prev.currentUser && newUsers[prev.currentUser]) {
             const user = { ...newUsers[prev.currentUser] };
             user.lastReadTimestamps = {
               ...(user.lastReadTimestamps || {}),
-              [activeGroup]: nowISO
+              [activeGroup]: readTimestamp
             };
             newUsers[prev.currentUser] = user;
+            if (newCurrentUserData) {
+              newCurrentUserData = { ...newCurrentUserData, lastReadTimestamps: user.lastReadTimestamps };
+            }
           }
-          return { newMessages, users: newUsers };
+          return { newMessages, users: newUsers, currentUserData: newCurrentUserData };
         });
       }, 0);
     }
@@ -1261,6 +1268,43 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     const timeB = new Date(b.lastActivity || b.createdAt || 0).getTime();
     return timeB - timeA;
   });
+
+  const handleMarkAllAsRead = async () => {
+    if (!state.currentUser || isTest) return;
+    
+    const nowISO = new Date().toISOString();
+    const newTimestamps = { ...(state.currentUserData?.lastReadTimestamps || {}) };
+    
+    // Update for all groups and private messages
+    Object.keys(state.groups || {}).forEach(id => {
+      newTimestamps[id] = nowISO;
+    });
+    Object.keys(state.privateMessages || {}).forEach(id => {
+      newTimestamps[id] = nowISO;
+    });
+
+    try {
+      const userRef = doc(db, 'users', state.currentUser as string);
+      await updateDoc(userRef, { lastReadTimestamps: newTimestamps });
+      
+      updateState((prev: AppState) => {
+        const newUsers = { ...prev.users };
+        let newCurrentUserData = prev.currentUserData;
+        if (prev.currentUser && newUsers[prev.currentUser]) {
+          const user = { ...newUsers[prev.currentUser] };
+          user.lastReadTimestamps = newTimestamps;
+          newUsers[prev.currentUser] = user;
+          if (newCurrentUserData) {
+            newCurrentUserData = { ...newCurrentUserData, lastReadTimestamps: newTimestamps };
+          }
+        }
+        return { newMessages: [], users: newUsers, currentUserData: newCurrentUserData };
+      });
+      showToast("Tous les messages marqués comme lus");
+    } catch (e) {
+      console.error("Error marking all as read:", e);
+    }
+  };
 
   if (activeGroup) {
     let group = state.groups?.[activeGroup] || state.privateMessages?.[activeGroup];

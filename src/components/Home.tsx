@@ -77,17 +77,17 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         {showUpdateNotice && (
           <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Mardi 14 avril 2026 (v2.9.3)</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Mercredi 15 avril 2026 (v2.9.4)</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
               <li><b>Notifications :</b> Réparation complète du système de notifications (PWA et navigateur) et de l'indicateur de nouveaux messages.</li>
+              <li><b>Messages :</b> Ajout d'un bouton "Tout marquer comme lu" dans les discussions. Les messages non lus ne restent plus bloqués.</li>
               <li><b>Fichiers :</b> Envoi de multiples fichiers en même temps (jusqu'à 200 Mo). Support des fichiers Microsoft (Word, Excel), archives (.zip, .rar) et code (.html, .js).</li>
               <li><b>Groupes :</b> Gestion complète des sous-admins dans les groupes privés. Possibilité de modifier l'icône pour tous les types de groupes.</li>
-              <li><b>Correctifs :</b> Correction de l'affichage des icônes de groupe et du défilement dans les paramètres.</li>
             </ul>
             <button 
               onClick={() => {
                 setShowUpdateNotice(false);
-                localStorage.setItem('update_notice_dismissed_2.9.3', 'true');
+                localStorage.setItem('update_notice_dismissed_2.9.4', 'true');
               }}
               className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
             >

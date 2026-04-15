@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AppState, User, Group, Proposal, Message, PrivateChat } from './types';
 import { 
   db, auth, onAuthStateChanged, 
@@ -267,25 +267,18 @@ export function useAppStore() {
             });
 
             // Notification logic
-            let isNewMessage = false;
             if (messages.length > 0) {
               const lastMsg = messages[messages.length - 1];
               if (lastMsgIds[groupDoc.id] && lastMsgIds[groupDoc.id] !== lastMsg.id && lastMsg.user !== stateRef.current.currentUser) {
-                isNewMessage = true;
                 const msgText = lastMsg.text ? lastMsg.text : (lastMsg.files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
-                sendNotification(`DJ Messenger - ${groupData.name}`, `${lastMsg.senderName || 'Nouveau message'}: ${msgText}`);
+                sendNotification(`DJ Messenger`, `Nouveau message venant de ${groupData.name} : ${msgText}`);
               }
               lastMsgIds[groupDoc.id] = lastMsg.id || '';
             }
 
             setState(prev => {
-              const newMessagesArray = isNewMessage && !prev.newMessages?.includes(groupDoc.id) 
-                ? [...(prev.newMessages || []), groupDoc.id] 
-                : prev.newMessages;
-                
               return {
                 ...prev,
-                newMessages: newMessagesArray,
                 groups: {
                   ...prev.groups,
                   [groupDoc.id]: { ...prev.groups[groupDoc.id], messages }
@@ -369,26 +362,19 @@ export function useAppStore() {
             });
 
             // Notification logic
-            let isNewMessage = false;
             if (messages.length > 0) {
               const lastMsg = messages[messages.length - 1];
               if (lastMsgIds[chatDoc.id] && lastMsgIds[chatDoc.id] !== lastMsg.id && lastMsg.user !== stateRef.current.currentUser) {
-                isNewMessage = true;
                 const otherUser = stateRef.current.users[lastMsg.user]?.name || 'Quelqu\'un';
                 const msgText = lastMsg.text ? lastMsg.text : (lastMsg.files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
-                sendNotification(`DJ Messenger - SMS de ${otherUser}`, msgText);
+                sendNotification(`DJ Messenger`, `Nouveau message venant de ${otherUser} : ${msgText}`);
               }
               lastMsgIds[chatDoc.id] = lastMsg.id || '';
             }
 
             setState(prev => {
-              const newMessagesArray = isNewMessage && !prev.newMessages?.includes(chatDoc.id) 
-                ? [...(prev.newMessages || []), chatDoc.id] 
-                : prev.newMessages;
-                
               return {
                 ...prev,
-                newMessages: newMessagesArray,
                 privateMessages: {
                   ...prev.privateMessages,
                   [chatDoc.id]: { ...prev.privateMessages[chatDoc.id], messages }
@@ -462,5 +448,25 @@ export function useAppStore() {
     });
   }, []);
 
-  return { state, updateState };
+  const derivedNewMessages = useMemo(() => {
+    if (!state.currentUserData) return [];
+    const unread: string[] = [];
+    const lastRead = state.currentUserData.lastReadTimestamps || {};
+    
+    Object.values(state.groups).forEach((g: Group) => {
+      const lastMsg = g.messages?.[g.messages.length - 1];
+      if (lastMsg && lastMsg.user !== state.currentUser && lastMsg.timestamp > (lastRead[g.id] || '0')) {
+        unread.push(g.id);
+      }
+    });
+    Object.values(state.privateMessages).forEach((g: PrivateChat) => {
+      const lastMsg = g.messages?.[g.messages.length - 1];
+      if (lastMsg && lastMsg.user !== state.currentUser && lastMsg.timestamp > (lastRead[g.id] || '0')) {
+        unread.push(g.id);
+      }
+    });
+    return unread;
+  }, [state.groups, state.privateMessages, state.currentUserData, state.currentUser]);
+
+  return { state: { ...state, newMessages: derivedNewMessages }, updateState };
 }
