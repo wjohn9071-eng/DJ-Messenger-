@@ -11,6 +11,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const activeGroup = state.activeGroup;
   const setActiveGroup = (id: string | null) => updateState({ activeGroup: id });
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
+  const [sessionLastRead, setSessionLastRead] = useState<Record<string, string>>({});
+  const [sessionEnterTime, setSessionEnterTime] = useState<Record<string, string>>({});
 
   const isTest = state.currentUser === 'test';
   const currentUser = (isTest || !state.currentUser) ? null : (state.currentUserData || state.users[state.currentUser as string]);
@@ -139,12 +141,29 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     updateState({ currentUser: null });
   };
 
+  // Capture session read times when entering a group
+  useEffect(() => {
+    if (activeGroup && state.currentUser && !isTest) {
+      const nowISO = new Date().toISOString();
+      setSessionLastRead(prev => ({ ...prev, [activeGroup]: state.currentUserData?.lastReadTimestamps?.[activeGroup] || '0' }));
+      setSessionEnterTime(prev => ({ ...prev, [activeGroup]: nowISO }));
+    }
+  }, [activeGroup]); // Only run when activeGroup changes
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     
     // Clear notification for active group and update last read timestamp
-    if (activeGroup && state.groups && state.groups[activeGroup]) {
+    if (activeGroup && state.currentUser && !isTest) {
+      const nowISO = new Date().toISOString();
+      
       setTimeout(() => {
+        // Update Firestore
+        const userRef = doc(db, 'users', state.currentUser as string);
+        updateDoc(userRef, {
+          [`lastReadTimestamps.${activeGroup}`]: nowISO
+        }).catch(e => console.error("Error updating last read:", e));
+
         updateState((prev: AppState) => {
           const newMessages = prev.newMessages?.filter(id => id !== activeGroup) || [];
           const newUsers = { ...prev.users };
@@ -152,7 +171,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             const user = { ...newUsers[prev.currentUser] };
             user.lastReadTimestamps = {
               ...(user.lastReadTimestamps || {}),
-              [activeGroup]: new Date().toISOString()
+              [activeGroup]: nowISO
             };
             newUsers[prev.currentUser] = user;
           }
@@ -160,7 +179,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         });
       }, 0);
     }
-  }, [state.groups?.[activeGroup || '']?.messages, activeGroup]);
+  }, [state.groups?.[activeGroup || '']?.messages?.length, state.privateMessages?.[activeGroup || '']?.messages?.length, activeGroup]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -1666,7 +1685,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           const isSameSender = prevMsg && prevMsg.user === msg.user && !msg.isSystem && !prevMsg.isSystem;
           const isMine = msg.user === state.currentUser;
           const sender = state.users[msg.user];
-          const isUnread = !isMine && !msg.isSystem && msg.timestamp > lastRead;
+          const msgSessionLastRead = sessionLastRead[activeGroup] || '0';
+          const msgSessionEnterTime = sessionEnterTime[activeGroup] || new Date().toISOString();
+          const isUnread = !isMine && !msg.isSystem && msg.timestamp > msgSessionLastRead && msg.timestamp <= msgSessionEnterTime;
           const isDeletedAccount = !msg.isSystem && (!state.users || !state.users[msg.user]);
           const isStaff = sender?.isAdmin || sender?.isGrandAdmin || sender?.isSuperAdmin;
           

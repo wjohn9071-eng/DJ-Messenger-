@@ -228,8 +228,17 @@ export function useAppStore() {
 
   // Browser Notifications Helper
   const sendNotification = useCallback((title: string, body: string) => {
-    if (Notification.permission === 'granted' && stateRef.current.currentUserData?.notificationsEnabled) {
-      new Notification(title, { body, icon: '/logo192.png' });
+    if ('Notification' in window && Notification.permission === 'granted' && stateRef.current.currentUserData?.notificationsEnabled) {
+      try {
+        new Notification(title, { body, icon: '/icon.svg' });
+      } catch (e) {
+        // Fallback for mobile devices (PWA) that require ServiceWorkerRegistration.showNotification()
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification(title, { body, icon: '/icon.svg' });
+          }).catch(err => console.error("SW Notification error:", err));
+        }
+      }
     }
   }, []);
 
@@ -258,21 +267,31 @@ export function useAppStore() {
             });
 
             // Notification logic
+            let isNewMessage = false;
             if (messages.length > 0) {
               const lastMsg = messages[messages.length - 1];
               if (lastMsgIds[groupDoc.id] && lastMsgIds[groupDoc.id] !== lastMsg.id && lastMsg.user !== stateRef.current.currentUser) {
-                sendNotification(`DJ Messenger - ${groupData.name}`, `${lastMsg.senderName || 'Nouveau message'}: ${lastMsg.text}`);
+                isNewMessage = true;
+                const msgText = lastMsg.text ? lastMsg.text : (lastMsg.files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
+                sendNotification(`DJ Messenger - ${groupData.name}`, `${lastMsg.senderName || 'Nouveau message'}: ${msgText}`);
               }
               lastMsgIds[groupDoc.id] = lastMsg.id || '';
             }
 
-            setState(prev => ({
-              ...prev,
-              groups: {
-                ...prev.groups,
-                [groupDoc.id]: { ...prev.groups[groupDoc.id], messages }
-              }
-            }));
+            setState(prev => {
+              const newMessagesArray = isNewMessage && !prev.newMessages?.includes(groupDoc.id) 
+                ? [...(prev.newMessages || []), groupDoc.id] 
+                : prev.newMessages;
+                
+              return {
+                ...prev,
+                newMessages: newMessagesArray,
+                groups: {
+                  ...prev.groups,
+                  [groupDoc.id]: { ...prev.groups[groupDoc.id], messages }
+                }
+              };
+            });
           }, (error) => {
             handleFirestoreError(error, OperationType.GET, `groups/${groupDoc.id}/messages`);
           });
@@ -350,22 +369,32 @@ export function useAppStore() {
             });
 
             // Notification logic
+            let isNewMessage = false;
             if (messages.length > 0) {
               const lastMsg = messages[messages.length - 1];
               if (lastMsgIds[chatDoc.id] && lastMsgIds[chatDoc.id] !== lastMsg.id && lastMsg.user !== stateRef.current.currentUser) {
+                isNewMessage = true;
                 const otherUser = stateRef.current.users[lastMsg.user]?.name || 'Quelqu\'un';
-                sendNotification(`DJ Messenger - SMS de ${otherUser}`, lastMsg.text);
+                const msgText = lastMsg.text ? lastMsg.text : (lastMsg.files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
+                sendNotification(`DJ Messenger - SMS de ${otherUser}`, msgText);
               }
               lastMsgIds[chatDoc.id] = lastMsg.id || '';
             }
 
-            setState(prev => ({
-              ...prev,
-              privateMessages: {
-                ...prev.privateMessages,
-                [chatDoc.id]: { ...prev.privateMessages[chatDoc.id], messages }
-              }
-            }));
+            setState(prev => {
+              const newMessagesArray = isNewMessage && !prev.newMessages?.includes(chatDoc.id) 
+                ? [...(prev.newMessages || []), chatDoc.id] 
+                : prev.newMessages;
+                
+              return {
+                ...prev,
+                newMessages: newMessagesArray,
+                privateMessages: {
+                  ...prev.privateMessages,
+                  [chatDoc.id]: { ...prev.privateMessages[chatDoc.id], messages }
+                }
+              };
+            });
           }, (error) => {
             handleFirestoreError(error, OperationType.GET, `private_messages/${chatDoc.id}/messages`);
           });
