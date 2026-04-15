@@ -41,11 +41,25 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
   const handleNotificationClick = () => {
     updateState({ 
-      discussionTab: 'recent',
-      newMessages: []
+      discussionTab: 'recent'
     });
     setView('discussions');
   };
+
+  const unreadIds = state.newMessages?.filter(id => !id.startsWith('sms_dj_bot_') && id !== 'simulated-group') || [];
+  let latestUnreadExtract = "";
+  if (unreadIds.length > 0) {
+    const firstUnreadId = unreadIds[0];
+    const group = state.groups?.[firstUnreadId];
+    const privateChat = state.privateMessages?.[firstUnreadId];
+    const messages = group?.messages || privateChat?.messages || [];
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      const sourceName = group ? group.name : (state.users?.[lastMsg.user]?.name || 'Quelqu\'un');
+      const msgText = lastMsg.text ? lastMsg.text : (lastMsg.files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
+      latestUnreadExtract = `Nouveau message de ${sourceName} : "${msgText.length > 30 ? msgText.substring(0, 30) + '...' : msgText}"`;
+    }
+  }
 
   return (
     <div className="flex flex-col items-center min-h-full p-6 text-center animate-in fade-in duration-500 overflow-y-auto bg-white/50 backdrop-blur-sm">
@@ -62,12 +76,20 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           {welcomeMessage}
         </p>
 
-        {state.newMessages && state.newMessages.filter(id => !id.startsWith('sms_dj_bot_') && id !== 'simulated-group').length > 0 && (
+        {unreadIds.length > 0 && (
           <button 
             onClick={handleNotificationClick}
-            className="bg-red-50 p-4 rounded-2xl shadow-sm border border-red-100 w-full mb-8 animate-bounce hover:bg-red-100 transition"
+            className="bg-blue-50 p-4 rounded-2xl shadow-sm border border-blue-100 w-full mb-8 hover:bg-blue-100 transition animate-in fade-in duration-500 text-left"
           >
-            <p className="text-sm font-bold text-red-600">🔔 Tu as de nouveaux messages ! Clique ici pour les voir.</p>
+            <div className="flex items-start gap-3">
+              <span className="text-xl">🔔</span>
+              <div>
+                <p className="text-sm font-bold text-blue-800 mb-1">Tu as de nouveaux messages !</p>
+                {latestUnreadExtract && (
+                  <p className="text-xs text-blue-600 italic">{latestUnreadExtract}</p>
+                )}
+              </div>
+            </div>
           </button>
         )}
 

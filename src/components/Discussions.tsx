@@ -168,7 +168,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         }).catch(e => console.error("Error updating last read:", e));
 
         updateState((prev: AppState) => {
-          const newMessages = prev.newMessages?.filter(id => id !== activeGroup) || [];
           const newUsers = { ...prev.users };
           let newCurrentUserData = prev.currentUserData;
           if (prev.currentUser && newUsers[prev.currentUser]) {
@@ -182,7 +181,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               newCurrentUserData = { ...newCurrentUserData, lastReadTimestamps: user.lastReadTimestamps };
             }
           }
-          return { newMessages, users: newUsers, currentUserData: newCurrentUserData };
+          return { users: newUsers, currentUserData: newCurrentUserData };
         });
       }, 0);
     }
@@ -1277,10 +1276,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     
     // Update for all groups and private messages
     Object.keys(state.groups || {}).forEach(id => {
-      newTimestamps[id] = nowISO;
+      const groupMessages = state.groups?.[id]?.messages || [];
+      const lastMsgTimestamp = groupMessages.length > 0 ? groupMessages[groupMessages.length - 1].timestamp : '0';
+      newTimestamps[id] = nowISO > lastMsgTimestamp ? nowISO : lastMsgTimestamp;
     });
     Object.keys(state.privateMessages || {}).forEach(id => {
-      newTimestamps[id] = nowISO;
+      const groupMessages = state.privateMessages?.[id]?.messages || [];
+      const lastMsgTimestamp = groupMessages.length > 0 ? groupMessages[groupMessages.length - 1].timestamp : '0';
+      newTimestamps[id] = nowISO > lastMsgTimestamp ? nowISO : lastMsgTimestamp;
     });
 
     try {
@@ -1298,7 +1301,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             newCurrentUserData = { ...newCurrentUserData, lastReadTimestamps: newTimestamps };
           }
         }
-        return { newMessages: [], users: newUsers, currentUserData: newCurrentUserData };
+        return { users: newUsers, currentUserData: newCurrentUserData };
       });
       showToast("Tous les messages marqués comme lus");
     } catch (e) {
@@ -2247,7 +2250,17 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
       <div className="p-6 pb-0">
-        <h2 className={`text-2xl font-bold mb-6 ${djStyleText}`}>Discussions</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className={`text-2xl font-bold ${djStyleText}`}>Discussions</h2>
+          {state.newMessages && state.newMessages.length > 0 && (
+            <button 
+              onClick={handleMarkAllAsRead}
+              className="text-[10px] font-black uppercase tracking-widest text-[#0D98BA] bg-blue-50 px-3 py-2 rounded-xl hover:bg-blue-100 transition-colors shadow-sm"
+            >
+              Tout marquer comme lu
+            </button>
+          )}
+        </div>
           <div className="flex gap-1.5 p-1 bg-gray-200/50 backdrop-blur-sm rounded-2xl mb-6 shadow-inner">
             <button 
               onClick={() => handleTabChange('public')} 
@@ -2374,7 +2387,17 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
         {activeTab === 'recent' ? (
           <div className="space-y-4">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4">Discussions récentes</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Discussions récentes</h3>
+              {state.newMessages && state.newMessages.length > 0 && (
+                <button 
+                  onClick={handleMarkAllAsRead}
+                  className="text-[10px] font-black uppercase tracking-widest text-[#0D98BA] bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  Tout marquer comme lu
+                </button>
+              )}
+            </div>
             {allRecentMessages.map((item, i) => (
               <div 
                 key={item.groupId || `recent-${i}`} 

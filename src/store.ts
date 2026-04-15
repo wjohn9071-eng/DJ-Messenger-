@@ -228,7 +228,7 @@ export function useAppStore() {
 
   // Browser Notifications Helper
   const sendNotification = useCallback((title: string, body: string) => {
-    if ('Notification' in window && Notification.permission === 'granted' && stateRef.current.currentUserData?.notificationsEnabled) {
+    if ('Notification' in window && Notification.permission === 'granted' && stateRef.current.currentUserData?.notificationsEnabled !== false) {
       try {
         new Notification(title, { body, icon: '/icon.svg' });
       } catch (e) {
@@ -453,13 +453,13 @@ export function useAppStore() {
     const unread: string[] = [];
     const lastRead = state.currentUserData.lastReadTimestamps || {};
     
-    Object.values(state.groups).forEach((g: Group) => {
+    Object.values(state.groups || {}).forEach((g: Group) => {
       const lastMsg = g.messages?.[g.messages.length - 1];
       if (lastMsg && lastMsg.user !== state.currentUser && lastMsg.timestamp > (lastRead[g.id] || '0')) {
         unread.push(g.id);
       }
     });
-    Object.values(state.privateMessages).forEach((g: PrivateChat) => {
+    Object.values(state.privateMessages || {}).forEach((g: PrivateChat) => {
       const lastMsg = g.messages?.[g.messages.length - 1];
       if (lastMsg && lastMsg.user !== state.currentUser && lastMsg.timestamp > (lastRead[g.id] || '0')) {
         unread.push(g.id);
