@@ -228,7 +228,7 @@ export function useAppStore() {
 
   // Browser Notifications Helper
   const sendNotification = useCallback((title: string, body: string) => {
-    if ('Notification' in window && Notification.permission === 'granted' && stateRef.current.currentUserData?.notificationsEnabled !== false) {
+    if ('Notification' in window && Notification.permission === 'granted' && stateRef.current.currentUserData?.notificationsEnabled === true) {
       try {
         new Notification(title, { body, icon: '/icon.svg' });
       } catch (e) {
@@ -454,14 +454,17 @@ export function useAppStore() {
     const lastRead = state.currentUserData.lastReadTimestamps || {};
     
     Object.values(state.groups || {}).forEach((g: Group) => {
-      const lastMsg = g.messages?.[g.messages.length - 1];
-      if (lastMsg && lastMsg.user !== state.currentUser && lastMsg.timestamp > (lastRead[g.id] || '0')) {
+      const canSee = g.type === 'public' || (g.members && g.members.includes(state.currentUser as string)) || state.currentUserData?.isAdmin || state.currentUserData?.isGrandAdmin || state.currentUserData?.isSuperAdmin;
+      if (!canSee) return;
+      
+      const lastNonSystemMsg = g.messages?.filter(m => !m.isSystem).slice(-1)[0];
+      if (lastNonSystemMsg && lastNonSystemMsg.user !== state.currentUser && lastNonSystemMsg.timestamp > (lastRead[g.id] || '0')) {
         unread.push(g.id);
       }
     });
     Object.values(state.privateMessages || {}).forEach((g: PrivateChat) => {
-      const lastMsg = g.messages?.[g.messages.length - 1];
-      if (lastMsg && lastMsg.user !== state.currentUser && lastMsg.timestamp > (lastRead[g.id] || '0')) {
+      const lastNonSystemMsg = g.messages?.filter(m => !m.isSystem).slice(-1)[0];
+      if (lastNonSystemMsg && lastNonSystemMsg.user !== state.currentUser && lastNonSystemMsg.timestamp > (lastRead[g.id] || '0')) {
         unread.push(g.id);
       }
     });

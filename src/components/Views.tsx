@@ -1261,7 +1261,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   const isTest = state.currentUser === 'test';
   const user = isTest ? null : state.users[state.currentUser as string];
   const [bgColor, setBgColor] = useState(user?.bgColor || '#f0f2f5');
-  const [notifications, setNotifications] = useState(user?.notificationsEnabled !== false);
+  const [notifications, setNotifications] = useState(user?.notificationsEnabled || false);
   const [autoHideSidebar, setAutoHideSidebar] = useState(user?.autoHideSidebar ?? true);
   const [adminCode, setAdminCode] = useState('');
   const [superAdminCode, setSuperAdminCode] = useState('');
@@ -1273,7 +1273,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   useEffect(() => {
     if (user && !showSaveConfirm) {
       setBgColor(user.bgColor || '#f0f2f5');
-      setNotifications(user.notificationsEnabled !== false);
+      setNotifications(user.notificationsEnabled || false);
       setAutoHideSidebar(user.autoHideSidebar ?? true);
     }
   }, [user, showSaveConfirm]);
@@ -1405,7 +1405,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   const cancelSettings = () => {
     if (user) {
       setBgColor(user.bgColor || '#f0f2f5');
-      setNotifications(user.notificationsEnabled !== false);
+      setNotifications(user.notificationsEnabled || false);
       setAutoHideSidebar(user.autoHideSidebar ?? true);
     }
     setShowSaveConfirm(false);

@@ -22,7 +22,7 @@ export default function App() {
   // Version check logic
   const checkUpdate = async () => {
     try {
-      const response = await fetch(`/version.json?t=${Date.now()}`);
+      const response = await fetch(`${window.location.origin}/version.json?t=${Date.now()}`);
       if (!response.ok) return;
       const data = await response.json();
       
@@ -38,6 +38,10 @@ export default function App() {
         window.location.reload();
       }
     } catch (error) {
+      // Ignore network errors (like Failed to fetch) as they are expected when offline or during server restarts
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        return;
+      }
       console.error('Error checking version:', error);
     }
   };
