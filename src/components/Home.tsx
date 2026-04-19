@@ -4,7 +4,7 @@ import { AppState } from '../types';
 
 export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string) => void, updateState: any, startSimulation: () => void }) {
   const [showUpdateNotice, setShowUpdateNotice] = React.useState(() => {
-    return localStorage.getItem('update_notice_dismissed_2.9.9') !== 'true';
+    return localStorage.getItem('update_notice_dismissed_3.0.0') !== 'true';
   });
   const isTest = state.currentUser === 'test';
   const currentUserData = !isTest && state.currentUser ? (state.currentUserData || state.users[state.currentUser as string]) : null;
@@ -99,20 +99,21 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         {showUpdateNotice && (
           <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Dimanche 19 avril 2026 (v2.9.9)</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Dimanche 19 avril 2026 (v3.0.0)</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Layout Coulissant :</b> Le menu latéral repousse désormais le contenu hors de l'écran sur mobile au lieu de l'écraser, garantissant une lisibilité parfaite.</li>
-              <li><b>Interface Unifiée :</b> Le comportement du menu est identique sur tous vos appareils, avec une navigation plus fluide et plus de "superposition" gênante.</li>
-              <li><b>Clarté Optimisée :</b> Nous avons affiné les contrastes et supprimé les effets de flou excessifs pour une interface DJ Messenger plus nette et plus rapide.</li>
+              <li><b>Layout Full-Screen Mobile :</b> Le menu de navigation occupe tout l'écran sur mobile pour une expérience immersive.</li>
+              <li><b>Mises à jour Auto-Agressives :</b> Le site s'actualise désormais automatiquement toutes les 4 minutes et installe les nouvelles versions instantanément dès détection.</li>
+              <li><b>Actualisation au Focus :</b> Dès que vous ouvrez ou revenez sur l'application, elle se réactualise pour garantir des données fraîches.</li>
+              <li><b>Actions Verticales :</b> Réorganisation ergonomique des boutons de message pour une utilisation simplifiée.</li>
             </ul>
             <button 
               onClick={() => {
                 setShowUpdateNotice(false);
-                localStorage.setItem('update_notice_dismissed_2.9.9', 'true');
+                localStorage.setItem('update_notice_dismissed_3.0.0', 'true');
               }}
               className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
             >
-              C'est génial !
+              C'est incroyable !
             </button>
           </div>
         )}

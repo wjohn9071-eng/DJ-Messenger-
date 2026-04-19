@@ -2046,24 +2046,31 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
-                      <div className={`absolute ${isMine ? '-left-9' : '-right-9'} top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10`}>
+                      <div className={`absolute ${isMine ? '-left-11' : '-right-11'} top-1/2 -translate-y-1/2 flex flex-col gap-2 z-10`}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
-                          className="p-1.5 bg-white shadow-md border border-gray-100 text-gray-600 hover:text-red-500 rounded-full transition-all active:scale-90"
+                          className="p-2 bg-white shadow-lg border border-gray-100 text-gray-600 hover:text-red-500 rounded-full transition-all active:scale-90 relative group/btn"
                           title="Supprimer"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} />
+                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Supprimer</div>
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setSelectionMode(true); setSelectedMessages(new Set([msg.id])); }}
-                          className="p-1.5 bg-white shadow-md border border-gray-100 text-gray-600 hover:text-[#0D98BA] rounded-full transition-all active:scale-90"
+                          className="p-2 bg-white shadow-lg border border-gray-100 text-gray-600 hover:text-[#0D98BA] rounded-full transition-all active:scale-90 relative group/btn"
                           title="Sélectionner"
                         >
-                          <CheckCircle2 size={14} />
+                          <CheckCircle2 size={16} />
+                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Sélectionner</div>
                         </button>
                         {isAdmin && !isMine && msg.user !== group.creator && (
-                          <button onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} className="p-1.5 bg-white shadow-md border border-gray-100 text-orange-500 rounded-full transition-all active:scale-90">
-                            <VolumeX size={12} />
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} 
+                            className="p-2 bg-white shadow-lg border border-gray-100 text-orange-500 rounded-full transition-all active:scale-90 relative group/btn"
+                            title="Muter"
+                          >
+                            <VolumeX size={14} />
+                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Muter</div>
                           </button>
                         )}
                       </div>

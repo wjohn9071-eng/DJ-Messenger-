@@ -57,6 +57,9 @@ export default function App() {
       navigator.serviceWorker.register('/sw.js').then(reg => {
         swRegistration = reg;
         
+        // Immediate check on load
+        reg.update();
+
         // Check if there is already a waiting worker
         if (reg.waiting) {
           setWaitingWorker(reg.waiting);
@@ -69,7 +72,9 @@ export default function App() {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 setWaitingWorker(newWorker);
-                setShowUpdateModal(true);
+                // Aggressive: auto-update immediately without asking
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                window.location.reload();
               }
             });
           }
@@ -90,22 +95,27 @@ export default function App() {
         }
       };
 
-      // Periodic check every 5 minutes
-      const interval = setInterval(checkSWUpdate, 5 * 60 * 1000);
+      // Aggressive: Periodic website refresh every 4 minutes as requested
+      const refreshInterval = setInterval(() => {
+        window.location.reload();
+      }, 4 * 60 * 1000);
+
+      const updateCheckInterval = setInterval(checkSWUpdate, 2 * 60 * 1000); // Check SW more frequently
       
-      // Also check on visibility change (when user comes back to the app)
+      // Also check and reload if visible
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
-          checkSWUpdate();
+          // Immediately reload when opening the app as requested
+          window.location.reload();
         }
       };
       window.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('focus', checkSWUpdate);
+      // window.addEventListener('focus', checkSWUpdate); // Focus might be too frequent, visibility is better
 
       return () => {
-        clearInterval(interval);
+        clearInterval(refreshInterval);
+        clearInterval(updateCheckInterval);
         window.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('focus', checkSWUpdate);
       };
     }
   }, []);
@@ -117,10 +127,34 @@ export default function App() {
     window.location.reload();
   };
 
+  const setViewAndCloseMenu = (id: string) => {
+    if (id === 'tutorial') {
+      startSimulation();
+      return;
+    }
+    setView(id);
+    
+    // Clear active group when navigating
+    updateState({ activeGroup: null });
+    
+    // Always close menu after navigation on mobile or home
+    if (id === 'home' || window.innerWidth < 1024) {
+      updateState({ menuOpen: false });
+    }
+  };
+
   const handleLogout = () => {
     updateState({ currentUser: null });
-    setView('home');
+    setViewAndCloseMenu('home');
     setSimulationMode(false);
+  };
+
+  const handleNavClick = (id: string) => {
+    setViewAndCloseMenu(id);
+  };
+
+  const toggleMenu = () => {
+    updateState({ menuOpen: !state.menuOpen });
   };
 
   const startSimulation = () => {
@@ -373,37 +407,17 @@ export default function App() {
 
   const renderView = () => {
     switch (view) {
-      case 'home': return <Home state={state} setView={setView} updateState={updateState} startSimulation={startSimulation} />;
+      case 'home': return <Home state={state} setView={setViewAndCloseMenu} updateState={updateState} startSimulation={startSimulation} />;
       case 'discussions': return <Discussions state={state} updateState={updateState} />;
-      case 'friends': return <Friends state={state} updateState={updateState} setView={setView} />;
+      case 'friends': return <Friends state={state} updateState={updateState} setView={setViewAndCloseMenu} />;
       case 'admin_users': return <AdminUsers state={state} updateState={updateState} />;
       case 'staff': return <Staff state={state} updateState={updateState} />;
       case 'djsociety': return <DJSociety state={state} updateState={updateState} />;
       case 'updates': return <UpdatesView state={state} />;
       case 'settings': return <Settings state={state} updateState={updateState} handleLogout={handleLogout} />;
       case 'profile': return <Profile state={state} updateState={updateState} />;
-      default: return <Home state={state} setView={setView} updateState={updateState} startSimulation={startSimulation} />;
+      default: return <Home state={state} setView={setViewAndCloseMenu} updateState={updateState} startSimulation={startSimulation} />;
     }
-  };
-
-  const handleNavClick = (id: string) => {
-    if (id === 'tutorial') {
-      startSimulation();
-      return;
-    }
-    setView(id);
-    
-    // Clear active group when navigating
-    updateState({ activeGroup: null });
-    
-    // Always close menu after navigation on mobile
-    if (window.innerWidth < 1024) {
-      updateState({ menuOpen: false });
-    }
-  };
-
-  const toggleMenu = () => {
-    updateState({ menuOpen: !state.menuOpen });
   };
 
   if (simulationMode) {
@@ -418,8 +432,8 @@ export default function App() {
   return (
     <div className="flex h-screen w-full overflow-hidden transition-all duration-300" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
       {/* Sidebar / Hamburger Menu */}
-      <aside className={`relative z-[9999] bg-black/98 text-white flex flex-col shadow-[15px_0_40px_rgba(0,0,0,0.5)] transition-all duration-300 ease-in-out h-full overflow-hidden ${state.menuOpen ? 'w-64 min-w-[16rem]' : 'w-0 min-w-0'}`}>
-        <div className="p-6 flex items-center justify-between border-b border-white/5 shrink-0">
+      <aside className={`fixed inset-y-0 left-0 lg:relative z-[9999] bg-black text-white flex flex-col shadow-[15px_0_40px_rgba(0,0,0,0.5)] transition-all duration-300 ease-in-out h-full overflow-hidden shrink-0 ${state.menuOpen ? 'w-full lg:w-72' : 'w-0'}`}>
+        <div className="p-6 flex items-center justify-between border-b border-white/5 shrink-0 min-w-max">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden p-1.5 bg-white">
               <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
@@ -489,8 +503,8 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full relative overflow-hidden w-full min-w-full shrink-0 md:min-w-0 transition-all duration-300">
-        <header className="p-4 bg-white/95 border-b flex items-center shadow-sm sticky top-0 z-[1000]">
+      <main className={`flex-1 flex flex-col h-full relative overflow-hidden transition-all duration-300 ${state.menuOpen ? 'opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto' : 'opacity-100'}`}>
+        <header className="p-4 bg-white border-b flex items-center shadow-sm sticky top-0 z-[1000] shrink-0">
           <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001]">
             <Menu size={24} className="text-gray-600" />
           </button>

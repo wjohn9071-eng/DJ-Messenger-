@@ -1246,6 +1246,7 @@ export function Updates({ state }: any) {
   const [selectedUpdate, setSelectedUpdate] = useState<number | null>(null);
 
   const updates = [
+    { version: '3.0.0', date: '19/04/2026', desc: 'Mise à jour Majeure : Le site et la PWA s\'actualisent désormais automatiquement toutes les 4 minutes. Les nouvelles versions sont installées instantanément sans confirmation. Le menu occupe tout l\'écran sur mobile et se ferme automatiquement à l\'accueil. Les actions de message sont désormais verticales.' },
     { version: '2.9.9', date: '19/04/2026', desc: 'Optimisation Layout Mobile : Le menu latéral repousse désormais le contenu au lieu de l\'écraser, garantissant une lisibilité parfaite sur petit écran. Unification totale de l\'interface entre mobile et PC, avec suppression des effets de flou pour une meilleure clarté visuelle.' },
     { version: '2.9.8', date: '19/04/2026', desc: 'Interface unifiée et Profils : Le menu latéral divise désormais l\'écran sans superposition. Un nouveau système de profil universel "Style DJ" est accessible en cliquant sur n\'importe quel avatar ou nom d\'utilisateur (Voir photo ou SMS direct).' },
     { version: '2.9.7', date: '19/04/2026', desc: 'Stabilité et corrections ultimes : Les SMS supprimés ne disparaissent plus chez votre interlocuteur. Les notifications locales sont désormais intelligentes et regroupent vos messages non lus. Enfin, le système de déploiement des mises à jour PWA passe en natif pour une réactivité immédiate sans cache.' },
