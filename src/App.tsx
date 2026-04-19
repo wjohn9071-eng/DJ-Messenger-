@@ -416,17 +416,17 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden transition-colors duration-500" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
+    <div className="flex h-screen w-full overflow-hidden transition-all duration-300" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
       {/* Sidebar / Hamburger Menu */}
-      <aside className={`fixed lg:relative inset-y-0 left-0 z-[9999] bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-all duration-300 ease-in-out lg:w-72 lg:translate-x-0 ${state.menuOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full overflow-hidden lg:overflow-visible'}`}>
-        <div className="p-6 flex items-center justify-between border-b border-white/10 shrink-0">
+      <aside className={`relative z-[9999] bg-black/98 text-white flex flex-col shadow-[15px_0_40px_rgba(0,0,0,0.5)] transition-all duration-300 ease-in-out h-full overflow-hidden ${state.menuOpen ? 'w-64 min-w-[16rem]' : 'w-0 min-w-0'}`}>
+        <div className="p-6 flex items-center justify-between border-b border-white/5 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden p-1.5 bg-white">
               <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
             </div>
             <span className={`font-black text-xl tracking-tighter uppercase ${djStyleText}`}>Messenger</span>
           </div>
-          <button onClick={toggleMenu} className="lg:hidden p-2 hover:bg-white/10 rounded-xl transition">
+          <button onClick={toggleMenu} className="p-2 hover:bg-white/10 rounded-xl transition">
             <Menu size={24} />
           </button>
         </div>
@@ -489,9 +489,9 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300">
-        <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[1000]">
-          <button onClick={toggleMenu} className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001]">
+      <main className="flex-1 flex flex-col h-full relative overflow-hidden w-full min-w-full shrink-0 md:min-w-0 transition-all duration-300">
+        <header className="p-4 bg-white/95 border-b flex items-center shadow-sm sticky top-0 z-[1000]">
+          <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001]">
             <Menu size={24} className="text-gray-600" />
           </button>
           <h1 className={`ml-2 font-black uppercase tracking-tighter text-xl ${djStyleText}`}>
@@ -504,14 +504,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* Overlay for mobile when menu is open */}
-      {state.menuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-[9998] transition-opacity duration-300 lg:hidden" 
-          onClick={toggleMenu}
-        />
-      )}
-
       {state.selectedUserModal && (
         <UserProfileModal 
           userId={state.selectedUserModal} 
@@ -521,7 +513,7 @@ export default function App() {
           setView={setView}
         />
       )}
-
+      
       <PWAUpdateModal show={showUpdateModal} onUpdate={handleUpdate} />
     </div>
   );

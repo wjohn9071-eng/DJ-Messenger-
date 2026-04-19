@@ -385,11 +385,19 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
           {searchResults.length > 0 ? searchResults.map((u, i) => (
             <div key={u.id || `user-${i}`} className="flex items-center justify-between p-5 border-b last:border-0 hover:bg-gray-50 transition-colors">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden">
+                <button 
+                  onClick={() => updateState({ selectedUserModal: u.uid })}
+                  className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden hover:ring-2 hover:ring-[#0D98BA] transition-all cursor-pointer"
+                >
                   {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name || '?')[0].toUpperCase()}
-                </div>
+                </button>
                 <div>
-                  <span className="font-bold text-gray-800 text-lg">@{u.name}</span>
+                  <button 
+                    onClick={() => updateState({ selectedUserModal: u.uid })}
+                    className="font-bold text-gray-800 text-lg hover:text-[#0D98BA] transition-colors"
+                  >
+                    @{u.name}
+                  </button>
                   <p className="text-xs text-gray-400">Utilisateur DJ Messenger</p>
                 </div>
               </div>
@@ -416,15 +424,23 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
             const friendName = friendData?.name || f;
             return (
               <div key={`${f}-${i}`} className="bg-white p-5 rounded-[2rem] shadow-lg border border-gray-50 flex items-center justify-between group hover:border-[#0D98BA]/30 transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
-                    {friendData?.avatar ? <img src={friendData.avatar} className="w-full h-full object-cover" /> : (friendName || '?')[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <span className="font-bold text-gray-800 text-xl">@{friendName}</span>
-                    <p className="text-xs text-green-500 font-bold uppercase tracking-tighter">Ami connecté</p>
-                  </div>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => updateState({ selectedUserModal: friendData?.uid || f })}
+                  className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden group-hover:ring-2 group-hover:ring-[#0D98BA] transition-all cursor-pointer"
+                >
+                  {friendData?.avatar ? <img src={friendData.avatar} className="w-full h-full object-cover" /> : (friendName || '?')[0].toUpperCase()}
+                </button>
+                <div>
+                  <button 
+                    onClick={() => updateState({ selectedUserModal: friendData?.uid || f })}
+                    className="font-bold text-gray-800 text-xl hover:text-[#0D98BA] transition-colors"
+                  >
+                    @{friendName}
+                  </button>
+                  <p className="text-xs text-green-500 font-bold uppercase tracking-tighter">Ami connecté</p>
                 </div>
+              </div>
                 <div className="flex gap-2">
                   <button onClick={async () => {
                     // Start SMS
@@ -597,9 +613,13 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
                 <div className="flex items-center justify-between">
                   <div className="flex -space-x-2">
                     {req.members.slice(0, 3).map(m => (
-                      <div key={m} className="w-6 h-6 rounded-full border-2 border-white bg-gray-200 overflow-hidden shadow-sm">
+                      <button 
+                        key={m} 
+                        onClick={(e) => { e.stopPropagation(); updateState({ selectedUserModal: m }); }}
+                        className="w-6 h-6 rounded-full border-2 border-white bg-gray-200 overflow-hidden shadow-sm hover:scale-110 transition-transform cursor-pointer relative z-[1]"
+                      >
                         {state.users[m]?.avatar ? <img src={state.users[m].avatar} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[8px] font-bold">{state.users[m]?.name?.[0]}</div>}
-                      </div>
+                      </button>
                     ))}
                   </div>
                   <button className="text-[10px] font-black uppercase text-[#0D98BA] flex items-center gap-1 group-hover:translate-x-1 transition-transform">
@@ -809,17 +829,25 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
           <div className="divide-y divide-gray-50">
             {searchResults.length > 0 ? searchResults.map((u, i) => (
               <div key={u.id || `admin-user-${i}`} className="flex items-center justify-between p-5 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden">
-                    {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name || '?')[0].toUpperCase()}
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => updateState({ selectedUserModal: u.uid || u.id })}
+                  className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden hover:ring-2 hover:ring-[#0D98BA] transition-all cursor-pointer"
+                >
+                  {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name || '?')[0].toUpperCase()}
+                </button>
+                <div>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => updateState({ selectedUserModal: u.uid || u.id })}
+                      className="font-bold text-gray-800 text-lg hover:text-[#0D98BA] transition-colors"
+                    >
+                      @{u.name}
+                    </button>
+                    {u.isSuperAdmin && SUPER_ADMIN_BADGE}
+                    {u.isGrandAdmin && !u.isSuperAdmin && ADMIN_BADGE}
+                    {u.isAdmin && !u.isGrandAdmin && !u.isSuperAdmin && STAFF_BADGE}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1">
-                      <span className="font-bold text-gray-800 text-lg">@{u.name}</span>
-                      {u.isSuperAdmin && SUPER_ADMIN_BADGE}
-                      {u.isGrandAdmin && !u.isSuperAdmin && ADMIN_BADGE}
-                      {u.isAdmin && !u.isGrandAdmin && !u.isSuperAdmin && STAFF_BADGE}
-                    </div>
                     {isSuperAdmin && u.password && (
                       <div className="flex items-center gap-1 mt-0.5">
                         <Key size={10} className="text-blue-500" />
@@ -1093,9 +1121,12 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
         {state.proposals.filter(p => p.user === 'test' || state.users[p.user]).slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(p => (
           <div key={p.id} className={`p-5 rounded-3xl shadow-sm border ${p.isAdminAnnouncement ? 'bg-gradient-to-r from-blue-50 to-green-50 border-blue-100' : 'bg-white border-gray-100'}`}>
             <div className="flex justify-between items-start mb-2">
-              <span className={`font-bold ${p.isAdminAnnouncement ? djStyleText : 'text-gray-800'}`}>
+              <button 
+                onClick={() => updateState({ selectedUserModal: p.user })}
+                className={`font-bold hover:text-[#0D98BA] transition-colors ${p.isAdminAnnouncement ? djStyleText : 'text-gray-800'}`}
+              >
                 @{state.users[p.user]?.name || p.user} {p.isAdminAnnouncement && ' (Admin)'}
-              </span>
+              </button>
               <div className="flex items-center gap-2">
                 {!p.isAdminAnnouncement && (
                   <span className={`text-xs px-2 py-1 rounded-full font-bold ${p.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : p.status === 'accepted' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -1215,6 +1246,8 @@ export function Updates({ state }: any) {
   const [selectedUpdate, setSelectedUpdate] = useState<number | null>(null);
 
   const updates = [
+    { version: '2.9.9', date: '19/04/2026', desc: 'Optimisation Layout Mobile : Le menu latéral repousse désormais le contenu au lieu de l\'écraser, garantissant une lisibilité parfaite sur petit écran. Unification totale de l\'interface entre mobile et PC, avec suppression des effets de flou pour une meilleure clarté visuelle.' },
+    { version: '2.9.8', date: '19/04/2026', desc: 'Interface unifiée et Profils : Le menu latéral divise désormais l\'écran sans superposition. Un nouveau système de profil universel "Style DJ" est accessible en cliquant sur n\'importe quel avatar ou nom d\'utilisateur (Voir photo ou SMS direct).' },
     { version: '2.9.7', date: '19/04/2026', desc: 'Stabilité et corrections ultimes : Les SMS supprimés ne disparaissent plus chez votre interlocuteur. Les notifications locales sont désormais intelligentes et regroupent vos messages non lus. Enfin, le système de déploiement des mises à jour PWA passe en natif pour une réactivité immédiate sans cache.' },
     { version: '2.9.6', date: '19/04/2026', desc: 'Gestion avancée de la suppression des messages : Tout le monde peut masquer un message "Pour soi". Les Admins/Sous-Admins peuvent supprimer un message "Pour tous" dans leur groupe. Le Staff a un pouvoir de suppression définitive de la bulle ! Ajout de la suppression en lot avec sélection multiple. De plus, la nomination et révocation des sous-admins est réparée.' },
     { version: '2.9.5', date: '19/04/2026', desc: 'Interface Améliorée : Nouveau menu latéral fixe sur PC pour une navigation fluide en 2 colonnes. Ajout d\'une fenêtre de profil universelle (style DJ) au clic sur n\'importe quel avatar/nom pour voir la photo ou envoyer un SMS direct. C\'est aussi ce nouveau système d\'affichage des mises à jour avec bouton Détail !' },

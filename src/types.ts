@@ -94,6 +94,7 @@ export interface PrivateChat {
   messages: Message[];
   createdAt: string;
   lastActivity?: string;
+  deletedForUsers?: string[];
   // Added for compatibility with Group type in UI
   name?: string;
   type?: 'sms';

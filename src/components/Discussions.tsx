@@ -1553,10 +1553,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     .map(u => (
                       <div key={u.uid} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                          <button 
+                            onClick={() => updateState({ selectedUserModal: u.uid })}
+                            className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#0D98BA] transition-all cursor-pointer"
+                          >
                             {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span>{u.name[0]}</span>}
-                          </div>
-                          <span className="text-sm font-bold text-gray-700">{u.name}</span>
+                          </button>
+                          <button 
+                            onClick={() => updateState({ selectedUserModal: u.uid })}
+                            className="text-sm font-bold text-gray-700 hover:text-[#0D98BA] transition-colors"
+                          >
+                            {u.name}
+                          </button>
                         </div>
                         <button 
                           onClick={async () => {
@@ -1597,10 +1605,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     .map(u => (
                       <div key={u.uid} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                          <button 
+                            onClick={() => updateState({ selectedUserModal: u.uid })}
+                            className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#0D98BA] transition-all cursor-pointer"
+                          >
                             {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span>{u.name[0]}</span>}
-                          </div>
-                          <span className="text-sm font-bold text-gray-700">{u.name}</span>
+                          </button>
+                          <button 
+                            onClick={() => updateState({ selectedUserModal: u.uid })}
+                            className="text-sm font-bold text-gray-700 hover:text-[#0D98BA] transition-colors"
+                          >
+                            {u.name}
+                          </button>
                         </div>
                         <button 
                           onClick={() => handleToggleSubAdmin(u.uid)}
@@ -1646,12 +1662,20 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       return (
                         <div key={m} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl group/member">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gray-200 flex items-center justify-center overflow-hidden shadow-inner">
+                            <button 
+                              onClick={() => updateState({ selectedUserModal: m })}
+                              className="w-10 h-10 rounded-xl bg-gray-200 flex items-center justify-center overflow-hidden shadow-inner hover:ring-2 hover:ring-[#0D98BA] transition-all"
+                            >
                               {u?.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span className="font-bold text-gray-400">{u?.name?.[0] || '?'}</span>}
-                            </div>
+                            </button>
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-gray-800">{u?.name || 'Inconnu'}</span>
+                                <button 
+                                  onClick={() => updateState({ selectedUserModal: m })}
+                                  className="text-sm font-bold text-gray-800 hover:text-[#0D98BA] transition-colors"
+                                >
+                                  {u?.name || 'Inconnu'}
+                                </button>
                                 {isMemberCreator && (
                                   <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-red-100 text-red-600 rounded-full">Admin du groupe</span>
                                 )}
