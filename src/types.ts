@@ -121,4 +121,5 @@ export interface AppState {
   menuOpen?: boolean;
   autoHideSidebar?: boolean;
   activeGroup?: string | null;
+  selectedUserModal?: string | null;
 }

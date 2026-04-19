@@ -1211,8 +1211,13 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
   );
 }
 
-export function Updates() {
+export function Updates({ state }: any) {
+  const [selectedUpdate, setSelectedUpdate] = useState<number | null>(null);
+
   const updates = [
+    { version: '2.9.7', date: '19/04/2026', desc: 'Stabilité et corrections ultimes : Les SMS supprimés ne disparaissent plus chez votre interlocuteur. Les notifications locales sont désormais intelligentes et regroupent vos messages non lus. Enfin, le système de déploiement des mises à jour PWA passe en natif pour une réactivité immédiate sans cache.' },
+    { version: '2.9.6', date: '19/04/2026', desc: 'Gestion avancée de la suppression des messages : Tout le monde peut masquer un message "Pour soi". Les Admins/Sous-Admins peuvent supprimer un message "Pour tous" dans leur groupe. Le Staff a un pouvoir de suppression définitive de la bulle ! Ajout de la suppression en lot avec sélection multiple. De plus, la nomination et révocation des sous-admins est réparée.' },
+    { version: '2.9.5', date: '19/04/2026', desc: 'Interface Améliorée : Nouveau menu latéral fixe sur PC pour une navigation fluide en 2 colonnes. Ajout d\'une fenêtre de profil universelle (style DJ) au clic sur n\'importe quel avatar/nom pour voir la photo ou envoyer un SMS direct. C\'est aussi ce nouveau système d\'affichage des mises à jour avec bouton Détail !' },
     { version: '2.9.4', date: '15/04/2026', desc: 'Réparation complète du système de notifications (PWA et navigateur) et de l\'indicateur de nouveaux messages. Ajout d\'un bouton "Tout marquer comme lu" dans les discussions. Les messages non lus ne restent plus bloqués.' },
     { version: '2.9.3', date: '14/04/2026', desc: 'Améliorations majeures : Envoi de multiples fichiers en même temps (jusqu\'à 200 Mo), support des fichiers Microsoft (Word, Excel), des archives (.zip, .rar) et des fichiers de code (.html, .js, etc.). Gestion complète des sous-admins dans les groupes privés. Possibilité de modifier l\'icône pour tous les types de groupes. Correction de l\'affichage des icônes de groupe et du défilement dans les paramètres.' },
     { version: '2.9.2', date: '14/04/2026', desc: 'Correction de l\'erreur BloomFilter et améliorations de stabilité.' },
@@ -1234,6 +1239,36 @@ export function Updates() {
     { version: '1.0.0', date: '28/03/2026', desc: 'Création de DJ Messenger. Chat public et authentification de base.' }
   ];
 
+  if (selectedUpdate !== null) {
+    const u = updates[selectedUpdate];
+    return (
+      <div className="fixed inset-y-0 right-0 left-0 lg:left-72 bg-white z-[2000] flex flex-col animate-in slide-in-from-right-8 duration-300">
+        <div className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[2001]">
+          <button onClick={() => setSelectedUpdate(null)} className="p-2 hover:bg-gray-100 rounded-xl transition mr-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <h2 className={`font-black uppercase tracking-tighter text-xl text-gray-800 ${djStyleText}`}>Détails Mise à jour</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto w-full custom-scrollbar">
+          <div className="p-6 md:p-12 max-w-3xl mx-auto">
+            <div className="mb-8">
+              <h1 className={`text-4xl md:text-5xl font-black tracking-tighter uppercase ${djStyleText} mb-4`}>
+                Version {u.version}
+              </h1>
+              <div className="flex items-center gap-3 text-[#0D98BA] font-bold">
+                <span className="bg-blue-50 border border-blue-100 px-3 py-1 rounded-full text-xs uppercase tracking-widest">Date de sortie</span>
+                <time>{u.date}</time>
+              </div>
+            </div>
+            <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed space-y-6">
+              <p className="font-medium text-xl md:text-2xl whitespace-pre-wrap">{u.desc}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-2xl mx-auto animate-in fade-in duration-300">
       <h2 className={`text-2xl font-bold mb-8 ${djStyleText}`}>Mises à jour</h2>
@@ -1243,12 +1278,18 @@ export function Updates() {
             <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-[#0D98BA] text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
               <div className="w-2 h-2 bg-white rounded-full"></div>
             </div>
-            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
               <div className="flex items-center justify-between mb-1">
                 <h3 className="font-bold text-gray-800 text-lg">v{u.version}</h3>
                 <time className="text-xs font-medium text-gray-400">{u.date}</time>
               </div>
-              <p className="text-gray-600 text-sm leading-relaxed">{u.desc}</p>
+              <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 mb-3">{u.desc}</p>
+              <button 
+                onClick={() => setSelectedUpdate(i)}
+                className="self-end px-4 py-1.5 text-[10px] font-black uppercase tracking-widest bg-gray-50 text-gray-600 rounded-xl hover:bg-[#0D98BA] hover:text-white transition-colors"
+              >
+                Détail
+              </button>
             </div>
           </div>
         ))}
@@ -1756,7 +1797,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       )}
 
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
             <h3 className="text-xl font-bold text-gray-800 mb-2">Supprimer le compte</h3>
             <p className="text-gray-600 mb-6">Es-tu sûr de vouloir supprimer ton compte ? Cette action est irréversible.</p>

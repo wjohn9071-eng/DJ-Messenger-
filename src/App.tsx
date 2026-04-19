@@ -3,13 +3,14 @@ import { useAppStore } from './store';
 import Auth from './components/Auth';
 import Home from './components/Home';
 import { Discussions } from './components/Discussions';
-import { Profile, Friends, AdminUsers, DJSociety, Updates, Settings, Staff } from './components/Views';
+import { Profile, Friends, AdminUsers, DJSociety, Updates as UpdatesView, Settings, Staff } from './components/Views';
 import { TutorialGame } from './components/TutorialGame';
 import { PWAUpdateModal } from './components/PWAUpdateModal';
 import { Menu, Home as HomeIcon, MessageSquare, Users, Lightbulb, Bell, Settings as SettingsIcon, HelpCircle, User as UserIcon, Plus, Shield } from 'lucide-react';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from './lib/utils';
 import { AppState, Message, Group, User } from './types';
 import { db, collection, doc, addDoc, setDoc, updateDoc, arrayUnion, getDoc } from './lib/firebase';
+import { UserProfileModal } from './components/UserProfileModal';
 
 export default function App() {
   const { state, updateState } = useAppStore();
@@ -19,81 +20,7 @@ export default function App() {
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
 
-  // Version check logic
-  const checkUpdate = async () => {
-    try {
-      const response = await fetch(`${window.location.origin}/version.json?t=${Date.now()}`);
-      if (!response.ok) return;
-      const data = await response.json();
-      
-      const storedVersion = localStorage.getItem('app_version');
-      
-      if (!storedVersion) {
-        localStorage.setItem('app_version', data.version);
-        setCurrentVersion(data.version);
-      } else if (storedVersion !== data.version) {
-        console.log('New version detected:', data.version);
-        localStorage.setItem('app_version', data.version);
-        // Force reload to get new assets
-        window.location.reload();
-      }
-    } catch (error) {
-      // Ignore network errors (like Failed to fetch) as they are expected when offline or during server restarts
-      if (error instanceof Error && error.message.includes('Failed to fetch')) {
-        return;
-      }
-      console.error('Error checking version:', error);
-    }
-  };
-
-  useEffect(() => {
-    // Initial check
-    checkUpdate();
-
-    // Check on focus/visibility change
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const lastFocus = localStorage.getItem('last_focus_time');
-        const now = Date.now();
-        
-        // If it's been more than 5 minutes, force a reload to ensure fresh state
-        if (lastFocus && now - parseInt(lastFocus) > 5 * 60 * 1000) {
-          localStorage.setItem('last_focus_time', now.toString());
-          window.location.reload();
-        } else {
-          localStorage.setItem('last_focus_time', now.toString());
-          checkUpdate();
-        }
-      }
-    };
-
-    // Check on window focus
-    const handleFocus = () => {
-      const lastFocus = localStorage.getItem('last_focus_time');
-      const now = Date.now();
-      
-      // If it's been more than 5 minutes, force a reload
-      if (lastFocus && now - parseInt(lastFocus) > 5 * 60 * 1000) {
-        localStorage.setItem('last_focus_time', now.toString());
-        window.location.reload();
-      } else {
-        localStorage.setItem('last_focus_time', now.toString());
-        checkUpdate();
-      }
-    };
-
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    // Periodic check every 5 minutes
-    const interval = setInterval(checkUpdate, 5 * 60 * 1000);
-
-    return () => {
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      clearInterval(interval);
-    };
-  }, []);
+  // Version check logic removed in favor of Service Worker native API
 
   useEffect(() => {
     if (state.currentUser && state.users[state.currentUser]?.bgColor) {
@@ -124,12 +51,22 @@ export default function App() {
 
   // Service Worker Update Detection
   useEffect(() => {
+    let swRegistration: ServiceWorkerRegistration | null = null;
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(reg => {
+        swRegistration = reg;
+        
+        // Check if there is already a waiting worker
+        if (reg.waiting) {
+          setWaitingWorker(reg.waiting);
+          setShowUpdateModal(true);
+        }
+
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           if (newWorker) {
-            newWorker.addEventListener('state_changed', () => {
+            newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 setWaitingWorker(newWorker);
                 setShowUpdateModal(true);
@@ -137,7 +74,7 @@ export default function App() {
             });
           }
         });
-      });
+      }).catch(err => console.error('SW registration failed:', err));
 
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -145,6 +82,31 @@ export default function App() {
         refreshing = true;
         window.location.reload();
       });
+
+      // Periodically check for updates on the worker
+      const checkSWUpdate = () => {
+        if (swRegistration) {
+          swRegistration.update().catch(() => { /* silent handle */ });
+        }
+      };
+
+      // Periodic check every 5 minutes
+      const interval = setInterval(checkSWUpdate, 5 * 60 * 1000);
+      
+      // Also check on visibility change (when user comes back to the app)
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          checkSWUpdate();
+        }
+      };
+      window.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', checkSWUpdate);
+
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', checkSWUpdate);
+      };
     }
   }, []);
 
@@ -152,7 +114,7 @@ export default function App() {
     if (waitingWorker) {
       waitingWorker.postMessage({ type: 'SKIP_WAITING' });
     }
-    setShowUpdateModal(false);
+    window.location.reload();
   };
 
   const handleLogout = () => {
@@ -417,7 +379,7 @@ export default function App() {
       case 'admin_users': return <AdminUsers state={state} updateState={updateState} />;
       case 'staff': return <Staff state={state} updateState={updateState} />;
       case 'djsociety': return <DJSociety state={state} updateState={updateState} />;
-      case 'updates': return <Updates />;
+      case 'updates': return <UpdatesView state={state} />;
       case 'settings': return <Settings state={state} updateState={updateState} handleLogout={handleLogout} />;
       case 'profile': return <Profile state={state} updateState={updateState} />;
       default: return <Home state={state} setView={setView} updateState={updateState} startSimulation={startSimulation} />;
@@ -434,8 +396,8 @@ export default function App() {
     // Clear active group when navigating
     updateState({ activeGroup: null });
     
-    // Always close menu on mobile, or if autoHideSidebar is enabled
-    if (window.innerWidth < 1024 || (user?.autoHideSidebar ?? true)) {
+    // Always close menu after navigation on mobile
+    if (window.innerWidth < 1024) {
       updateState({ menuOpen: false });
     }
   };
@@ -456,7 +418,7 @@ export default function App() {
   return (
     <div className="flex h-screen w-full overflow-hidden transition-colors duration-500" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
       {/* Sidebar / Hamburger Menu */}
-      <aside className={`fixed md:relative inset-y-0 left-0 z-[9999] bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-all duration-300 ease-in-out ${state.menuOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full md:translate-x-0 overflow-hidden'}`}>
+      <aside className={`fixed lg:relative inset-y-0 left-0 z-[9999] bg-black/95 backdrop-blur-2xl text-white flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.3)] transition-all duration-300 ease-in-out lg:w-72 lg:translate-x-0 ${state.menuOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full overflow-hidden lg:overflow-visible'}`}>
         <div className="p-6 flex items-center justify-between border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden p-1.5 bg-white">
@@ -529,7 +491,7 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 relative h-full overflow-hidden transition-all duration-300">
         <header className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[1000]">
-          <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001]">
+          <button onClick={toggleMenu} className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001]">
             <Menu size={24} className="text-gray-600" />
           </button>
           <h1 className={`ml-2 font-black uppercase tracking-tighter text-xl ${djStyleText}`}>
@@ -545,8 +507,18 @@ export default function App() {
       {/* Overlay for mobile when menu is open */}
       {state.menuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] md:hidden" 
+          className="fixed inset-0 bg-black/60 z-[9998] transition-opacity duration-300 lg:hidden" 
           onClick={toggleMenu}
+        />
+      )}
+
+      {state.selectedUserModal && (
+        <UserProfileModal 
+          userId={state.selectedUserModal} 
+          state={state} 
+          updateState={updateState} 
+          onClose={() => updateState({ selectedUserModal: null })}
+          setView={setView}
         />
       )}
 

@@ -268,10 +268,22 @@ export function useAppStore() {
 
             // Notification logic
             if (messages.length > 0) {
+              const prevLastId = lastMsgIds[groupDoc.id];
               const lastMsg = messages[messages.length - 1];
-              if (lastMsgIds[groupDoc.id] && lastMsgIds[groupDoc.id] !== lastMsg.id && lastMsg.user !== stateRef.current.currentUser) {
-                const msgText = lastMsg.text ? lastMsg.text : (lastMsg.files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
-                sendNotification(`DJ Messenger`, `Nouveau message venant de ${groupData.name} : ${msgText}`);
+              
+              if (prevLastId && prevLastId !== lastMsg.id) {
+                const prevIndex = messages.findIndex(m => m.id === prevLastId);
+                const newMessages = prevIndex >= 0 ? messages.slice(prevIndex + 1) : [lastMsg];
+                const unreadForMe = newMessages.filter(m => m.user !== stateRef.current.currentUser);
+                
+                if (unreadForMe.length > 0) {
+                  if (unreadForMe.length === 1) {
+                    const msgText = unreadForMe[0].text ? unreadForMe[0].text : (unreadForMe[0].files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
+                    sendNotification(`DJ Messenger`, `Nouveau message de ${groupData.name} : ${msgText}`);
+                  } else {
+                    sendNotification(`DJ Messenger`, `${unreadForMe.length} nouveaux messages dans ${groupData.name}`);
+                  }
+                }
               }
               lastMsgIds[groupDoc.id] = lastMsg.id || '';
             }
@@ -363,11 +375,25 @@ export function useAppStore() {
 
             // Notification logic
             if (messages.length > 0) {
+              const prevLastId = lastMsgIds[chatDoc.id];
               const lastMsg = messages[messages.length - 1];
-              if (lastMsgIds[chatDoc.id] && lastMsgIds[chatDoc.id] !== lastMsg.id && lastMsg.user !== stateRef.current.currentUser) {
-                const otherUser = stateRef.current.users[lastMsg.user]?.name || 'Quelqu\'un';
-                const msgText = lastMsg.text ? lastMsg.text : (lastMsg.files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
-                sendNotification(`DJ Messenger`, `Nouveau message venant de ${otherUser} : ${msgText}`);
+              
+              if (prevLastId && prevLastId !== lastMsg.id) {
+                const prevIndex = messages.findIndex(m => m.id === prevLastId);
+                const newMessages = prevIndex >= 0 ? messages.slice(prevIndex + 1) : [lastMsg];
+                const unreadForMe = newMessages.filter(m => m.user !== stateRef.current.currentUser);
+                
+                if (unreadForMe.length > 0) {
+                  const lastSenderId = unreadForMe[unreadForMe.length - 1].user;
+                  const otherUser = stateRef.current.users[lastSenderId]?.name || 'Quelqu\'un';
+                  
+                  if (unreadForMe.length === 1) {
+                    const msgText = unreadForMe[0].text ? unreadForMe[0].text : (unreadForMe[0].files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
+                    sendNotification(`DJ Messenger`, `Nouveau message de ${otherUser} : ${msgText}`);
+                  } else {
+                    sendNotification(`DJ Messenger`, `${unreadForMe.length} nouveaux messages de ${otherUser}`);
+                  }
+                }
               }
               lastMsgIds[chatDoc.id] = lastMsg.id || '';
             }

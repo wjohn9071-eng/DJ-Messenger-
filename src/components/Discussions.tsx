@@ -41,7 +41,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     ...Object.values(state.privateMessages || {})
       .filter(chat => {
         const otherMember = chat?.members?.find(m => m !== state.currentUser);
-        return chat && chat.members && chat.members.includes(state.currentUser as string) && otherMember;
+        const isDeletedForMe = chat?.deletedForUsers?.includes(state.currentUser as string);
+        return chat && chat.members && chat.members.includes(state.currentUser as string) && otherMember && !isDeletedForMe;
       })
       .map(chat => {
         const otherId = chat.members?.find((m: string) => m !== state.currentUser);
@@ -75,9 +76,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
   }, [state.discussionTab]);
   const [messageInput, setMessageInput] = useState('');
-  const [deleteOptionsPrompt, setDeleteOptionsPrompt] = useState<{msgId: string, isMine: boolean, isCreator: boolean, isDeletedForEveryone?: boolean} | null>(null);
+  const [deleteOptionsPrompt, setDeleteOptionsPrompt] = useState<{msgIds: string[], isMine: boolean, isCreator: boolean, isSubAdmin: boolean, isDeletedForEveryone?: boolean} | null>(null);
   const [revealedMessages, setRevealedMessages] = useState<Record<string, number>>({});
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [wizardStep, setWizardStep] = useState(1);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupReason, setNewGroupReason] = useState('informer');
@@ -1028,37 +1031,48 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     updateState({ discussionTab: tab });
   };
 
-  const handleDeleteMessage = async (msgId: string, option: 'me' | 'everyone' | 'bubble' = 'me') => {
+  const handleDeleteMessage = async (msgIds: string[], option: 'me' | 'everyone' | 'bubble' = 'me') => {
     if (!activeGroup) return;
     const isSMS = activeGroup.startsWith('sms_');
     const path = isSMS ? 'private_messages' : 'groups';
     const group = state.groups[activeGroup] || state.privateMessages[activeGroup];
     if (!group) return;
 
-    const msg = group.messages?.find(m => m.id === msgId);
-    if (!msg) return;
-
     try {
-      const msgRef = doc(db, path, activeGroup, 'messages', msgId);
-      
-      if (option === 'me') {
-        await updateDoc(msgRef, {
-          deletedForUsers: arrayUnion(state.currentUser)
-        });
-        showToast("Message supprimé pour vous.");
-      } else if (option === 'everyone') {
-        await updateDoc(msgRef, {
-          deletedForEveryone: true,
-          originalText: msg.text,
-          text: 'Message supprimé',
-          deletedAt: new Date().toISOString()
-        });
-        showToast("Message supprimé pour tous.");
-      } else if (option === 'bubble') {
-        await deleteDoc(msgRef);
-        showToast("Bulle supprimée.");
+      for (const msgId of msgIds) {
+        const msg = group.messages?.find(m => m.id === msgId);
+        if (!msg) continue;
+
+        const msgRef = doc(db, path, activeGroup, 'messages', msgId);
+        
+        if (option === 'me') {
+          await updateDoc(msgRef, {
+            deletedForUsers: arrayUnion(state.currentUser)
+          });
+        } else if (option === 'everyone') {
+          await updateDoc(msgRef, {
+            deletedForEveryone: true,
+            originalText: msg.text,
+            text: 'Message supprimé',
+            deletedAt: new Date().toISOString()
+          });
+        } else if (option === 'bubble') {
+          await deleteDoc(msgRef);
+        }
       }
+      
+      const count = msgIds.length;
+      if (option === 'me') {
+        showToast(count > 1 ? `${count} messages supprimés pour vous.` : "Message supprimé pour vous.");
+      } else if (option === 'everyone') {
+        showToast(count > 1 ? `${count} messages supprimés pour tous.` : "Message supprimé pour tous.");
+      } else if (option === 'bubble') {
+        showToast(count > 1 ? `${count} bulles supprimées.` : "Bulle supprimée.");
+      }
+      
       setDeleteOptionsPrompt(null);
+      setSelectionMode(false);
+      setSelectedMessages(new Set());
     } catch (error) {
       console.error("Error deleting message:", error);
       showToast("Erreur lors de la suppression.");
@@ -1259,7 +1273,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     ...Object.values(state.privateMessages || {}).filter(chat => {
       const isSuperAdmin = state.currentUserData?.isSuperAdmin;
       const otherMember = chat?.members?.find(m => m !== state.currentUser);
-      return chat && (chat.members?.includes(state.currentUser as string) || isSuperAdmin) && otherMember;
+      const isDeletedForMe = chat?.deletedForUsers?.includes(state.currentUser as string);
+      return chat && !isDeletedForMe && (chat.members?.includes(state.currentUser as string) || isSuperAdmin) && otherMember;
     }),
     ...(botGroup ? [botGroup] : [])
   ].sort((a, b) => {
@@ -1344,7 +1359,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         if (smsId.includes('dj-bot')) {
           await deleteDoc(doc(db, 'private_messages', smsId));
         } else {
-          await deleteDoc(doc(db, 'private_messages', smsId));
+          await updateDoc(doc(db, 'private_messages', smsId), {
+            deletedForUsers: arrayUnion(state.currentUser)
+          });
         }
         setActiveGroup(null);
         setShowDeleteSmsPrompt(null);
@@ -1356,9 +1373,28 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     };
 
     return (
-      <div className="fixed inset-0 z-[2000] flex flex-col bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
-        <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-[2001] sticky top-0">
-          <div className="flex items-center gap-3">
+      <div className="fixed inset-y-0 right-0 left-0 lg:left-72 z-[2000] flex flex-col bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
+        {selectionMode ? (
+          <div className="p-4 bg-blue-50 border-b border-blue-100 flex items-center justify-between shadow-sm z-[2001] sticky top-0">
+            <div className="flex items-center gap-3">
+              <button onClick={() => { setSelectionMode(false); setSelectedMessages(new Set()); }} className="p-2 hover:bg-blue-100 rounded-full transition-colors text-blue-500">
+                <X size={20} />
+              </button>
+              <h3 className="font-bold text-blue-900">{selectedMessages.size} sélectionné(s)</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setDeleteOptionsPrompt({ msgIds: Array.from(selectedMessages), isMine: true, isCreator, isSubAdmin: (group as Group).subAdmins?.includes(state.currentUser as string) || false, isDeletedForEveryone: false })}
+                className="p-2 rounded-xl bg-white shadow-sm border border-blue-200 text-red-500 hover:bg-red-50 transition"
+                title="Supprimer la sélection"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-[2001] sticky top-0">
+            <div className="flex items-center gap-3">
             <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-all text-gray-700 shadow-sm border border-gray-200 group">
               <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
               <span className="text-[10px] font-black uppercase tracking-widest">Retour</span>
@@ -1404,6 +1440,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             )}
           </div>
         </div>
+        )}
 
         {showGroupSettings && (
           <div className="bg-white border-b p-6 space-y-6 animate-in slide-in-from-top-4 max-h-[50vh] overflow-y-auto custom-scrollbar shrink-0">
@@ -1628,7 +1665,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             </div>
                           </div>
                           
-                          {(isCreator || isSubAdmin) && m !== state.currentUser && m !== group.creator && !(group.subAdmins || []).includes(m) && (
+                          {(isCreator || isSubAdmin) && m !== state.currentUser && m !== group.creator && (
                             <div className="flex items-center gap-1">
                               {isCreator && (
                                 <button 
@@ -1639,7 +1676,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                                   <Shield size={14} />
                                 </button>
                               )}
-                              {group.type === 'private' && (
+                              {group.type === 'private' && (isCreator || !isMemberSubAdmin) && (
                                 <button 
                                   onClick={() => handleBanUser(m)} 
                                   className="p-2 bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-500 rounded-xl transition-colors"
@@ -1761,15 +1798,44 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             );
           }
+          const isSelected = selectedMessages.has(msg.id);
+          
+          const handleMsgClick = () => {
+            if (selectionMode) {
+              const newSel = new Set(selectedMessages);
+              if (newSel.has(msg.id)) newSel.delete(msg.id);
+              else newSel.add(msg.id);
+              setSelectedMessages(newSel);
+              if (newSel.size === 0) setSelectionMode(false);
+            }
+          };
+          
           return (
-            <div key={msg.id} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-1.5 group/msg ${isSameSender ? 'mt-0.5' : 'mt-2'}`}>
-              <div className={`w-6 h-6 rounded-xl bg-gray-100 flex items-center justify-center text-[8px] font-bold text-gray-400 shadow-inner shrink-0 overflow-hidden ${isSameSender ? 'opacity-0' : 'opacity-100'}`}>
+            <div key={msg.id} onClick={handleMsgClick} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-1.5 group/msg ${isSameSender ? 'mt-0.5' : 'mt-2'} ${selectionMode ? 'cursor-pointer hover:bg-gray-100/50 p-1 rounded-xl transition-colors' : ''} ${isSelected ? 'bg-blue-50/50 outline outline-2 outline-blue-200' : ''}`}>
+              {selectionMode && (
+                <div className="shrink-0 mr-1 self-center">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-[#0D98BA] border-[#0D98BA] text-white' : 'border-gray-300'}`}>
+                    {isSelected && <CheckCircle2 size={12} />}
+                  </div>
+                </div>
+              )}
+              <button 
+                onClick={() => { if(!isDeletedAccount && msg.user !== 'dj-bot' && state.users?.[msg.user]) updateState({ selectedUserModal: msg.user }) }}
+                disabled={isDeletedAccount || msg.user === 'dj-bot' || !state.users?.[msg.user]}
+                className={`w-6 h-6 rounded-xl bg-gray-100 flex items-center justify-center text-[8px] font-bold text-gray-400 shadow-inner shrink-0 overflow-hidden ${isSameSender ? 'opacity-0' : 'opacity-100 cursor-pointer hover:ring-2 hover:ring-[#0D98BA] transition-all'}`}
+              >
                 {isDeletedAccount ? '?' : (senderAvatar ? <img src={senderAvatar} className="w-full h-full object-cover" /> : senderName[0].toUpperCase())}
-              </div>
+              </button>
               <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[85%]`}>
                 {!isSameSender && (
                   <div className="flex items-center gap-1 px-1 mb-0.5">
-                    <span className="text-[9px] font-black uppercase tracking-tighter text-gray-400">{senderName}</span>
+                    <button 
+                      onClick={() => { if(!isDeletedAccount && msg.user !== 'dj-bot' && state.users?.[msg.user]) updateState({ selectedUserModal: msg.user }) }}
+                      disabled={isDeletedAccount || msg.user === 'dj-bot' || !state.users?.[msg.user]}
+                      className="text-[9px] font-black uppercase tracking-tighter text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      {senderName}
+                    </button>
                     {sender?.isSuperAdmin && SUPER_ADMIN_BADGE}
                     {sender?.isGrandAdmin && !sender?.isSuperAdmin && ADMIN_BADGE}
                     {sender?.isAdmin && !sender?.isGrandAdmin && !sender?.isSuperAdmin && STAFF_BADGE}
@@ -1955,14 +2021,21 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                         renderMessageText(isRevealed ? msg.originalText || msg.text : msg.text)
                       )}
                     </p>
-                    {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && (
+                    {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
                       <div className={`absolute ${isMine ? '-left-9' : '-right-9'} top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10`}>
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgId: msg.id, isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
+                          onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
                           className="p-1.5 bg-white shadow-md border border-gray-100 text-gray-600 hover:text-red-500 rounded-full transition-all active:scale-90"
-                          title="Options du message"
+                          title="Supprimer"
                         >
-                          <MoreVertical size={14} />
+                          <Trash2 size={14} />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setSelectionMode(true); setSelectedMessages(new Set([msg.id])); }}
+                          className="p-1.5 bg-white shadow-md border border-gray-100 text-gray-600 hover:text-[#0D98BA] rounded-full transition-all active:scale-90"
+                          title="Sélectionner"
+                        >
+                          <CheckCircle2 size={14} />
                         </button>
                         {isAdmin && !isMine && msg.user !== group.creator && (
                           <button onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} className="p-1.5 bg-white shadow-md border border-gray-100 text-orange-500 rounded-full transition-all active:scale-90">
@@ -2177,25 +2250,25 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
               <div className="p-6 space-y-3">
                 <button 
-                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'me')}
+                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgIds, 'me')}
                   className="w-full py-4 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition"
                 >
                   {deleteOptionsPrompt.isDeletedForEveryone ? "Supprimer la bulle pour moi" : "Supprimer pour moi uniquement"}
                 </button>
-                {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || deleteOptionsPrompt.isCreator || deleteOptionsPrompt.isSubAdmin || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
+                {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin || deleteOptionsPrompt.isCreator || deleteOptionsPrompt.isSubAdmin) && (
                   <button 
-                    onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'everyone')}
+                    onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgIds, 'everyone')}
                     className="w-full py-4 rounded-2xl bg-red-50 text-red-500 font-bold hover:bg-red-100 transition"
                   >
                     Supprimer pour tout le monde
                   </button>
                 )}
-                {(deleteOptionsPrompt.isCreator || deleteOptionsPrompt.isSubAdmin || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
+                {(currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
                   <button 
-                    onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'bubble')}
+                    onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgIds, 'bubble')}
                     className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition"
                   >
-                    Supprimer la bulle pour tous (Définitif)
+                    Supprimer la bulle (Staff)
                   </button>
                 )}
                 <button 
@@ -2562,25 +2635,25 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </div>
             <div className="p-6 space-y-3">
               <button 
-                onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'me')}
+                onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgIds, 'me')}
                 className="w-full py-4 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition"
               >
                 {deleteOptionsPrompt.isDeletedForEveryone ? "Supprimer la bulle pour moi" : "Supprimer pour moi uniquement"}
               </button>
-              {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || deleteOptionsPrompt.isCreator || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
+              {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin || deleteOptionsPrompt.isCreator || deleteOptionsPrompt.isSubAdmin) && (
                 <button 
-                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'everyone')}
+                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgIds, 'everyone')}
                   className="w-full py-4 rounded-2xl bg-red-50 text-red-500 font-bold hover:bg-red-100 transition"
                 >
                   Supprimer pour tout le monde
                 </button>
               )}
-              {(deleteOptionsPrompt.isCreator || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
+              {(currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
                 <button 
-                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgId, 'bubble')}
+                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgIds, 'bubble')}
                   className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition"
                 >
-                  Supprimer la bulle pour tous (Définitif)
+                  Supprimer la bulle (Staff)
                 </button>
               )}
               <button 
@@ -2595,7 +2668,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       )}
 
       {showCreateGroup && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in">
           {renderWizard()}
         </div>
       )}
