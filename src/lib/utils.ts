@@ -57,3 +57,19 @@ export function compressImage(file: File, maxWidth = 400, maxHeight = 400, quali
     reader.onerror = reject;
   });
 }
+
+export function setDraftStatus(hasDraft: boolean) {
+  (window as any).hasUnsentDraft = hasDraft;
+  if (!hasDraft && (window as any).pendingDraftReload) {
+    (window as any).pendingDraftReload = false;
+    
+    // Check if we need to notify the service worker
+    if ((window as any).pendingWorker) {
+      try {
+        (window as any).pendingWorker.postMessage({ type: 'SKIP_WAITING' });
+      } catch(e) {}
+    }
+    
+    window.location.reload();
+  }
+}

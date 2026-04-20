@@ -103,9 +103,9 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
               <li><b>Mode Sombre :</b> Inversion des couleurs disponible dans les paramètres pour un confort visuel optimal.</li>
               <li><b>Layout Full-Screen Mobile :</b> Le menu de navigation occupe tout l'écran sur mobile pour une expérience immersive, de plus le fond de la discussion prend toute sa largeur sur grand écran.</li>
-              <li><b>Mises à jour Auto-Agressives :</b> Le site s'actualise désormais automatiquement toutes les 4 minutes et installe les nouvelles versions instantanément dès détection.</li>
+              <li><b>Mises à jour intelligentes :</b> L'application s'actualise toute seule. Mais si vous êtes en train d'écrire un message (brouillon en cours), elle attendra diplomatiquement que vous l'ayez envoyé pour ne masquer aucune de vos frappes.</li>
               <li><b>Système de Messagerie :</b> Les messages sont maintenant dans une zone de texte auto-extensible. Appuyer sur Entrée envoie, Shift+Entrée passe à la ligne avec prise en charge du formattage markdown simple (gras avec astérisques).</li>
-              <li><b>SMS Toujours Visibles :</b> Les discussions directes P2P s'afficheront toujours de la même manière, indépendamment du statut de suppression du contenu.</li>
+              <li><b>Ergonomie des Paramètres :</b> Boutons de confirmation discrets pour chaque modification, corrections UI et SMS toujours visibles.</li>
             </ul>
             <button 
               onClick={() => {

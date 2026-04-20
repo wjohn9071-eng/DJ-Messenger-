@@ -72,9 +72,16 @@ export default function App() {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 setWaitingWorker(newWorker);
-                // Aggressive: auto-update immediately without asking
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
-                window.location.reload();
+                // Check if user is typing
+                if (!(window as any).hasUnsentDraft) {
+                  // Aggressive: auto-update immediately without asking
+                  newWorker.postMessage({ type: 'SKIP_WAITING' });
+                  window.location.reload();
+                } else {
+                  // Wait for user to finish drafting
+                  (window as any).pendingDraftReload = true;
+                  (window as any).pendingWorker = newWorker;
+                }
               }
             });
           }
@@ -84,8 +91,13 @@ export default function App() {
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (refreshing) return;
-        refreshing = true;
-        window.location.reload();
+        
+        if (!(window as any).hasUnsentDraft) {
+          refreshing = true;
+          window.location.reload();
+        } else {
+          (window as any).pendingDraftReload = true;
+        }
       });
 
       // Periodically check for updates on the worker
@@ -100,7 +112,11 @@ export default function App() {
         if (swRegistration) {
           swRegistration.update().catch(() => {});
         }
-        window.location.reload();
+        if (!(window as any).hasUnsentDraft) {
+          window.location.reload();
+        } else {
+          (window as any).pendingDraftReload = true;
+        }
       }, 5 * 60 * 1000);
 
       const updateCheckInterval = setInterval(checkSWUpdate, 2 * 60 * 1000); // Check SW more frequently

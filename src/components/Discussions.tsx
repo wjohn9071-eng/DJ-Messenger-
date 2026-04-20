@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { db, collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, setDoc, arrayUnion, arrayRemove, storage, ref, uploadBytesResumable, getDownloadURL } from '../lib/firebase';
-import { djStyleBg, djStyleText } from '../lib/utils';
+import { djStyleBg, djStyleText, setDraftStatus } from '../lib/utils';
 import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search, FileText, FileAudio, File as FileIcon, Globe as GlobeIcon } from 'lucide-react';
 import { DJ_FRAME_STYLE, STAFF_BADGE, ADMIN_BADGE, SUPER_ADMIN_BADGE } from './Views';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
@@ -220,6 +220,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     
     const msgText = messageInput.trim();
     setMessageInput('');
+    setDraftStatus(false);
 
     // Optimistic UI update
     const optimisticMsg = {
@@ -2240,6 +2241,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 value={messageInput} 
                 onChange={e => {
                   setMessageInput(e.target.value);
+                  setDraftStatus(e.target.value.trim().length > 0);
                   e.target.style.height = 'auto'; // Reset height to recalculate
                   e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
                 }} 

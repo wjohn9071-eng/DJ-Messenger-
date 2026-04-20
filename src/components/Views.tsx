@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState } from '../types';
-import { djStyleBg, djStyleText, compressImage } from '../lib/utils';
+import { djStyleBg, djStyleText, compressImage, setDraftStatus } from '../lib/utils';
 import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight, Bell, Lightbulb, Settings as SettingsIcon, HelpCircle, CheckCircle2 } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
@@ -573,6 +573,7 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
       }
 
       setMessage('');
+      setDraftStatus(false);
     } catch (error) {
       console.error(error);
       showToast("Erreur lors de l'envoi.");
@@ -710,7 +711,7 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
             type="text" 
             placeholder="Répondre..." 
             value={message} 
-            onChange={e => setMessage(e.target.value)} 
+            onChange={e => { setMessage(e.target.value); setDraftStatus(e.target.value.trim().length > 0) }} 
             className="flex-1 px-6 py-4 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-medium"
           />
           <button type="submit" className={`p-4 rounded-2xl text-white shadow-xl hover:scale-105 transition-all active:scale-95 ${djStyleBg}`}>
@@ -963,6 +964,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
       setPollQuestion('');
       setPollOptions(['', '']);
       setShowPollCreator(false);
+      setDraftStatus(false);
       showToast(currentUser.isAdmin ? "Annonce publiée !" : "Proposition envoyée !");
     } catch (error) {
       console.error("Error submitting proposal:", error);
@@ -1067,7 +1069,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
                 type="text"
                 placeholder="Question du sondage..."
                 value={pollQuestion}
-                onChange={e => setPollQuestion(e.target.value)}
+                onChange={e => { setPollQuestion(e.target.value); setDraftStatus(e.target.value.trim().length > 0) }}
                 className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-100 focus:ring-2 focus:ring-[#0D98BA] outline-none font-bold"
               />
               <div className="space-y-2">
@@ -1081,6 +1083,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
                         const newOpts = [...pollOptions];
                         newOpts[i] = e.target.value;
                         setPollOptions(newOpts);
+                        setDraftStatus(newOpts.some(o => o.trim().length > 0) || pollQuestion.trim().length > 0);
                       }}
                       className="flex-1 px-4 py-2 rounded-xl bg-gray-50 border border-gray-100 focus:ring-2 focus:ring-[#0D98BA] text-sm outline-none"
                     />
@@ -1101,7 +1104,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
           ) : (
             <textarea 
               value={text} 
-              onChange={e => setText(e.target.value)} 
+              onChange={e => { setText(e.target.value); setDraftStatus(e.target.value.trim().length > 0) }} 
               placeholder={currentUser?.isAdmin ? "Écris une annonce pour tous les utilisateurs..." : "Décris ton idée pour l'application..."} 
               className="w-full p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none resize-none h-24 bg-gray-50" 
             />
@@ -1246,7 +1249,7 @@ export function Updates({ state }: any) {
   const [selectedUpdate, setSelectedUpdate] = useState<number | null>(null);
 
   const updates = [
-    { version: '3.0.0', date: '20/04/2026', desc: 'Mise à jour v3.0 Stabilité & Ergonomie : Mode Sombre implémenté. Auto-actualisation toutes les 4 minutes + à chaque ouverture. Installation instantanée des MAJ. Menu mobile 100% écran. Correction des espaces vides sur grand écran. Actions message verticales avec nouveau design. Correction visibilité SMS.' },
+    { version: '3.0.0', date: '20/04/2026', desc: 'Mise à jour v3.0 Stabilité & Ergonomie : Mode Sombre implémenté. Mises à jour intelligentes (l\'auto-actualisation attend désormais que vous ayez envoyé votre brouillon en cours pour ne rien effacer). Menu mobile 100% écran. Correction des espaces vides sur grand écran. Actions message verticales avec nouveau design. Correction visibilité SMS. Optimisation de tous les paramètres : boutons de confirmation discrets et lisibilité du code couleur corrigée en mode clair.' },
     { version: '2.9.9', date: '19/04/2026', desc: 'Optimisation Layout Mobile : Le menu latéral repousse désormais le contenu au lieu de l\'écraser, garantissant une lisibilité parfaite sur petit écran. Unification totale de l\'interface entre mobile et PC, avec suppression des effets de flou pour une meilleure clarté visuelle.' },
     { version: '2.9.8', date: '19/04/2026', desc: 'Interface unifiée et Profils : Le menu latéral divise désormais l\'écran sans superposition. Un nouveau système de profil universel "Style DJ" est accessible en cliquant sur n\'importe quel avatar ou nom d\'utilisateur (Voir photo ou SMS direct).' },
     { version: '2.9.7', date: '19/04/2026', desc: 'Stabilité et corrections ultimes : Les SMS supprimés ne disparaissent plus chez votre interlocuteur. Les notifications locales sont désormais intelligentes et regroupent vos messages non lus. Enfin, le système de déploiement des mises à jour PWA passe en natif pour une réactivité immédiate sans cache.' },
@@ -1708,7 +1711,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
             <label className={`block text-sm font-semibold mb-2 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Couleur d'arrière-plan</label>
             <div className="flex items-center gap-3">
               <input type="color" value={colorNameToHex(bgColor)} onChange={e => setBgColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
-              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: red) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 focus:ring-[#0D98BA]'}`} />
+              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: red) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 text-gray-900 focus:ring-[#0D98BA]'}`} />
               {bgColor !== (user?.bgColor || '#f0f2f5') && (
                 <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
                   <CheckCircle2 size={24} />
@@ -1726,42 +1729,29 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
               <CheckCircle2 size={16} />
             </button>
           </div>
-          <label className="flex items-center justify-between cursor-pointer">
-            <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Activer les notifications</span>
-            <div className="relative">
-              <input 
-                type="checkbox" 
-                className="sr-only" 
-                checked={notifications} 
-                onChange={e => {
-                  const checked = e.target.checked;
-                  setNotifications(checked);
-                  setShowSaveConfirm(true);
-                  if (checked && 'Notification' in window) {
-                    if (Notification.permission === 'default') {
-                      Notification.requestPermission().then(permission => {
-                        if (permission === 'granted') {
-                          showToast("Notifications activées !");
-                        } else {
-                          setNotifications(false);
-                          showToast("Permission refusée.");
-                        }
-                      });
-                    } else if (Notification.permission === 'denied') {
-                      showToast("Les notifications sont bloquées par votre navigateur.");
-                      setNotifications(false);
-                    }
-                  } else if (checked) {
-                    showToast("Votre navigateur ne supporte pas les notifications.");
-                    setNotifications(false);
-                  }
-                }} 
-              />
-              <div className={`block w-14 h-8 rounded-full transition-colors ${notifications ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
-              <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${notifications ? 'transform translate-x-6' : ''}`}></div>
-            </div>
-          </label>
-          <p className="text-xs text-gray-500 mt-2">Reçois des alertes comme sur WhatsApp.</p>
+          <div className="flex items-center gap-3">
+            <label className="flex-1 flex flex-col justify-center cursor-pointer">
+              <div className="flex items-center justify-between">
+                <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Activer les notifications</span>
+                <div className="relative">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only" 
+                    checked={notifications} 
+                    onChange={e => setNotifications(e.target.checked)} 
+                  />
+                  <div className={`block w-14 h-8 rounded-full transition-colors ${notifications ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
+                  <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${notifications ? 'transform translate-x-6' : ''}`}></div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Reçois des alertes comme sur WhatsApp.</p>
+            </label>
+            {notifications !== !!user?.notificationsEnabled && (
+                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95 shrink-0" title="Appliquer">
+                  <CheckCircle2 size={24} />
+                </button>
+            )}
+          </div>
         </section>
 
         {/* Section Application */}
@@ -1772,16 +1762,23 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
               <CheckCircle2 size={16} />
             </button>
           </div>
-          <div className="mb-6">
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Masquer le menu automatiquement</span>
-              <div className="relative">
-                <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => { setAutoHideSidebar(e.target.checked); setShowSaveConfirm(true); }} />
-                <div className={`block w-14 h-8 rounded-full transition-colors ${autoHideSidebar ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
-                <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${autoHideSidebar ? 'transform translate-x-6' : ''}`}></div>
+          <div className="mb-6 flex items-center gap-3">
+            <label className="flex-1 flex flex-col justify-center cursor-pointer">
+              <div className="flex items-center justify-between">
+                <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Masquer le menu automatiquement</span>
+                <div className="relative">
+                  <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => setAutoHideSidebar(e.target.checked)} />
+                  <div className={`block w-14 h-8 rounded-full transition-colors ${autoHideSidebar ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
+                  <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${autoHideSidebar ? 'transform translate-x-6' : ''}`}></div>
+                </div>
               </div>
+              <p className="text-xs text-gray-500 mt-2">Ferme le menu après avoir cliqué sur un onglet.</p>
             </label>
-            <p className="text-xs text-gray-500 mt-2">Ferme le menu après avoir cliqué sur un onglet.</p>
+            {autoHideSidebar !== (user?.autoHideSidebar ?? true) && (
+                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95 shrink-0" title="Appliquer">
+                  <CheckCircle2 size={24} />
+                </button>
+            )}
           </div>
           <div>
             <label className="flex items-center justify-between cursor-pointer">
