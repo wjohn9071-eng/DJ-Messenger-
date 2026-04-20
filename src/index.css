@@ -5,6 +5,18 @@
     --font-sans: 'Inter', sans-serif;
 }
 
+@layer base {
+    input, textarea {
+        @apply text-gray-900;
+    }
+    .dark input, .dark textarea {
+        @apply text-white bg-gray-800 border-white/10;
+    }
+    .dark input[type="color"] {
+        @apply bg-transparent;
+    }
+}
+
 body {
     font-family: 'Inter', sans-serif;
     background-color: #f0f2f5;

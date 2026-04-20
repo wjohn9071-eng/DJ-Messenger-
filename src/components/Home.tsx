@@ -105,7 +105,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
               <li><b>Layout Full-Screen Mobile :</b> Le menu de navigation occupe tout l'écran sur mobile pour une expérience immersive, de plus le fond de la discussion prend toute sa largeur sur grand écran.</li>
               <li><b>Mises à jour intelligentes :</b> L'application s'actualise toute seule. Mais si vous êtes en train d'écrire un message (brouillon en cours), elle attendra diplomatiquement que vous l'ayez envoyé pour ne masquer aucune de vos frappes.</li>
               <li><b>Système de Messagerie :</b> Les messages sont maintenant dans une zone de texte auto-extensible. Appuyer sur Entrée envoie, Shift+Entrée passe à la ligne avec prise en charge du formattage markdown simple (gras avec astérisques).</li>
-              <li><b>Ergonomie des Paramètres :</b> Boutons de confirmation discrets pour chaque modification, corrections UI et SMS toujours visibles.</li>
+              <li><b>Ergonomie des Paramètres & Visibilité :</b> Boutons de confirmation discrets pour chaque modification. Correction de la visibilité des textes de saisie (Désormais bien visibles en noir sur fond clair et en blanc sur mode sombre).</li>
             </ul>
             <button 
               onClick={() => {
