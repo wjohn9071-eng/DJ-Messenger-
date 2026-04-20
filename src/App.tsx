@@ -95,18 +95,20 @@ export default function App() {
         }
       };
 
-      // Aggressive: Periodic website refresh every 4 minutes as requested
+      // Aggressive: Periodic website refresh every 5 minutes as requested
       const refreshInterval = setInterval(() => {
+        if (swRegistration) {
+          swRegistration.update().catch(() => {});
+        }
         window.location.reload();
-      }, 4 * 60 * 1000);
+      }, 5 * 60 * 1000);
 
       const updateCheckInterval = setInterval(checkSWUpdate, 2 * 60 * 1000); // Check SW more frequently
       
       // Also check and reload if visible
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
-          // Immediately reload when opening the app as requested
-          window.location.reload();
+          if (swRegistration) swRegistration.update().catch(() => {});
         }
       };
       window.addEventListener('visibilitychange', handleVisibilityChange);
@@ -119,6 +121,15 @@ export default function App() {
       };
     }
   }, []);
+
+  // Dark Mode application
+  useEffect(() => {
+    if (state.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [state.darkMode]);
 
   const handleUpdate = () => {
     if (waitingWorker) {
@@ -136,12 +147,12 @@ export default function App() {
     
     // Clear active group when navigating
     updateState({ activeGroup: null });
-    
-    // Always close menu after navigation on mobile or home
-    if (id === 'home' || window.innerWidth < 1024) {
-      updateState({ menuOpen: false });
-    }
   };
+
+  // Fermeture automatique du menu lors du changement d'onglet
+  useEffect(() => {
+    updateState({ menuOpen: false });
+  }, [view]);
 
   const handleLogout = () => {
     updateState({ currentUser: null });
@@ -430,10 +441,10 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden transition-all duration-300" style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
+    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-300 dark:bg-gray-900 dark:text-white ${state.darkMode ? 'bg-gray-900 text-white' : ''}`} style={!state.darkMode ? { backgroundColor: 'var(--bg-color, #f0f2f5)' } : undefined}>
       {/* Sidebar / Hamburger Menu */}
-      <aside className={`fixed inset-y-0 left-0 lg:relative z-[9999] bg-black text-white flex flex-col shadow-[15px_0_40px_rgba(0,0,0,0.5)] transition-all duration-300 ease-in-out h-full overflow-hidden shrink-0 ${state.menuOpen ? 'w-full lg:w-72' : 'w-0'}`}>
-        <div className="p-6 flex items-center justify-between border-b border-white/5 shrink-0 min-w-max">
+      <aside className={`fixed inset-y-0 left-0 lg:relative z-[9999] ${state.darkMode ? 'bg-black/95 border-r border-white/10' : 'bg-black shadow-[15px_0_40px_rgba(0,0,0,0.5)]'} text-white flex flex-col transition-all duration-300 ease-in-out h-full overflow-hidden shrink-0 ${state.menuOpen ? 'w-full lg:w-72' : 'w-0'}`}>
+        <div className="p-6 flex items-center justify-between border-b border-white/5 shrink-0 min-w-[100vw] lg:min-w-max">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden p-1.5 bg-white">
               <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />

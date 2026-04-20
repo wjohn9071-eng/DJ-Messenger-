@@ -42,7 +42,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       .filter(chat => {
         const otherMember = chat?.members?.find(m => m !== state.currentUser);
         const isDeletedForMe = chat?.deletedForUsers?.includes(state.currentUser as string);
-        return chat && chat.members && chat.members.includes(state.currentUser as string) && otherMember && !isDeletedForMe;
+        const isDeletedForEveryone = chat?.deletedForEveryone;
+        return chat && chat.members && chat.members.includes(state.currentUser as string) && otherMember && !isDeletedForMe && !isDeletedForEveryone;
       })
       .map(chat => {
         const otherId = chat.members?.find((m: string) => m !== state.currentUser);
@@ -627,6 +628,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const renderMessageText = (text: string) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const boldRegex = /\*([^*]+)\*/g;
+    
+    // Split by URLs first
     const parts = text.split(urlRegex);
     return parts.map((part, i) => {
       if (part.match(urlRegex)) {
@@ -646,7 +650,19 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           </a>
         );
       }
-      return part;
+      
+      // Parse bold text
+      const boldParts = part.split(boldRegex);
+      return (
+        <React.Fragment key={i}>
+          {boldParts.map((subPart, j) => {
+            if (j % 2 === 1) { // Captured group (the text inside the asterisks)
+              return <strong key={j} className="font-extrabold">{subPart}</strong>;
+            }
+            return subPart;
+          })}
+        </React.Fragment>
+      );
     });
   };
 
@@ -1269,15 +1285,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const helpGroupId = `sms_${[state.currentUser, 'dj-bot'].sort().join('_')}`;
   const botGroup = state.privateMessages[helpGroupId];
 
-  const visibleSMS = [
+  const visibleSMS = Array.from(new Set([
     ...Object.values(state.privateMessages || {}).filter(chat => {
       const isSuperAdmin = state.currentUserData?.isSuperAdmin;
-      const otherMember = chat?.members?.find(m => m !== state.currentUser);
-      const isDeletedForMe = chat?.deletedForUsers?.includes(state.currentUser as string);
-      return chat && !isDeletedForMe && (chat.members?.includes(state.currentUser as string) || isSuperAdmin) && otherMember;
+      // Removed isDeletedForEveryone and isDeletedForMe for better visibility as requested
+      return chat && chat.members && (chat.members.includes(state.currentUser as string) || isSuperAdmin);
     }),
     ...(botGroup ? [botGroup] : [])
-  ].sort((a, b) => {
+  ])).sort((a, b) => {
     const timeA = new Date(a.lastActivity || a.createdAt || 0).getTime();
     const timeB = new Date(b.lastActivity || b.createdAt || 0).getTime();
     return timeB - timeA;
@@ -1359,13 +1374,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         if (smsId.includes('dj-bot')) {
           await deleteDoc(doc(db, 'private_messages', smsId));
         } else {
+          // Changed: delete for everyone but keep document to avoid DJ Bot fallback/errors
           await updateDoc(doc(db, 'private_messages', smsId), {
-            deletedForUsers: arrayUnion(state.currentUser)
+            deletedForEveryone: true
           });
         }
         setActiveGroup(null);
         setShowDeleteSmsPrompt(null);
-        showToast("Discussion supprimée.");
+        showToast("Discussion supprimée pour tous.");
       } catch (error) {
         console.error("Error deleting SMS:", error);
         showToast("Erreur lors de la suppression.");
@@ -1373,7 +1389,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     };
 
     return (
-      <div className="fixed inset-y-0 right-0 left-0 lg:left-72 z-[2000] flex flex-col bg-[#f9fafb] animate-in slide-in-from-right-8 duration-300">
+      <div className={`flex-1 flex flex-col h-full relative z-[2000] ${state.darkMode ? 'bg-black' : 'bg-[#f9fafb]'} animate-in fade-in duration-300`}>
         {selectionMode ? (
           <div className="p-4 bg-blue-50 border-b border-blue-100 flex items-center justify-between shadow-sm z-[2001] sticky top-0">
             <div className="flex items-center gap-3">
@@ -1787,7 +1803,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </div>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto p-1.5 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 custom-scrollbar w-full">
+        <div className="flex flex-col gap-2 w-full">
         {(group.messages || []).filter(msg => msg.isSystem || msg.user === state.currentUser || (state.users && state.users[msg.user])).map((msg, idx, arr) => {
           const prevMsg = idx > 0 ? arr[idx - 1] : null;
           const isSameSender = prevMsg && prevMsg.user === msg.user && !msg.isSystem && !prevMsg.isSystem;
@@ -2033,7 +2050,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                         </div>
                       </div>
                     )}
-                    <p className={`text-sm break-words leading-tight ${isDeletedForEveryone && !isRevealed ? 'italic text-gray-400' : ''}`}>
+                    <p className={`text-sm break-words whitespace-pre-wrap leading-relaxed ${isDeletedForEveryone && !isRevealed ? 'italic text-gray-400' : ''}`}>
                       {isDeletedForEveryone && !isRevealed ? (
                         <span 
                           className={currentUser?.isSuperAdmin ? 'cursor-pointer hover:underline' : ''}
@@ -2046,31 +2063,31 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
-                      <div className={`absolute ${isMine ? '-left-11' : '-right-11'} top-1/2 -translate-y-1/2 flex flex-col gap-2 z-10`}>
+                      <div className={`absolute ${isMine ? 'right-full mr-2' : 'left-full ml-2'} top-0 flex flex-col gap-2 z-10 animate-in fade-in zoom-in-95 duration-200`}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
-                          className="p-2 bg-white shadow-lg border border-gray-100 text-gray-600 hover:text-red-500 rounded-full transition-all active:scale-90 relative group/btn"
+                          className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}
                           title="Supprimer"
                         >
                           <Trash2 size={16} />
-                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Supprimer</div>
+                          <div className="absolute right-full mr-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Supprimer</div>
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setSelectionMode(true); setSelectedMessages(new Set([msg.id])); }}
-                          className="p-2 bg-white shadow-lg border border-gray-100 text-gray-600 hover:text-[#0D98BA] rounded-full transition-all active:scale-90 relative group/btn"
+                          className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-[#0D98BA]' : 'bg-white border-gray-100 text-gray-600 hover:text-[#0D98BA]'}`}
                           title="Sélectionner"
                         >
                           <CheckCircle2 size={16} />
-                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Sélectionner</div>
+                          <div className="absolute right-full mr-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Sélectionner</div>
                         </button>
                         {isAdmin && !isMine && msg.user !== group.creator && (
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} 
-                            className="p-2 bg-white shadow-lg border border-gray-100 text-orange-500 rounded-full transition-all active:scale-90 relative group/btn"
+                            className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-orange-400' : 'bg-white border-gray-100 text-orange-500'}`}
                             title="Muter"
                           >
                             <VolumeX size={14} />
-                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Muter</div>
+                            <div className="absolute right-full mr-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Muter</div>
                           </button>
                         )}
                       </div>
@@ -2082,6 +2099,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             );
           })}
           <div ref={messagesEndRef} className="h-1" />
+        </div>
         </div>
 
         <div className="p-3 bg-white border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
@@ -2109,7 +2127,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <p className="text-xs text-gray-400 italic">Vous êtes en lecture seule sur ce groupe privé.</p>
             </div>
           ) : (
-            <form className="flex gap-2 items-center max-w-3xl mx-auto relative" onSubmit={handleSendMessage}>
+            <form className="flex gap-2 items-center w-full relative" onSubmit={handleSendMessage}>
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -2217,25 +2235,41 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   </div>
                 )}
               </div>
-              <input 
-                type="text" 
+              <textarea 
+                rows={1}
                 value={messageInput} 
-                onChange={e => setMessageInput(e.target.value)} 
-                onClick={() => isTest && setShowRestrictedPopup(true)}
+                onChange={e => {
+                  setMessageInput(e.target.value);
+                  e.target.style.height = 'auto'; // Reset height to recalculate
+                  e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+                }} 
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!(!messageInput.trim() && !isTest) && !(!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator)) {
+                      handleSendMessage(e as any);
+                      e.currentTarget.style.height = 'auto'; // Reset height on send
+                    }
+                  }
+                }}
+                onClick={() => {
+                  if (isTest) setShowRestrictedPopup(true);
+                }}
                 disabled={!isMember && group.type === 'public' && group.name !== 'Général'}
                 placeholder={
                   isTest ? "Connectez-vous pour écrire..." : 
                   (!isMember && group.type === 'public' && group.name !== 'Général') ? "Rejoins le groupe pour écrire..." :
                   (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator) ? "Seuls les admins peuvent parler ici." :
-                  "Écris un message..."
+                  "Écris un message... (MAJ+Entrée pour passer à la ligne)"
                 } 
-                className="flex-1 px-5 py-3 rounded-full bg-gray-100 border-none focus:ring-2 focus:ring-[#0D98BA] outline-none transition-all disabled:opacity-50" 
+                className="flex-1 px-5 py-3 rounded-[1.5rem] bg-gray-100 border-none focus:ring-2 focus:ring-[#0D98BA] outline-none transition-all disabled:opacity-50 resize-none overflow-y-auto custom-scrollbar min-h-[48px]" 
                 readOnly={isTest || (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator)}
+                style={{ maxHeight: '150px' }}
               />
               <button 
                 type="submit" 
                 disabled={(!messageInput.trim() && !isTest) || (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator)} 
-                className={`p-3.5 rounded-full text-white shadow-md hover:scale-105 transition active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex-shrink-0 ${djStyleBg}`}
+                className={`p-3.5 rounded-full text-white shadow-md hover:scale-105 transition active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex-shrink-0 self-end ${djStyleBg}`}
               >
                 <Send size={20} className="ml-0.5" />
               </button>

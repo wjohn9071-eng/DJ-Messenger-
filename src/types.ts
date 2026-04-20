@@ -95,6 +95,7 @@ export interface PrivateChat {
   createdAt: string;
   lastActivity?: string;
   deletedForUsers?: string[];
+  deletedForEveryone?: boolean;
   // Added for compatibility with Group type in UI
   name?: string;
   type?: 'sms';
@@ -123,4 +124,5 @@ export interface AppState {
   autoHideSidebar?: boolean;
   activeGroup?: string | null;
   selectedUserModal?: string | null;
+  darkMode?: boolean;
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState } from '../types';
 import { djStyleBg, djStyleText, compressImage } from '../lib/utils';
-import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight, Bell, Lightbulb, Settings as SettingsIcon, HelpCircle, CheckCircle2 } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
 import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs, reauthenticateWithPopup, googleProvider } from '../lib/firebase';
@@ -1246,7 +1246,7 @@ export function Updates({ state }: any) {
   const [selectedUpdate, setSelectedUpdate] = useState<number | null>(null);
 
   const updates = [
-    { version: '3.0.0', date: '19/04/2026', desc: 'Mise à jour Majeure : Le site et la PWA s\'actualisent désormais automatiquement toutes les 4 minutes. Les nouvelles versions sont installées instantanément sans confirmation. Le menu occupe tout l\'écran sur mobile et se ferme automatiquement à l\'accueil. Les actions de message sont désormais verticales.' },
+    { version: '3.0.0', date: '20/04/2026', desc: 'Mise à jour v3.0 Stabilité & Ergonomie : Mode Sombre implémenté. Auto-actualisation toutes les 4 minutes + à chaque ouverture. Installation instantanée des MAJ. Menu mobile 100% écran. Correction des espaces vides sur grand écran. Actions message verticales avec nouveau design. Correction visibilité SMS.' },
     { version: '2.9.9', date: '19/04/2026', desc: 'Optimisation Layout Mobile : Le menu latéral repousse désormais le contenu au lieu de l\'écraser, garantissant une lisibilité parfaite sur petit écran. Unification totale de l\'interface entre mobile et PC, avec suppression des effets de flou pour une meilleure clarté visuelle.' },
     { version: '2.9.8', date: '19/04/2026', desc: 'Interface unifiée et Profils : Le menu latéral divise désormais l\'écran sans superposition. Un nouveau système de profil universel "Style DJ" est accessible en cliquant sur n\'importe quel avatar ou nom d\'utilisateur (Voir photo ou SMS direct).' },
     { version: '2.9.7', date: '19/04/2026', desc: 'Stabilité et corrections ultimes : Les SMS supprimés ne disparaissent plus chez votre interlocuteur. Les notifications locales sont désormais intelligentes et regroupent vos messages non lus. Enfin, le système de déploiement des mises à jour PWA passe en natif pour une réactivité immédiate sans cache.' },
@@ -1440,13 +1440,15 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       newUsers[prev.currentUser as string].bgColor = hexColor;
       newUsers[prev.currentUser as string].notificationsEnabled = notifications;
       newUsers[prev.currentUser as string].autoHideSidebar = autoHideSidebar;
+      newUsers[prev.currentUser as string].darkMode = state.darkMode;
       return { users: newUsers };
     });
     
     updateDoc(doc(db, 'users', state.currentUser as string), {
       bgColor: hexColor,
       notificationsEnabled: notifications,
-      autoHideSidebar: autoHideSidebar
+      autoHideSidebar: autoHideSidebar,
+      darkMode: state.darkMode || false
     }).catch(e => console.error("Error saving settings to Firestore:", e));
 
     document.documentElement.style.setProperty('--bg-color', hexColor);
@@ -1664,33 +1666,68 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         onConfirm={saveSettings} 
         onCancel={cancelSettings} 
       />
-      <h2 className={`text-2xl font-bold mb-6 ${djStyleText}`}>Paramètres</h2>
+      <h2 className={`text-2xl font-bold mb-6 ${state.darkMode ? 'text-white' : djStyleText}`}>Paramètres</h2>
       
-      <button onClick={saveSettings} className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg hover:opacity-90 transition active:scale-95 mb-8 text-lg ${djStyleBg}`}>
-        Sauvegarder tout
-      </button>
+      <div className="flex flex-col gap-4 mb-8">
+        <button onClick={saveSettings} className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg hover:opacity-90 transition active:scale-95 text-lg ${djStyleBg}`}>
+          Sauvegarder tout
+        </button>
+        
+        <button 
+          onClick={() => {
+            const newMode = !state.darkMode;
+            updateState({ darkMode: newMode });
+            if (!isTest) {
+              updateDoc(doc(db, 'users', state.currentUser as string), { darkMode: newMode }).catch(e => console.error(e));
+              updateState((prev: AppState) => {
+                const newUsers = { ...prev.users };
+                if (newUsers[prev.currentUser as string]) {
+                  newUsers[prev.currentUser as string].darkMode = newMode;
+                }
+                return { users: newUsers };
+              });
+            }
+          }}
+          className={`w-full py-4 rounded-2xl font-bold shadow-lg transition active:scale-95 text-lg flex items-center justify-center gap-3 ${state.darkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-white text-gray-800 border border-gray-100'}`}
+        >
+          {state.darkMode ? <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>}
+          {state.darkMode ? 'Désactiver Mode Sombre' : 'Activer Mode Sombre'}
+        </button>
+      </div>
 
       <div className="space-y-8">
         {/* Section Apparence */}
-        <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Apparence</h3>
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Apparence</h3>
+            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
+              <CheckCircle2 size={16} />
+            </button>
+          </div>
           <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Couleur d'arrière-plan</label>
-            <div className="flex gap-3">
-              <input type="color" value={colorNameToHex(bgColor)} onChange={e => { setBgColor(e.target.value); setShowSaveConfirm(true); }} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
-              <input type="text" value={bgColor} onChange={e => { setBgColor(e.target.value); setShowSaveConfirm(true); }} placeholder="Nom (ex: red) ou #HEX" className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none bg-gray-50" />
+            <label className={`block text-sm font-semibold mb-2 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Couleur d'arrière-plan</label>
+            <div className="flex items-center gap-3">
+              <input type="color" value={colorNameToHex(bgColor)} onChange={e => setBgColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
+              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: red) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 focus:ring-[#0D98BA]'}`} />
+              {bgColor !== (user?.bgColor || '#f0f2f5') && (
+                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
+                  <CheckCircle2 size={24} />
+                </button>
+              )}
             </div>
           </div>
-          <button onClick={saveSettings} className={`w-full py-3 rounded-xl font-bold text-white shadow-md hover:opacity-90 transition active:scale-95 ${djStyleBg}`}>
-            Sauvegarder le style
-          </button>
         </section>
 
         {/* Section Notifications */}
-        <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Notifications</h3>
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Notifications</h3>
+            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
+              <CheckCircle2 size={16} />
+            </button>
+          </div>
           <label className="flex items-center justify-between cursor-pointer">
-            <span className="text-sm font-semibold text-gray-700">Activer les notifications</span>
+            <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Activer les notifications</span>
             <div className="relative">
               <input 
                 type="checkbox" 
@@ -1728,11 +1765,16 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         </section>
 
         {/* Section Application */}
-        <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Application</h3>
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Application</h3>
+            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
+              <CheckCircle2 size={16} />
+            </button>
+          </div>
           <div className="mb-6">
             <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-sm font-semibold text-gray-700">Masquer le menu automatiquement</span>
+              <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Masquer le menu automatiquement</span>
               <div className="relative">
                 <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => { setAutoHideSidebar(e.target.checked); setShowSaveConfirm(true); }} />
                 <div className={`block w-14 h-8 rounded-full transition-colors ${autoHideSidebar ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
@@ -1763,11 +1805,16 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         </section>
 
         {/* Section Compte */}
-        <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Compte</h3>
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Compte</h3>
+            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
+              <CheckCircle2 size={16} />
+            </button>
+          </div>
           
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className={`block text-sm font-semibold mb-2 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>
               Code Administrateur (Staff / Grand Admin)
             </label>
             <div className="flex gap-2">

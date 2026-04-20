@@ -76,10 +76,11 @@ const defaultState: AppState = {
   proposals: [],
   currentUser: null,
   currentUserData: null,
-  menuOpen: true,
+  menuOpen: false,
   autoHideSidebar: true,
   activeGroup: null,
-  newMessages: []
+  newMessages: [],
+  darkMode: localStorage.getItem('dj_messenger_dark_mode') === 'true'
 };
 
 export function useAppStore() {
@@ -170,6 +171,7 @@ export function useAppStore() {
           setState(prev => ({
             ...prev,
             currentUserData: userData,
+            darkMode: userData.darkMode !== undefined ? userData.darkMode : prev.darkMode,
             users: { ...prev.users, [user.uid]: userData }
           }));
         }).catch(e => {
@@ -277,11 +279,18 @@ export function useAppStore() {
                 const unreadForMe = newMessages.filter(m => m.user !== stateRef.current.currentUser);
                 
                 if (unreadForMe.length > 0) {
+                  const groupName = groupData.name || 'Groupe';
                   if (unreadForMe.length === 1) {
-                    const msgText = unreadForMe[0].text ? unreadForMe[0].text : (unreadForMe[0].files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
-                    sendNotification(`DJ Messenger`, `Nouveau message de ${groupData.name} : ${msgText}`);
+                    const msg = unreadForMe[0];
+                    const sender = stateRef.current.users[msg.user]?.name || 'Quelqu\'un';
+                    const msgText = msg.text ? msg.text : (msg.files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
+                    sendNotification(`DJ Messenger - ${groupName}`, `${sender}: ${msgText}`);
                   } else {
-                    sendNotification(`DJ Messenger`, `${unreadForMe.length} nouveaux messages dans ${groupData.name}`);
+                    const lastMsgs = unreadForMe.slice(-3).map(m => {
+                      const sender = stateRef.current.users[m.user]?.name || 'Quelqu\'un';
+                      return `${sender}: ${m.text || 'Média'}`;
+                    }).join('\n');
+                    sendNotification(`DJ Messenger - ${groupName}`, `${unreadForMe.length} nouveaux messages :\n${lastMsgs}`);
                   }
                 }
               }
@@ -389,9 +398,13 @@ export function useAppStore() {
                   
                   if (unreadForMe.length === 1) {
                     const msgText = unreadForMe[0].text ? unreadForMe[0].text : (unreadForMe[0].files?.length ? 'Fichier(s) reçu(s)' : 'Nouveau message');
-                    sendNotification(`DJ Messenger`, `Nouveau message de ${otherUser} : ${msgText}`);
+                    sendNotification(`DJ Messenger - SMS`, `${otherUser}: ${msgText}`);
                   } else {
-                    sendNotification(`DJ Messenger`, `${unreadForMe.length} nouveaux messages de ${otherUser}`);
+                    const lastMsgs = unreadForMe.slice(-3).map(m => {
+                      const sender = stateRef.current.users[m.user]?.name || 'Quelqu\'un';
+                      return `${sender}: ${m.text || 'Média'}`;
+                    }).join('\n');
+                    sendNotification(`DJ Messenger - SMS`, `${unreadForMe.length} nouveaux messages de ${otherUser} :\n${lastMsgs}`);
                   }
                 }
               }
@@ -467,8 +480,9 @@ export function useAppStore() {
       const newValues = typeof updates === 'function' ? updates(prev) : updates;
       const nextState = { ...prev, ...newValues };
       
-      // Sync specific fields back to Firebase if needed
-      // (Most logic will now use direct Firebase calls in components)
+      if (newValues.darkMode !== undefined) {
+        localStorage.setItem('dj_messenger_dark_mode', String(newValues.darkMode));
+      }
       
       return nextState;
     });

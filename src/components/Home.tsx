@@ -99,12 +99,13 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         {showUpdateNotice && (
           <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour - Dimanche 19 avril 2026 (v3.0.0)</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Version 3.0 - 20 Avril 2026</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Layout Full-Screen Mobile :</b> Le menu de navigation occupe tout l'écran sur mobile pour une expérience immersive.</li>
+              <li><b>Mode Sombre :</b> Inversion des couleurs disponible dans les paramètres pour un confort visuel optimal.</li>
+              <li><b>Layout Full-Screen Mobile :</b> Le menu de navigation occupe tout l'écran sur mobile pour une expérience immersive, de plus le fond de la discussion prend toute sa largeur sur grand écran.</li>
               <li><b>Mises à jour Auto-Agressives :</b> Le site s'actualise désormais automatiquement toutes les 4 minutes et installe les nouvelles versions instantanément dès détection.</li>
-              <li><b>Actualisation au Focus :</b> Dès que vous ouvrez ou revenez sur l'application, elle se réactualise pour garantir des données fraîches.</li>
-              <li><b>Actions Verticales :</b> Réorganisation ergonomique des boutons de message pour une utilisation simplifiée.</li>
+              <li><b>Système de Messagerie :</b> Les messages sont maintenant dans une zone de texte auto-extensible. Appuyer sur Entrée envoie, Shift+Entrée passe à la ligne avec prise en charge du formattage markdown simple (gras avec astérisques).</li>
+              <li><b>SMS Toujours Visibles :</b> Les discussions directes P2P s'afficheront toujours de la même manière, indépendamment du statut de suppression du contenu.</li>
             </ul>
             <button 
               onClick={() => {
