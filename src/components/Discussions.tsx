@@ -2064,14 +2064,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
-                      <div className={`absolute ${isMine ? 'right-full mr-2' : 'left-full ml-2'} top-0 flex flex-col gap-2 z-10 animate-in fade-in zoom-in-95 duration-200`}>
+                      <div className={`absolute ${isMine ? 'right-full mr-2 flex-row-reverse' : 'left-full ml-2 flex-row'} top-1/2 -translate-y-1/2 flex items-center gap-2 z-10 animate-in fade-in zoom-in-95 duration-200`}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
                           className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}
                           title="Supprimer"
                         >
                           <Trash2 size={16} />
-                          <div className="absolute right-full mr-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Supprimer</div>
+                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Supprimer</div>
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setSelectionMode(true); setSelectedMessages(new Set([msg.id])); }}
@@ -2079,7 +2079,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           title="Sélectionner"
                         >
                           <CheckCircle2 size={16} />
-                          <div className="absolute right-full mr-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Sélectionner</div>
+                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Sélectionner</div>
                         </button>
                         {isAdmin && !isMine && msg.user !== group.creator && (
                           <button 
@@ -2088,7 +2088,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             title="Muter"
                           >
                             <VolumeX size={14} />
-                            <div className="absolute right-full mr-2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Muter</div>
+                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Muter</div>
                           </button>
                         )}
                       </div>
