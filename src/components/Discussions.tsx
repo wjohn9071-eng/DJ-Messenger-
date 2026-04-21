@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { db, collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, setDoc, arrayUnion, arrayRemove, storage, ref, uploadBytesResumable, getDownloadURL } from '../lib/firebase';
+import { db, collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, getDocs, setDoc, arrayUnion, arrayRemove, storage, ref, uploadBytesResumable, getDownloadURL } from '../lib/firebase';
 import { djStyleBg, djStyleText, setDraftStatus } from '../lib/utils';
 import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search, FileText, FileAudio, File as FileIcon, Globe as GlobeIcon } from 'lucide-react';
 import { DJ_FRAME_STYLE, STAFF_BADGE, ADMIN_BADGE, SUPER_ADMIN_BADGE } from './Views';
@@ -986,9 +986,19 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     if (isTest) return setShowRestrictedPopup(true);
     try {
       const isSMS = groupId.startsWith('sms_');
-      await deleteDoc(doc(db, isSMS ? 'private_messages' : 'groups', groupId));
+      const path = isSMS ? 'private_messages' : 'groups';
+
+      // 1. Delete all messages inside the subcollection first
+      const msgsQuery = query(collection(db, path, groupId, 'messages'));
+      const msgsSnap = await getDocs(msgsQuery);
+      for (const m of msgsSnap.docs) {
+        await deleteDoc(doc(db, path, groupId, 'messages', m.id));
+      }
+
+      // 2. Delete the main room document
+      await deleteDoc(doc(db, path, groupId));
       setActiveGroup(null);
-      showToast(isSMS ? "Discussion supprimée." : "Groupe supprimé.");
+      showToast("G/SMS supprimé définitivement pour tous.");
     } catch (error) {
       console.error("Error deleting group:", error);
       showToast("Erreur lors de la suppression.");
@@ -1211,10 +1221,19 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const handleDeleteDiscussion = async (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (isTest) return setShowRestrictedPopup(true);
-    if (!window.confirm("Voulez-vous vraiment supprimer cette discussion vide ?")) return;
+    if (!window.confirm("Voulez-vous vraiment supprimer cette discussion définitivement pour tous ?")) return;
     try {
-      await deleteDoc(doc(db, 'groups', groupId));
-      showToast("Discussion supprimée.");
+      const isSMS = groupId.startsWith('sms_');
+      const path = isSMS ? 'private_messages' : 'groups';
+
+      const msgsQuery = query(collection(db, path, groupId, 'messages'));
+      const msgsSnap = await getDocs(msgsQuery);
+      for (const m of msgsSnap.docs) {
+        await deleteDoc(doc(db, path, groupId, 'messages', m.id));
+      }
+
+      await deleteDoc(doc(db, path, groupId));
+      showToast("Discussion supprimée définitivement.");
     } catch (err) {
       showToast("Erreur lors de la suppression.");
     }
@@ -1372,17 +1391,16 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
     const handleDeleteSMS = async (smsId: string) => {
       try {
-        if (smsId.includes('dj-bot')) {
-          await deleteDoc(doc(db, 'private_messages', smsId));
-        } else {
-          // Changed: delete for everyone but keep document to avoid DJ Bot fallback/errors
-          await updateDoc(doc(db, 'private_messages', smsId), {
-            deletedForEveryone: true
-          });
+        const msgsQuery = query(collection(db, 'private_messages', smsId, 'messages'));
+        const msgsSnap = await getDocs(msgsQuery);
+        for (const m of msgsSnap.docs) {
+          await deleteDoc(doc(db, 'private_messages', smsId, 'messages', m.id));
         }
+        await deleteDoc(doc(db, 'private_messages', smsId));
+
         setActiveGroup(null);
         setShowDeleteSmsPrompt(null);
-        showToast("Discussion supprimée pour tous.");
+        showToast("Discussion supprimée définitivement pour tous.");
       } catch (error) {
         console.error("Error deleting SMS:", error);
         showToast("Erreur lors de la suppression.");
@@ -2669,7 +2687,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           <button 
                             onClick={(e) => handleDeleteDiscussion(g.id, e)}
                             className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
-                            title="Supprimer la discussion vide"
+                            title="Supprimer la discussion définitivement"
                           >
                             <Trash2 size={14} />
                           </button>
