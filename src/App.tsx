@@ -117,23 +117,28 @@ export default function App() {
         } else {
           (window as any).pendingDraftReload = true;
         }
-      }, 5 * 60 * 1000);
+      }, 10 * 60 * 1000);
 
       const updateCheckInterval = setInterval(checkSWUpdate, 2 * 60 * 1000); // Check SW more frequently
       
-      // Also check and reload if visible
+      // Also check and reload if visible/focused
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
           if (swRegistration) swRegistration.update().catch(() => {});
         }
       };
-      window.addEventListener('visibilitychange', handleVisibilityChange);
-      // window.addEventListener('focus', checkSWUpdate); // Focus might be too frequent, visibility is better
+      const handleFocus = () => {
+        if (swRegistration) swRegistration.update().catch(() => {});
+      };
+      
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
 
       return () => {
         clearInterval(refreshInterval);
         clearInterval(updateCheckInterval);
-        window.removeEventListener('visibilitychange', handleVisibilityChange);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
       };
     }
   }, []);
