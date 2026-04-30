@@ -457,7 +457,7 @@ export default function App() {
   }
 
   return (
-    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-300 dark:bg-gray-900 dark:text-white ${state.darkMode ? 'bg-gray-900 text-white' : ''}`} style={!state.darkMode ? { backgroundColor: 'var(--bg-color, #f0f2f5)' } : undefined}>
+    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-300 dark:bg-gray-900 dark:text-white ${state.darkMode ? 'text-white' : ''}`} style={{ backgroundColor: state.darkMode && !state.users[state.currentUser]?.bgColor ? '#111827' : 'var(--bg-color, #f0f2f5)' }}>
       {/* Sidebar / Hamburger Menu */}
       <aside className={`fixed inset-y-0 left-0 lg:relative z-[9999] ${state.darkMode ? 'bg-black/95 border-r border-white/10' : 'bg-black shadow-[15px_0_40px_rgba(0,0,0,0.5)]'} text-white flex flex-col transition-all duration-300 ease-in-out h-full overflow-hidden shrink-0 ${state.menuOpen ? 'w-full lg:w-72' : 'w-0'}`}>
         <div className="p-6 flex items-center justify-between border-b border-white/5 shrink-0 min-w-[100vw] lg:min-w-max">
@@ -531,9 +531,9 @@ export default function App() {
 
       {/* Main Content */}
       <main className={`flex-1 flex flex-col h-full relative overflow-hidden transition-all duration-300 ${state.menuOpen ? 'opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto' : 'opacity-100'}`}>
-        <header className="p-4 bg-white border-b flex items-center shadow-sm sticky top-0 z-[1000] shrink-0">
-          <button onClick={toggleMenu} className="p-2 hover:bg-gray-100 rounded-xl transition mr-2 relative z-[10001]">
-            <Menu size={24} className="text-gray-600" />
+        <header className={`p-4 border-b flex items-center shadow-sm sticky top-0 z-[1000] shrink-0 backdrop-blur-md ${state.darkMode ? 'bg-black/80 border-white/10' : 'bg-white/80 border-gray-200'}`}>
+          <button onClick={toggleMenu} className={`p-2 rounded-xl transition mr-2 relative z-[10001] ${state.darkMode ? 'hover:bg-white/10 text-white' : 'hover:bg-gray-100 text-gray-600'}`}>
+            <Menu size={24} />
           </button>
           <h1 className={`ml-2 font-black uppercase tracking-tighter text-xl ${djStyleText}`}>
             {navItems.find(i => i.id === view)?.label || 'DJ Messenger'}

@@ -628,13 +628,17 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const renderMessageText = (text: string) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const boldRegex = /\*([^*]+)\*/g;
+    if (!text) return null;
     
     // Split by URLs first
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts = text.split(urlRegex);
+    
+    const formatRegex = /(\*(?!\s)[^*]+(?<!\s)\*|_(?!\s)[^_]+(?<!\s)_)/g;
+
     return parts.map((part, i) => {
       if (part.match(urlRegex)) {
+
         return (
           <a 
             key={i} 
@@ -652,13 +656,25 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         );
       }
       
-      // Parse bold text
-      const boldParts = part.split(boldRegex);
+      const textParts = part.split(formatRegex);
       return (
         <React.Fragment key={i}>
-          {boldParts.map((subPart, j) => {
-            if (j % 2 === 1) { // Captured group (the text inside the asterisks)
-              return <strong key={j} className="font-extrabold">{subPart}</strong>;
+          {textParts.map((subPart, j) => {
+            if (subPart && subPart.startsWith('*') && subPart.endsWith('*') && subPart.length > 2) {
+              const innerText = subPart.slice(1, -1);
+              // Avoid rendering as bold if it looks like a phone number or USSD code block
+              if (/^[\w#+\s\-]+$/.test(innerText) && (/^[\d#+\s\-]+$/.test(innerText) || !/[a-zA-Z]/.test(innerText))) {
+                return subPart;
+              }
+              return <strong key={j} className="font-black text-[1.05em] leading-relaxed">{innerText}</strong>;
+            }
+            if (subPart && subPart.startsWith('_') && subPart.endsWith('_') && subPart.length > 2) {
+              const innerText = subPart.slice(1, -1);
+              // Same check for underscore
+              if (/^[\w#+\s\-]+$/.test(innerText) && (/^[\d#+\s\-]+$/.test(innerText) || !/[a-zA-Z]/.test(innerText))) {
+                return subPart;
+              }
+              return <em key={j} className="italic text-[1.05em] leading-relaxed">{innerText}</em>;
             }
             return subPart;
           })}
@@ -1389,26 +1405,29 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     const isPinned = currentUser?.pinnedGroups?.includes(activeGroup);
     const lastRead = currentUser?.lastReadTimestamps?.[activeGroup] || '0';
 
-    const handleDeleteSMS = async (smsId: string) => {
+    const handleDeleteSMS = async (idToDelete: string) => {
       try {
-        const msgsQuery = query(collection(db, 'private_messages', smsId, 'messages'));
+        const isSMSChat = idToDelete.startsWith('sms_');
+        const path = isSMSChat ? 'private_messages' : 'groups';
+
+        const msgsQuery = query(collection(db, path, idToDelete, 'messages'));
         const msgsSnap = await getDocs(msgsQuery);
         for (const m of msgsSnap.docs) {
-          await deleteDoc(doc(db, 'private_messages', smsId, 'messages', m.id));
+          await deleteDoc(doc(db, path, idToDelete, 'messages', m.id));
         }
-        await deleteDoc(doc(db, 'private_messages', smsId));
+        await deleteDoc(doc(db, path, idToDelete));
 
         setActiveGroup(null);
         setShowDeleteSmsPrompt(null);
         showToast("Discussion supprimée définitivement pour tous.");
       } catch (error) {
-        console.error("Error deleting SMS:", error);
+        console.error("Error deleting discussion:", error);
         showToast("Erreur lors de la suppression.");
       }
     };
 
     return (
-      <div className={`flex-1 flex flex-col h-full relative z-[2000] ${state.darkMode ? 'bg-black' : 'bg-[#f9fafb]'} animate-in fade-in duration-300`}>
+      <div className={`flex-1 flex flex-col h-full relative z-[2000] animate-in fade-in duration-300 ${state.darkMode ? 'text-white' : 'text-gray-900'}`} style={{ backgroundColor: 'var(--bg-color, transparent)' }}>
         {selectionMode ? (
           <div className="p-4 bg-blue-50 border-b border-blue-100 flex items-center justify-between shadow-sm z-[2001] sticky top-0">
             <div className="flex items-center gap-3">
@@ -2082,7 +2101,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
-                      <div className={`absolute ${isMine ? 'right-full mr-2 flex-row-reverse' : 'left-full ml-2 flex-row'} top-1/2 -translate-y-1/2 flex items-center gap-2 z-10 animate-in fade-in zoom-in-95 duration-200`}>
+                      <div className={`absolute ${isMine ? 'right-full mr-2' : 'left-full ml-2'} top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-2 z-10 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200 pointer-events-none group-hover/msg:pointer-events-auto`}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
                           className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}
@@ -2516,7 +2535,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   <div 
                     key={chat.id || `sms-${i}`} 
                     onClick={() => setActiveGroup(chat.id)}
-                    className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:border-blue-100 transition-all group"
+                    className={`flex items-center gap-4 p-4 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition-all group ${state.darkMode ? 'bg-zinc-800/50 border-white/10 hover:border-[#0D98BA]' : 'bg-white border-gray-100 hover:border-blue-100'}`}
                   >
                     <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xl shadow-inner group-hover:scale-105 transition-transform overflow-hidden">
                       {state.users[otherId || '']?.avatar ? <img src={state.users[otherId || ''].avatar!} className="w-full h-full object-cover" /> : <span>{(otherName || '?')[0].toUpperCase()}</span>}
@@ -2607,12 +2626,12 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 {visibleGroups.map((g, i) => {
                   const isMember = (g.members || []).includes(state.currentUser as string);
                   return (
-                    <div key={g.id || `public-${i}`} onClick={() => setActiveGroup(g.id)} className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:border-blue-100 transition-all group relative">
+                    <div key={g.id || `public-${i}`} onClick={() => setActiveGroup(g.id)} className={`flex items-center gap-4 p-4 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition-all group relative ${state.darkMode ? 'bg-zinc-800/50 border-white/10 hover:border-[#0D98BA]' : 'bg-white border-gray-100 hover:border-blue-100'}`}>
                       {state.newMessages?.includes(g.id) && (
                         <div className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse z-10" />
                       )}
                       <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#007FFF] to-[#32CD32] flex items-center justify-center text-white font-bold text-xl shadow-inner group-hover:scale-105 transition-transform overflow-hidden">
-                        <span>{(g.name || '?')[0].toUpperCase()}</span>
+                        {g.avatar ? <img src={g.avatar} alt={g.name} className="w-full h-full object-cover" /> : <span>{(g.name || '?')[0].toUpperCase()}</span>}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
@@ -2667,12 +2686,12 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 </div>
 
                 {visibleGroups.map((g, i) => (
-                  <div key={g.id || `private-${i}`} onClick={() => setActiveGroup(g.id)} className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:border-blue-100 transition-all group relative">
+                  <div key={g.id || `private-${i}`} onClick={() => setActiveGroup(g.id)} className={`flex items-center gap-4 p-4 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition-all group relative ${state.darkMode ? 'bg-zinc-800/50 border-white/10 hover:border-[#0D98BA]' : 'bg-white border-gray-100 hover:border-blue-100'}`}>
                     {state.newMessages?.includes(g.id) && (
                       <div className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse z-10" />
                     )}
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#007FFF] to-[#32CD32] flex items-center justify-center text-white font-bold text-xl shadow-inner group-hover:scale-105 transition-transform overflow-hidden">
-                      <span>{(g.name || '?')[0].toUpperCase()}</span>
+                      {g.avatar ? <img src={g.avatar} alt={g.name} className="w-full h-full object-cover" /> : <span>{(g.name || '?')[0].toUpperCase()}</span>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">

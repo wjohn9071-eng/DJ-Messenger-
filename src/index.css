@@ -6,14 +6,18 @@
 }
 
 @layer base {
-    input, textarea {
-        @apply text-gray-900;
+    html:not(.dark) input:not([type="color"]), html:not(.dark) textarea {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border-color: #e5e7eb !important;
     }
-    .dark input, .dark textarea {
-        @apply text-white bg-gray-800 border-white/10;
+    html.dark input:not([type="color"]), html.dark textarea {
+        background-color: #1f2937 !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
     }
-    .dark input[type="color"] {
-        @apply bg-transparent;
+    html.dark input[type="color"] {
+        background-color: transparent !important;
     }
 }
 
