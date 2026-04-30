@@ -143,14 +143,32 @@ export default function App() {
     }
   }, []);
 
-  // Dark Mode application
+  // Dark Mode and Theme Variables application
   useEffect(() => {
+    const root = document.documentElement;
     if (state.darkMode) {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
     }
-  }, [state.darkMode]);
+
+    if (state.currentUser) {
+      const userData = state.users[state.currentUser];
+      if (userData?.bgColor) {
+        root.style.setProperty('--bg-color', userData.bgColor);
+      } else {
+        root.style.removeProperty('--bg-color');
+      }
+      if (userData?.btnColor) {
+        root.style.setProperty('--btn-color', userData.btnColor);
+      } else {
+        root.style.removeProperty('--btn-color');
+      }
+    } else {
+      root.style.removeProperty('--bg-color');
+      root.style.removeProperty('--btn-color');
+    }
+  }, [state.darkMode, state.currentUser, state.users]);
 
   const handleUpdate = () => {
     if (waitingWorker) {

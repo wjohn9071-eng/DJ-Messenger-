@@ -6,15 +6,17 @@
 }
 
 @layer base {
-    html:not(.dark) input:not([type="color"]), html:not(.dark) textarea {
+    html:not(.dark) input:not([type="color"]), 
+    html:not(.dark) textarea {
         background-color: #ffffff !important;
         color: #111827 !important;
         border-color: #e5e7eb !important;
     }
-    html.dark input:not([type="color"]), html.dark textarea {
+    html.dark input:not([type="color"]), 
+    html.dark textarea {
         background-color: #1f2937 !important;
         color: #ffffff !important;
-        border-color: rgba(255, 255, 255, 0.1) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
     }
     html.dark input[type="color"] {
         background-color: transparent !important;
@@ -24,6 +26,7 @@
 body {
     font-family: 'Inter', sans-serif;
     background-color: #f0f2f5;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 html.dark body {
@@ -36,6 +39,17 @@ html:not(.dark) body {
 
 html {
     /* Removed overscroll-behavior-y to allow default scrolling */
+}
+
+.dj-style-text {
+    background: var(--btn-color, linear-gradient(to right, #007FFF, #00CED1, #32CD32));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.dj-style-bg {
+    background: var(--btn-color, linear-gradient(to right, #007FFF, #00CED1, #32CD32));
 }
 
 .gradient-bg {

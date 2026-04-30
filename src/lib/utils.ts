@@ -5,8 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const djStyleText = "bg-gradient-to-r from-[#007FFF] via-[#00CED1] to-[#32CD32] bg-clip-text text-transparent font-black";
-export const djStyleBg = "bg-gradient-to-r from-[#007FFF] via-[#00CED1] to-[#32CD32] text-white";
+export const djStyleText = "dj-style-text font-black";
+export const djStyleBg = "dj-style-bg text-white";
 
 export const DJ_LOGO_SVG = `
 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">

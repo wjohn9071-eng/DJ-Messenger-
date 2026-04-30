@@ -182,34 +182,55 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-6 bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/50 mb-8">
-        <div className="space-y-2">
+        <div className="space-y-4">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Nom d'utilisateur</label>
-          <input 
-            type="text" 
-            autoComplete="username"
-            value={username} 
-            onChange={e => setUsername(e.target.value)} 
-            className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white' : 'border-gray-100 bg-gray-50/50 text-gray-800'}`} 
-            placeholder="Ton nom de scène..."
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Mot de passe</label>
-          <div className="relative">
+          <div className="relative flex flex-col sm:flex-row gap-3">
             <input 
-              type={showPassword ? "text" : "password"} 
-              autoComplete="new-password"
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-12 ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white' : 'border-gray-100 bg-gray-50/50 text-gray-800'}`} 
-              placeholder="••••••••"
+              type="text" 
+              autoComplete="username"
+              value={username} 
+              onChange={e => setUsername(e.target.value)} 
+              className={`flex-1 px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white' : 'border-gray-100 bg-gray-50/50 text-gray-800'}`} 
+              placeholder="Ton nom de scène..."
             />
             <button 
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              onClick={handleSave}
+              className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0 flex items-center justify-center gap-2 ${djStyleBg}`}
             >
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              <CheckCircle2 size={16} />
+              Valider
+            </button>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Mot de passe</label>
+          <div className="relative flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                autoComplete="new-password"
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-12 ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white' : 'border-gray-100 bg-gray-50/50 text-gray-800'}`} 
+                placeholder="••••••••"
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                title={showPassword ? "Masquer" : "Afficher"}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+            <button 
+              type="button"
+              onClick={handleSave}
+              className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0 flex items-center justify-center gap-2 ${djStyleBg}`}
+            >
+              <CheckCircle2 size={16} />
+              Valider
             </button>
           </div>
         </div>
@@ -1252,8 +1273,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 }
 
 export const APP_UPDATES = [
-    { version: '3.0.1', date: '30/04/2026', desc: 'Actualisation PWA instantanée : À chaque réouverture ou focus de la fenêtre, l\'application déclenche un update serveur en fond pour injecter les mises à jour sans forcer la main. Le système s\'actualise aussi via un reload silencieux toutes les 10 minutes d\'inactivité, évitant de vous déranger en pleine frappe. Le menu latéral est désormais toujours masqué lors d\'un rafraîchissement.' },
-    { version: '3.0.0', date: '30/04/2026', desc: 'Mise à jour v3.0 Stabilité & Ergonomie : Mode Sombre complété avec correction du texte invisible des zones de saisie. La personnalisation de la couleur de fond s\'applique enfin aux discussions. Les avatars des groupes sont maintenant bien visibles dans la liste. Affinage complet du rendu du texte (gras/italique) pour qu\'il ne chevauche plus la ponctuation ni les numéros. Suppression intégrale rétablie : supprimer un SMS ou un groupe supprime désormais formellement *tous* les messages du serveur de façon irréversible. Actions message (supprimer, sélectionner, muter) disposées horizontalement avec de nouvelles infobulles. Optimisation des paramètres avec boutons de confirmation discrets.' },
+    { version: '3.0', date: '30/04/2026', desc: 'Mise à jour v3.0 UX & Sécurité & Ergonomie : Ajout d\'un bouton œil pour gérer la visibilité du mot de passe dans le profil. Intégration de boutons de validation pour chaque champ de modification. Refonte de l\'onglet Discussions épinglées sur l\'accueil pour une navigation plus fluide. Mode Sombre complété avec correction du texte invisible des zones de saisie. La personnalisation de la couleur de fond s\'applique enfin aux discussions. Les avatars des groupes sont maintenant bien visibles dans la liste. Affinage complet du rendu du texte (gras/italique) pour qu\'il ne chevauche plus la ponctuation ni les numéros. Les détails techniques de gestion administrative ne sont désormais visibles que par le personnel autorisé. Amélioration de la persistance de la bannière de mise à jour. Correction de l\'affichage des messages non lus sur l\'accueil.' },
     { version: '2.9.9', date: '19/04/2026', desc: 'Optimisation Layout Mobile : Le menu latéral repousse désormais le contenu au lieu de l\'écraser, garantissant une lisibilité parfaite sur petit écran. Unification totale de l\'interface entre mobile et PC, avec suppression des effets de flou pour une meilleure clarté visuelle.' },
     { version: '2.9.8', date: '19/04/2026', desc: 'Interface unifiée et Profils : Le menu latéral divise désormais l\'écran sans superposition. Un nouveau système de profil universel "Style DJ" est accessible en cliquant sur n\'importe quel avatar ou nom d\'utilisateur (Voir photo ou SMS direct).' },
     { version: '2.9.7', date: '19/04/2026', desc: 'Stabilité et corrections ultimes : Les SMS supprimés ne disparaissent plus chez votre interlocuteur. Les notifications locales sont désormais intelligentes et regroupent vos messages non lus. Enfin, le système de déploiement des mises à jour PWA passe en natif pour une réactivité immédiate sans cache.' },
@@ -1288,7 +1308,7 @@ export function Updates({ state }: { state: AppState }) {
 
   const displayUpdates = APP_UPDATES.map(u => ({
     ...u,
-    desc: isPrivileged ? u.desc : (u.desc.replace(/([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|staff|admin)[^.!?]*[.!?])/gi, '').trim() || u.desc)
+    desc: isPrivileged ? u.desc : (u.desc.replace(/([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive|visualisation des mots de passe|Visualisation|modération)[^.!?]*[.!?])/gi, '').trim() || u.desc)
   }));
 
   if (selectedUpdate !== null) {

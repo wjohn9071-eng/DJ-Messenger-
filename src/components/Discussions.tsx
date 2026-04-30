@@ -31,6 +31,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         return {
           groupId: g.id,
           groupName: g.name,
+          avatar: g.avatar,
           type: g.type,
           lastMessage: lastMsg,
           newCount,
@@ -55,6 +56,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         return {
           groupId: chat.id,
           groupName: otherName,
+          avatar: state.users[otherId || '']?.avatar,
           type: 'sms',
           lastMessage: lastMsg,
           newCount,
@@ -634,11 +636,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts = text.split(urlRegex);
     
-    const formatRegex = /(\*(?!\s)[^*]+(?<!\s)\*|_(?!\s)[^_]+(?<!\s)_)/g;
-
     return parts.map((part, i) => {
       if (part.match(urlRegex)) {
-
         return (
           <a 
             key={i} 
@@ -656,29 +655,40 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         );
       }
       
-      const textParts = part.split(formatRegex);
+      // Strict Markdown Rendering for Bold and Italic with escaping
+      let processed = part;
+      const tokens: {id: string, html: string}[] = [];
+      
+      const escapeHtml = (str: string) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      // 1. Handle Bold **bold**
+      processed = processed.replace(/(^|[\s.,!?;:])\*\*([^*]+)\*\*([\s.,!?;:]|$)/g, (match, p1, p2, p3) => {
+        if (/^[\d\s+\-.()#*]+$/.test(p2) && !/[a-zA-Z]/.test(p2)) return match;
+        const id = `__BOLD_${tokens.length}__`;
+        tokens.push({ id, html: `<strong class="font-black text-[1.1em]">${escapeHtml(p2)}</strong>` });
+        return `${p1}${id}${p3}`;
+      });
+      
+      // 2. Handle Italic *italic*
+      processed = processed.replace(/(^|[\s.,!?;:])\*([^*]+)\*([\s.,!?;:]|$)/g, (match, p1, p2, p3) => {
+        if (/^[\d\s+\-.()#*]+$/.test(p2) && !/[a-zA-Z]/.test(p2)) return match;
+        const id = `__ITALIC_${tokens.length}__`;
+        tokens.push({ id, html: `<em class="italic text-[1.05em]">${escapeHtml(p2)}</em>` });
+        return `${p1}${id}${p3}`;
+      });
+      
+      // 3. Re-inject tokens
+      let finalText = processed;
+      tokens.forEach(token => {
+        finalText = finalText.replace(token.id, token.html);
+      });
+      
       return (
-        <React.Fragment key={i}>
-          {textParts.map((subPart, j) => {
-            if (subPart && subPart.startsWith('*') && subPart.endsWith('*') && subPart.length > 2) {
-              const innerText = subPart.slice(1, -1);
-              // Avoid rendering as bold if it looks like a phone number or USSD code block
-              if (/^[\w#+\s\-]+$/.test(innerText) && (/^[\d#+\s\-]+$/.test(innerText) || !/[a-zA-Z]/.test(innerText))) {
-                return subPart;
-              }
-              return <strong key={j} className="font-black text-[1.05em] leading-relaxed">{innerText}</strong>;
-            }
-            if (subPart && subPart.startsWith('_') && subPart.endsWith('_') && subPart.length > 2) {
-              const innerText = subPart.slice(1, -1);
-              // Same check for underscore
-              if (/^[\w#+\s\-]+$/.test(innerText) && (/^[\d#+\s\-]+$/.test(innerText) || !/[a-zA-Z]/.test(innerText))) {
-                return subPart;
-              }
-              return <em key={j} className="italic text-[1.05em] leading-relaxed">{innerText}</em>;
-            }
-            return subPart;
-          })}
-        </React.Fragment>
+        <span 
+          key={i} 
+          dangerouslySetInnerHTML={{ __html: finalText }}
+          className="whitespace-pre-wrap leading-relaxed"
+        />
       );
     });
   };
@@ -2598,8 +2608,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   <span className="text-[10px] text-gray-400 font-bold">{item.lastMessage.time}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0">
-                    {state.users[item.lastMessage.user]?.avatar ? <img src={state.users[item.lastMessage.user].avatar!} className="w-full h-full rounded-xl object-cover" /> : (item.lastMessage.user || '?')[0].toUpperCase()}
+                  <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0 overflow-hidden shadow-inner">
+                    {item.avatar ? (
+                      <img src={item.avatar} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className={`w-full h-full flex items-center justify-center ${item.isSMS ? 'bg-gray-100' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32] text-white'}`}>
+                        {(item.groupName || '?')[0].toUpperCase()}
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-bold mb-0.5 ${state.darkMode ? 'text-zinc-300' : 'text-gray-700'}`}>@{item.lastMessage.user === 'test' ? 'Anonyme' : (state.users[item.lastMessage.user]?.name || item.lastMessage.user)}</p>

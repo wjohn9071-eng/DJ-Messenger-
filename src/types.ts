@@ -26,6 +26,7 @@ export interface User {
   problemsToday?: number;
   lastProblemDate?: string;
   lastReadTimestamps?: Record<string, string>; // groupId -> ISO timestamp
+  darkMode?: boolean;
 }
 
 export interface Poll {

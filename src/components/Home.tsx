@@ -6,11 +6,19 @@ import { Pin, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string) => void, updateState: any, startSimulation: () => void }) {
   const currentVersion = APP_UPDATES[0].version;
+  const isTest = state.currentUser === 'test';
+  const currentUserData = !isTest && state.currentUser ? (state.currentUserData || state.users[state.currentUser as string]) : null;
+  const isPrivileged = currentUserData?.isAdmin || currentUserData?.isGrandAdmin || currentUserData?.isSuperAdmin;
+
   const [showUpdateNotice, setShowUpdateNotice] = React.useState(() => {
     return localStorage.getItem(`update_notice_dismissed_${currentVersion}`) !== 'true';
   });
-  const isTest = state.currentUser === 'test';
-  const currentUserData = !isTest && state.currentUser ? (state.currentUserData || state.users[state.currentUser as string]) : null;
+  
+  // Filter description for Home Notice
+  const filteredDesc = isPrivileged 
+    ? APP_UPDATES[0].desc 
+    : (APP_UPDATES[0].desc.replace(/([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive)[^.!?]*[.!?])/gi, '').trim() || APP_UPDATES[0].desc);
+
   const username = isTest ? 'Anonyme' : (currentUserData?.name || state.currentUser);
   const isNewUser = !isTest && currentUserData && currentUserData.friends?.length === 0;
   
@@ -141,6 +149,11 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             <h2 className="flex items-center gap-2 text-lg font-black uppercase tracking-tighter mb-2">
               <Pin size={18} className="text-[#0D98BA]" />
               Discussions Épinglées
+              {pinnedDiscussions.reduce((acc, g) => acc + g.unreadCount, 0) > 0 && (
+                <div className="w-5 h-5 ml-auto rounded-full bg-red-500 flex items-center justify-center animate-pulse shadow-lg">
+                  <span className="text-[10px] font-black text-white">{pinnedDiscussions.reduce((acc, g) => acc + g.unreadCount, 0)}</span>
+                </div>
+              )}
             </h2>
             {renderPinnedList()}
           </div>
@@ -148,14 +161,15 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         {/* Main Center Content */}
         <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto py-8 text-center">
-        <div className={`w-40 h-40 md:w-48 md:h-48 mb-8 flex-shrink-0 flex items-center justify-center shadow-2xl rounded-[2.5rem] overflow-hidden p-6 border ${state.darkMode ? 'bg-white/10 border-white/20' : 'bg-white border-gray-100'}`}>
+        <div className={`w-40 h-40 md:w-48 md:h-48 mb-6 flex-shrink-0 flex items-center justify-center shadow-2xl rounded-[2.5rem] overflow-hidden p-6 border relative ${state.darkMode ? 'bg-white/10 border-white/20' : 'bg-white border-gray-100'}`}>
           <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
+          <div className="absolute bottom-4 right-4 bg-[#0D98BA] text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-lg">v{currentVersion}</div>
         </div>
-        
+
         <h1 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2 ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
           {getGreeting()} !
         </h1>
-        
+
         <p className={`text-2xl font-bold mb-8 w-full ${djStyleText}`}>
           {welcomeMessage}
         </p>
@@ -168,7 +182,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             <div className="flex items-start gap-3">
               <span className="text-xl">🔔</span>
               <div>
-                <p className="text-sm font-bold text-blue-800 mb-1">Tu as de nouveaux messages !</p>
+                <p className="text-sm font-bold text-blue-800 mb-1">Tu as {unreadIds.length} nouveaux messages !</p>
                 {latestUnreadExtract && (
                   <p className="text-xs text-blue-600 italic">{latestUnreadExtract}</p>
                 )}
@@ -177,15 +191,11 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           </button>
         )}
 
-        <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-100 w-full mb-8 animate-in slide-in-from-bottom-4">
-          <p className="text-sm font-semibold text-gray-600 italic">💡 {currentTip}</p>
-        </div>
-
         {showUpdateNotice && (
-          <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Version {APP_UPDATES[0].version} - {APP_UPDATES[0].date}</h3>
+          <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-8 text-left relative animate-in zoom-in-95 duration-300">
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour v{APP_UPDATES[0].version} - {APP_UPDATES[0].date}</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Nouveautés :</b> {APP_UPDATES[0].desc}</li>
+              <li><b>Nouveautés :</b> {filteredDesc}</li>
             </ul>
             <button 
               onClick={() => {
@@ -194,13 +204,13 @@ export default function Home({ state, setView, updateState, startSimulation }: {
               }}
               className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
             >
-              C'est incroyable !
+              C'est compris !
             </button>
           </div>
         )}
 
         {/* Pinned Discussions - Mobile */}
-        <div className="lg:hidden w-full mb-12 text-left">
+        <div className="lg:hidden w-full mb-8 text-left">
           <button
             onClick={() => setShowMobilePinned(!showMobilePinned)}
             className={`w-full flex items-center justify-between p-4 rounded-3xl shadow-sm border transition-colors ${state.darkMode ? (showMobilePinned ? 'bg-zinc-800 border-white/20' : 'bg-black/60 border-white/10 text-white') : (showMobilePinned ? 'bg-gray-50 border-gray-200' : 'bg-white/80 border-gray-100 text-gray-800')}`}
@@ -208,9 +218,9 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             <div className="flex items-center gap-2">
               <Pin size={18} className="text-[#0D98BA]" />
               <span className="font-black uppercase tracking-widest text-sm">Discussions Épinglées</span>
-              {pinnedDiscussions.filter(g => g.unreadCount > 0).length > 0 && (
+              {pinnedDiscussions.reduce((acc, g) => acc + g.unreadCount, 0) > 0 && (
                 <div className="w-5 h-5 ml-2 rounded-full bg-red-500 flex items-center justify-center animate-pulse">
-                  <span className="text-[10px] font-black text-white">{pinnedDiscussions.filter(g => g.unreadCount > 0).reduce((acc, g) => acc + g.unreadCount, 0)}</span>
+                  <span className="text-[10px] font-black text-white">{pinnedDiscussions.reduce((acc, g) => acc + g.unreadCount, 0)}</span>
                 </div>
               )}
             </div>
@@ -222,6 +232,10 @@ export default function Home({ state, setView, updateState, startSimulation }: {
               {renderPinnedList()}
             </div>
           )}
+        </div>
+
+        <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-100 w-full mb-8 animate-in slide-in-from-bottom-4">
+          <p className="text-sm font-semibold text-gray-600 italic">💡 {currentTip}</p>
         </div>
 
         {(isTest || isNewUser) && (
