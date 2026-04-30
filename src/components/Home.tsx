@@ -1,16 +1,21 @@
 import React from 'react';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from '../lib/utils';
 import { AppState } from '../types';
+import { APP_UPDATES } from './Views';
+import { Pin, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string) => void, updateState: any, startSimulation: () => void }) {
+  const currentVersion = APP_UPDATES[0].version;
   const [showUpdateNotice, setShowUpdateNotice] = React.useState(() => {
-    return localStorage.getItem('update_notice_dismissed_3.0.0') !== 'true';
+    return localStorage.getItem(`update_notice_dismissed_${currentVersion}`) !== 'true';
   });
   const isTest = state.currentUser === 'test';
   const currentUserData = !isTest && state.currentUser ? (state.currentUserData || state.users[state.currentUser as string]) : null;
   const username = isTest ? 'Anonyme' : (currentUserData?.name || state.currentUser);
   const isNewUser = !isTest && currentUserData && currentUserData.friends?.length === 0;
   
+  const [showMobilePinned, setShowMobilePinned] = React.useState(false);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return "Bonjour";
@@ -61,14 +66,93 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     }
   }
 
+  const pinnedIds = currentUserData?.pinnedGroups || [];
+  const pinnedDiscussions = pinnedIds.map((id: string) => {
+    const isSMS = id.startsWith('sms_');
+    const group = isSMS ? state.privateMessages?.[id] : state.groups?.[id];
+    let name = "Groupe inconnu";
+    let avatar = "";
+    let isPublic = false;
+    let unreadCount = state.newMessages?.filter((msgId: string) => msgId === id).length || 0;
+
+    if (isSMS) {
+      const otherUser = id.replace('sms_', '').replace(state.currentUser as string, '').replace('_', '');
+      const otherUserData = state.users[otherUser];
+      name = otherUser === 'dj-bot' ? 'DJ Bot' : (otherUserData?.name || otherUser);
+      avatar = otherUserData?.avatar || '';
+    } else {
+      if (!group) return null;
+      name = group.name;
+      avatar = group.avatar || '';
+      isPublic = group.type === 'public';
+    }
+
+    return { id, name, avatar, isSMS, isPublic, unreadCount };
+  }).filter(Boolean) as Array<{id: string, name: string, avatar: string, isSMS: boolean, isPublic: boolean, unreadCount: number}>;
+
+  const handleOpenPinned = (id: string, isSMS: boolean, isPublic: boolean) => {
+    updateState({ 
+      activeGroup: id,
+      discussionTab: isSMS ? 'sms' : (isPublic ? 'public' : 'private')
+    });
+    setView('discussions');
+  };
+
+  const renderPinnedList = () => (
+    <div className="space-y-3 mt-4">
+      {pinnedDiscussions.length === 0 ? (
+        <p className={`text-sm italic pb-4 ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Aucune discussion épinglée.</p>
+      ) : (
+        pinnedDiscussions.map((grp) => (
+          <button
+            key={`pinned-${grp.id}`}
+            onClick={() => handleOpenPinned(grp.id, grp.isSMS, grp.isPublic)}
+            className={`w-full flex items-center justify-between p-3 rounded-2xl shadow-sm border transition-all hover:scale-[1.02] active:scale-95 text-left ${state.darkMode ? 'bg-zinc-800/80 border-white/10 hover:border-[#0D98BA]' : 'bg-white border-gray-100 hover:border-blue-100'}`}
+          >
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-[#007FFF] to-[#32CD32] flex items-center justify-center text-white font-bold shadow-inner overflow-hidden">
+                {grp.avatar ? <img src={grp.avatar} alt={grp.name} className="w-full h-full object-cover" /> : <span>{(grp.name || '?')[0].toUpperCase()}</span>}
+              </div>
+              <div className="flex-1 min-w-0 pr-2">
+                <p className={`font-bold truncate text-sm leading-tight ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>{grp.name}</p>
+                <p className={`text-[10px] font-black uppercase tracking-widest ${grp.isSMS ? 'text-[#32CD32]' : (grp.isPublic ? 'text-[#0D98BA]' : 'text-purple-500')}`}>
+                  {grp.isSMS ? 'Message Privé' : (grp.isPublic ? 'Groupe Public' : 'Groupe Privé')}
+                </p>
+              </div>
+            </div>
+            {grp.unreadCount > 0 && (
+              <div className="shrink-0 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_10px_rgba(239,68,68,0.4)] animate-pulse">
+                <span className="text-[10px] font-black text-white">{grp.unreadCount > 9 ? '9+' : grp.unreadCount}</span>
+              </div>
+            )}
+          </button>
+        ))
+      )}
+    </div>
+  );
+
   return (
-    <div className="flex flex-col items-center min-h-full p-6 text-center animate-in fade-in duration-500 overflow-y-auto bg-white/50 backdrop-blur-sm">
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto py-8">
-        <div className="w-40 h-40 md:w-48 md:h-48 mb-8 flex-shrink-0 flex items-center justify-center shadow-2xl rounded-[2.5rem] overflow-hidden p-6 bg-white border border-gray-100">
+    <div className={`min-h-full p-6 animate-in fade-in duration-500 overflow-y-auto backdrop-blur-sm ${state.darkMode ? 'bg-black/50 text-white' : 'bg-white/50 text-gray-800'}`}>
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-center w-full max-w-6xl mx-auto gap-8">
+        
+        {/* Pinned Discussions - Desktop Left */}
+        <div className="hidden lg:block w-80 shrink-0 sticky top-8">
+          <div className={`p-5 rounded-3xl shadow-xl border ${state.darkMode ? 'bg-black/60 border-white/10' : 'bg-white/80 border-gray-100'}`}>
+            <h2 className="flex items-center gap-2 text-lg font-black uppercase tracking-tighter mb-2">
+              <Pin size={18} className="text-[#0D98BA]" />
+              Discussions Épinglées
+            </h2>
+            {renderPinnedList()}
+          </div>
+        </div>
+
+        {/* Main Center Content */}
+        <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto py-8 text-center">
+        <div className={`w-40 h-40 md:w-48 md:h-48 mb-8 flex-shrink-0 flex items-center justify-center shadow-2xl rounded-[2.5rem] overflow-hidden p-6 border ${state.darkMode ? 'bg-white/10 border-white/20' : 'bg-white border-gray-100'}`}>
           <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
         </div>
         
-        <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2 text-gray-800">
+        <h1 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2 ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
           {getGreeting()} !
         </h1>
         
@@ -99,18 +183,14 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         {showUpdateNotice && (
           <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-12 text-left relative animate-in zoom-in-95 duration-300">
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Version 3.0 - 30 Avril 2026</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Version {APP_UPDATES[0].version} - {APP_UPDATES[0].date}</h3>
             <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Mode Sombre & Visibilité :</b> Inversion des couleurs disponible dans les paramètres. Le texte des zones de saisie est désormais toujours visible (blanc sur fond sombre, noir sur fond clair). De plus, la personnalisation des couleurs s'applique enfin à toutes les discussions.</li>
-              <li><b>Layout Full-Screen Mobile :</b> Le menu de navigation occupe tout l'écran sur mobile pour une expérience immersive, de plus le fond de la discussion prend toute sa largeur sur grand écran.</li>
-              <li><b>Mises à jour intelligentes :</b> L'application s'actualise toute seule. Mais si vous êtes en train d'écrire un message (brouillon en cours), elle attendra diplomatiquement que vous l'ayez envoyé pour ne masquer aucune de vos frappes.</li>
-              <li><b>Système de Messagerie :</b> Les messages sont maintenant dans une zone de texte auto-extensible. Les boutons d'action des messages (Supprimer, etc.) sont disposés horizontalement en sortie de bulle de façon élégante. Suppression intégrale rétablie : supprimer un SMS ou un groupe supprime désormais formellement *tous* les messages du serveur de façon irréversible.</li>
-              <li><b>Design & Ergonomie :</b> Les avatars de groupes s'affichent correctement dans la liste des discussions. Boutons de confirmation discrets pour chaque modification de paramètres. Correction de la mise en forme du texte (gras/italique avec astérisques) pour éviter les superpositions avec la ponctuation et les numéros.</li>
+              <li><b>Nouveautés :</b> {APP_UPDATES[0].desc}</li>
             </ul>
             <button 
               onClick={() => {
                 setShowUpdateNotice(false);
-                localStorage.setItem('update_notice_dismissed_3.0.0', 'true');
+                localStorage.setItem(`update_notice_dismissed_${currentVersion}`, 'true');
               }}
               className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
             >
@@ -118,6 +198,31 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             </button>
           </div>
         )}
+
+        {/* Pinned Discussions - Mobile */}
+        <div className="lg:hidden w-full mb-12 text-left">
+          <button
+            onClick={() => setShowMobilePinned(!showMobilePinned)}
+            className={`w-full flex items-center justify-between p-4 rounded-3xl shadow-sm border transition-colors ${state.darkMode ? (showMobilePinned ? 'bg-zinc-800 border-white/20' : 'bg-black/60 border-white/10 text-white') : (showMobilePinned ? 'bg-gray-50 border-gray-200' : 'bg-white/80 border-gray-100 text-gray-800')}`}
+          >
+            <div className="flex items-center gap-2">
+              <Pin size={18} className="text-[#0D98BA]" />
+              <span className="font-black uppercase tracking-widest text-sm">Discussions Épinglées</span>
+              {pinnedDiscussions.filter(g => g.unreadCount > 0).length > 0 && (
+                <div className="w-5 h-5 ml-2 rounded-full bg-red-500 flex items-center justify-center animate-pulse">
+                  <span className="text-[10px] font-black text-white">{pinnedDiscussions.filter(g => g.unreadCount > 0).reduce((acc, g) => acc + g.unreadCount, 0)}</span>
+                </div>
+              )}
+            </div>
+            {showMobilePinned ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </button>
+          
+          {showMobilePinned && (
+            <div className={`mt-3 p-4 rounded-3xl shadow-inner border animate-in slide-in-from-top-4 ${state.darkMode ? 'bg-black/40 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
+              {renderPinnedList()}
+            </div>
+          )}
+        </div>
 
         {(isTest || isNewUser) && (
           <button 
@@ -127,9 +232,13 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             Découvrir le tutoriel
           </button>
         )}
+        </div>
+
+        {/* Empty Spacer on Right for Balancing Desktop Layout */}
+        <div className="hidden lg:block w-80 shrink-0 select-none pointer-events-none" />
       </div>
 
-      <div className="mt-auto pb-6 w-full">
+      <div className="mt-auto pb-6 w-full flex justify-center">
         <div className="flex flex-col items-center gap-2">
           <div className="h-px w-full max-w-xs bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-4" />
           <p className="text-[10px] md:text-xs font-black tracking-[0.2em] uppercase flex flex-wrap items-center justify-center gap-2 md:gap-3">

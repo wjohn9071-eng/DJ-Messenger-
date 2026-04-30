@@ -1447,27 +1447,27 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </div>
           </div>
         ) : (
-          <div className="p-4 bg-white border-b flex items-center justify-between shadow-sm z-[2001] sticky top-0">
+          <div className={`p-4 border-b flex items-center justify-between shadow-sm z-[2001] sticky top-0 ${state.darkMode ? 'bg-black/80 border-white/10 backdrop-blur-md text-white' : 'bg-white'}`}>
             <div className="flex items-center gap-3">
-            <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-2xl transition-all text-gray-700 shadow-sm border border-gray-200 group">
+            <button onClick={() => { setActiveGroup(null); setShowGroupSettings(false); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl transition-all shadow-sm border group ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white hover:bg-zinc-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200'}`}>
               <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
               <span className="text-[10px] font-black uppercase tracking-widest">Retour</span>
             </button>
-            <div className={`w-10 h-10 rounded-2xl ${isSMS ? 'bg-gray-100' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center text-white font-bold shadow-md overflow-hidden`}>
+            <div className={`w-10 h-10 rounded-2xl ${isSMS ? 'bg-gray-100/10' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center font-bold shadow-md overflow-hidden ${state.darkMode ? 'text-white border border-white/10' : 'text-white'}`}>
               {isSMS && otherUserData?.avatar ? (
                 <img src={otherUserData.avatar} className="w-full h-full object-cover" />
               ) : !isSMS && group.avatar ? (
                 <img src={group.avatar} className="w-full h-full object-cover" />
               ) : (
-                <span>{(otherUser || group.name || '?')[0].toUpperCase()}</span>
+                <span className={isSMS && state.darkMode ? "text-white" : ""}>{(otherUser || group.name || '?')[0].toUpperCase()}</span>
               )}
             </div>
             <div>
-              <h3 className="font-bold text-gray-800 leading-tight">{isSMS ? otherUser : group.name}</h3>
+              <h3 className={`font-bold leading-tight ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>{isSMS ? otherUser : group.name}</h3>
               {!isSMS && group.type === 'public' ? (
-                <p className="text-xs text-gray-500 font-medium italic">Groupe Ouvert</p>
+                <p className={`text-xs font-medium italic ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Groupe Ouvert</p>
               ) : (
-                <p className="text-xs text-gray-500 font-medium">{isSMS ? (otherUserData?.lastSeen ? `Vu ${otherUserData.lastSeen}` : 'En ligne') : `${(group.members || []).length} membres`}</p>
+                <p className={`text-xs font-medium ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{isSMS ? (otherUserData?.lastSeen ? `Vu ${otherUserData.lastSeen}` : 'En ligne') : `${(group.members || []).length} membres`}</p>
               )}
             </div>
           </div>
@@ -1726,7 +1726,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                               <div className="flex items-center gap-2">
                                 <button 
                                   onClick={() => updateState({ selectedUserModal: m })}
-                                  className="text-sm font-bold text-gray-800 hover:text-[#0D98BA] transition-colors"
+                                  className={`text-sm font-bold hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
                                 >
                                   {u?.name || 'Inconnu'}
                                 </button>
@@ -1921,7 +1921,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
                   </div>
                 )}
-                <div className={`relative px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : 'rounded-tl-none bg-white border border-gray-100 text-gray-800'} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} ${isStaff && !isMine ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-50/50' : ''}`}>
+                <div className={`relative px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : (state.darkMode ? 'rounded-tl-none bg-zinc-800 border border-white/10 text-white' : 'rounded-tl-none bg-white border border-gray-100 text-gray-800')} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} ${isStaff && !isMine ? (state.darkMode ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-900/30' : 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-50/50') : ''}`}>
                   {(msg.files && msg.files.length > 0) ? (
                     <div className="mb-2 space-y-2">
                       {msg.files.map((file, idx) => (
@@ -2140,7 +2140,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         </div>
         </div>
 
-        <div className="p-3 bg-white border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+        <div className={`p-3 border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10 backdrop-blur-md ${state.darkMode ? 'bg-black/90 border-white/10' : 'bg-white border-gray-100'}`}>
           {uploadProgress !== null && (
             <div className="mb-3 px-4">
               <div className="flex justify-between text-[10px] font-black uppercase text-gray-400 mb-1">
@@ -2425,7 +2425,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   }
 
   return (
-    <div className="flex flex-col h-full animate-in fade-in duration-300">
+    <div className={`flex flex-col h-full animate-in fade-in duration-300 ${state.darkMode ? 'text-white' : 'text-gray-900'}`} style={{ backgroundColor: 'var(--bg-color, transparent)' }}>
       <div className="p-6 pb-0">
         <div className="flex justify-between items-center mb-6">
           <h2 className={`text-2xl font-bold ${djStyleText}`}>Discussions</h2>
@@ -2511,7 +2511,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             {state.users[u].avatar ? <img src={state.users[u].avatar!} className="w-full h-full object-cover" /> : (u || '?')[0].toUpperCase()}
                           </div>
                           <div className="text-left">
-                            <p className="font-bold text-gray-800">@{state.users[u].name || u}</p>
+                            <p className={`font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>@{state.users[u].name || u}</p>
                             <p className="text-[10px] text-gray-400 uppercase font-black">Disponible pour SMS</p>
                           </div>
                         </div>
@@ -2542,7 +2542,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-bold text-gray-900 truncate pr-2">{otherName}</h3>
+                        <h3 className={`font-bold truncate pr-2 ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>{otherName}</h3>
                         <span className="text-xs text-gray-400 whitespace-nowrap">{lastMsg?.time || ''}</span>
                       </div>
                       <p className="text-sm text-gray-500 truncate">
@@ -2602,8 +2602,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     {state.users[item.lastMessage.user]?.avatar ? <img src={state.users[item.lastMessage.user].avatar!} className="w-full h-full rounded-xl object-cover" /> : (item.lastMessage.user || '?')[0].toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-gray-700 mb-0.5">@{item.lastMessage.user === 'test' ? 'Anonyme' : (state.users[item.lastMessage.user]?.name || item.lastMessage.user)}</p>
-                    <p className={`text-sm truncate ${item.newCount > 0 ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>{item.lastMessage.text}</p>
+                    <p className={`text-xs font-bold mb-0.5 ${state.darkMode ? 'text-zinc-300' : 'text-gray-700'}`}>@{item.lastMessage.user === 'test' ? 'Anonyme' : (state.users[item.lastMessage.user]?.name || item.lastMessage.user)}</p>
+                    <p className={`text-sm truncate ${item.newCount > 0 ? (state.darkMode ? 'text-white font-bold' : 'text-gray-900 font-bold') : 'text-gray-500'}`}>{item.lastMessage.text}</p>
                   </div>
                 </div>
               </div>
@@ -2635,11 +2635,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-bold text-gray-900 truncate pr-2">{g.name}</h3>
+                          <h3 className={`font-bold truncate pr-2 ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>{g.name}</h3>
                           <span className="text-xs text-gray-400 whitespace-nowrap">{g.messages && g.messages.length > 0 ? g.messages[g.messages.length - 1]?.time : ''}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className={`text-sm truncate ${state.newMessages?.includes(g.id) ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
+                          <p className={`text-sm truncate ${state.newMessages?.includes(g.id) ? (state.darkMode ? 'text-white font-bold' : 'text-gray-900 font-bold') : 'text-gray-500'}`}>
                             {g.messages && g.messages.length > 0 ? g.messages[g.messages.length - 1]?.text : 'Aucun message'}
                           </p>
                           {!isMember && g.name !== 'Général' && (
@@ -2696,7 +2696,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2 min-w-0">
-                          <h3 className="font-bold text-gray-900 truncate">{g.name}</h3>
+                          <h3 className={`font-bold truncate ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>{g.name}</h3>
                           {activeTab === 'private' && !g.members?.includes(state.currentUser) && (
                             <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full shrink-0">Ghost</span>
                           )}
@@ -2712,7 +2712,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           </button>
                         )}
                       </div>
-                      <p className={`text-sm truncate ${state.newMessages?.includes(g.id) ? 'text-gray-900 font-bold' : 'text-gray-500'}`}>
+                      <p className={`text-sm truncate ${state.newMessages?.includes(g.id) ? (state.darkMode ? 'text-white font-bold' : 'text-gray-900 font-bold') : 'text-gray-500'}`}>
                         {g.messages && g.messages.length > 0 ? g.messages[g.messages.length - 1]?.text : 'Aucun message'}
                       </p>
                     </div>

@@ -26,6 +26,14 @@ body {
     background-color: #f0f2f5;
 }
 
+html.dark body {
+    color: #ffffff;
+}
+
+html:not(.dark) body {
+    color: #111827;
+}
+
 html {
     /* Removed overscroll-behavior-y to allow default scrolling */
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState } from '../types';
 import { djStyleBg, djStyleText, compressImage, setDraftStatus } from '../lib/utils';
-import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight, Bell, Lightbulb, Settings as SettingsIcon, HelpCircle, CheckCircle2 } from 'lucide-react';
+import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight, Bell, Lightbulb, Settings as SettingsIcon, HelpCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
 import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs, reauthenticateWithPopup, googleProvider } from '../lib/firebase';
@@ -53,6 +53,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
   const user = isTest ? null : state.users[state.currentUser as string];
   const [username, setUsername] = useState(user?.name || '');
   const [password, setPassword] = useState('••••••••');
+  const [showPassword, setShowPassword] = useState(false);
   const [avatar, setAvatar] = useState(user?.avatar || null);
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
@@ -188,7 +189,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
             autoComplete="username"
             value={username} 
             onChange={e => setUsername(e.target.value)} 
-            className="w-full px-6 py-4 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all bg-gray-50/50 font-bold text-gray-800" 
+            className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white' : 'border-gray-100 bg-gray-50/50 text-gray-800'}`} 
             placeholder="Ton nom de scène..."
           />
         </div>
@@ -196,25 +197,30 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Mot de passe</label>
           <div className="relative">
             <input 
-              type="password" 
+              type={showPassword ? "text" : "password"} 
               autoComplete="new-password"
               value={password} 
               onChange={e => setPassword(e.target.value)} 
-              className="w-full px-6 py-4 rounded-2xl border border-gray-100 focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all bg-gray-50/50 font-bold text-gray-800" 
+              className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-12 ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white' : 'border-gray-100 bg-gray-50/50 text-gray-800'}`} 
               placeholder="••••••••"
             />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300">
-              <Key size={18} />
-            </div>
+            <button 
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
         </div>
         
         <div className="pt-4">
           <button 
             type="submit"
-            className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition active:scale-95 text-white ${djStyleBg}`}
+            className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition active:scale-95 text-white flex items-center justify-center gap-2 ${djStyleBg}`}
           >
-            Mettre à jour le profil
+            <CheckCircle2 size={18} />
+            Enregistrer les modifications
           </button>
         </div>
         
@@ -371,19 +377,19 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
             placeholder="Rechercher un utilisateur par son nom..." 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
-            className="w-full px-6 py-4 rounded-[2rem] bg-white border border-gray-100 shadow-xl focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all text-lg font-medium"
+            className={`w-full px-6 py-4 rounded-[2rem] border shadow-xl focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all text-lg font-medium ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white placeholder-gray-500' : 'bg-white border-gray-100 placeholder-gray-400'}`}
           />
           <div className={`absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full ${djStyleBg}`}>
             <User size={20} className="text-white" />
           </div>
         </div>
         
-        <div className="mt-4 bg-white rounded-3xl shadow-2xl border border-gray-50 overflow-hidden animate-in slide-in-from-top-4">
-          <div className="p-4 bg-gray-50 border-b text-[10px] font-black text-gray-400 uppercase tracking-widest">
+        <div className={`mt-4 rounded-3xl shadow-2xl border overflow-hidden animate-in slide-in-from-top-4 ${state.darkMode ? 'bg-zinc-800 border-white/10' : 'bg-white border-gray-50'}`}>
+          <div className={`p-4 border-b text-[10px] font-black uppercase tracking-widest ${state.darkMode ? 'bg-zinc-900 border-white/5 text-gray-500' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
             {search ? 'Résultats de la recherche' : 'Tous les utilisateurs'}
           </div>
           {searchResults.length > 0 ? searchResults.map((u, i) => (
-            <div key={u.id || `user-${i}`} className="flex items-center justify-between p-5 border-b last:border-0 hover:bg-gray-50 transition-colors">
+            <div key={u.id || `user-${i}`} className={`flex items-center justify-between p-5 border-b last:border-0 transition-colors ${state.darkMode ? 'border-white/5 hover:bg-zinc-700/50' : 'border-gray-50 hover:bg-gray-50'}`}>
               <div className="flex items-center gap-4">
                 <button 
                   onClick={() => updateState({ selectedUserModal: u.uid })}
@@ -394,7 +400,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
                 <div>
                   <button 
                     onClick={() => updateState({ selectedUserModal: u.uid })}
-                    className="font-bold text-gray-800 text-lg hover:text-[#0D98BA] transition-colors"
+                    className={`font-bold text-lg hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
                   >
                     @{u.name}
                   </button>
@@ -423,7 +429,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
             const friendData = state.users[f];
             const friendName = friendData?.name || f;
             return (
-              <div key={`${f}-${i}`} className="bg-white p-5 rounded-[2rem] shadow-lg border border-gray-50 flex items-center justify-between group hover:border-[#0D98BA]/30 transition-all">
+              <div key={`${f}-${i}`} className={`p-5 rounded-[2rem] shadow-lg flex items-center justify-between group hover:border-[#0D98BA]/30 transition-all border ${state.darkMode ? 'bg-zinc-800 border-white/10' : 'bg-white border-gray-50'}`}>
               <div className="flex items-center gap-4">
                 <button 
                   onClick={() => updateState({ selectedUserModal: friendData?.uid || f })}
@@ -434,7 +440,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
                 <div>
                   <button 
                     onClick={() => updateState({ selectedUserModal: friendData?.uid || f })}
-                    className="font-bold text-gray-800 text-xl hover:text-[#0D98BA] transition-colors"
+                    className={`font-bold text-xl hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
                   >
                     @{friendName}
                   </button>
@@ -582,8 +588,8 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
 
   if (isStaffMember && !activeHelpRequest) {
     return (
-      <div className="flex flex-col h-full bg-gray-50 animate-in fade-in duration-300">
-        <div className="p-6 bg-white border-b shadow-sm flex items-center justify-between">
+      <div className={`flex flex-col h-full animate-in fade-in duration-300 ${state.darkMode ? 'text-white' : 'text-gray-900'}`} style={{ backgroundColor: 'var(--bg-color, transparent)' }}>
+        <div className={`p-6 border-b shadow-sm flex items-center justify-between ${state.darkMode ? 'bg-black/50 border-white/10' : 'bg-white border-gray-100'}`}>
           <div className="flex items-center gap-4">
             <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg`}>
               <Shield className="text-white" size={24} />
@@ -604,10 +610,10 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
               <div 
                 key={req.id} 
                 onClick={() => setActiveHelpRequest(req.id)} 
-                className="p-5 bg-white rounded-3xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all group"
+                className={`p-5 rounded-3xl shadow-sm border cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all group ${state.darkMode ? 'bg-zinc-800 border-white/10' : 'bg-white border-gray-100'}`}
               >
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-black uppercase tracking-tight text-gray-800 group-hover:text-[#0D98BA] transition-colors">{req.name}</h3>
+                  <h3 className={`font-black uppercase tracking-tight group-hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>{req.name}</h3>
                   <span className="text-[9px] font-bold text-gray-400 uppercase">{new Date(req.lastActivity || '').toLocaleDateString()}</span>
                 </div>
                 <p className="text-sm text-gray-500 line-clamp-1 mb-3">{lastMsg?.text || 'Aucun message'}</p>
@@ -642,8 +648,8 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 animate-in fade-in duration-300">
-      <div className="p-6 bg-white border-b shadow-sm flex items-center justify-between">
+    <div className={`flex flex-col h-full animate-in fade-in duration-300 ${state.darkMode ? 'text-white' : 'text-gray-900'}`} style={{ backgroundColor: 'var(--bg-color, transparent)' }}>
+      <div className={`p-6 border-b shadow-sm flex items-center justify-between ${state.darkMode ? 'bg-black/50 border-white/10' : 'bg-white border-gray-100'}`}>
         <div className="flex items-center gap-4">
           {activeHelpRequest && (
             <button onClick={() => setActiveHelpRequest(null)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
@@ -675,7 +681,7 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
           return (
             <div key={idx} className={`flex ${isMine ? 'justify-end' : 'justify-start'} ${isSameSender ? 'mt-0.5' : 'mt-2'}`}>
               <div className={`max-w-[85%] md:max-w-[75%] ${isStaff && !isMine ? DJ_FRAME_STYLE : ''}`}>
-                <div className={`px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `bg-[#0D98BA] text-white rounded-tr-none` : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'}`}>
+                <div className={`px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `bg-[#0D98BA] text-white rounded-tr-none` : (state.darkMode ? 'bg-zinc-800 text-white rounded-tl-none border border-white/10' : 'bg-white text-gray-800 rounded-tl-none border border-gray-100')}`}>
                   {!isMine && !isSameSender && (
                     <div className="flex items-center gap-1 mb-0.5">
                       <span className="text-[9px] font-black uppercase text-gray-400 tracking-tighter">{sender?.name || 'Staff'}</span>
@@ -696,23 +702,23 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
         <div ref={scrollRef} />
         {(!staffGroup || staffGroup.messages.length === 0) && (
           <div className="flex flex-col items-center justify-center h-full text-center p-10">
-            <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${state.darkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
               <MessageSquare size={40} className="text-[#0D98BA]" />
             </div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Besoin d'aide ?</h3>
-            <p className="text-sm text-gray-500 max-w-xs">Envoyez un message ici pour contacter l'équipe de modération. Vos échanges sont privés.</p>
+            <h3 className={`text-lg font-bold mb-2 ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Besoin d'aide ?</h3>
+            <p className={`text-sm max-w-xs ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Envoyez un message ici pour contacter l'équipe de modération. Vos échanges sont privés.</p>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSendMessage} className="p-6 bg-white border-t shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
+      <form onSubmit={handleSendMessage} className={`p-6 border-t shadow-[0_-10px_30px_rgba(0,0,0,0.03)] ${state.darkMode ? 'bg-black/50 border-white/10' : 'bg-white'}`}>
         <div className="flex gap-3">
           <input 
             type="text" 
             placeholder="Répondre..." 
             value={message} 
             onChange={e => { setMessage(e.target.value); setDraftStatus(e.target.value.trim().length > 0) }} 
-            className="flex-1 px-6 py-4 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-medium"
+            className={`flex-1 px-6 py-4 rounded-2xl border outline-none transition-all font-medium focus:ring-4 focus:ring-[#0D98BA]/20 ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:bg-zinc-700' : 'bg-gray-50 border-gray-100 focus:bg-white'}`}
           />
           <button type="submit" className={`p-4 rounded-2xl text-white shadow-xl hover:scale-105 transition-all active:scale-95 ${djStyleBg}`}>
             <Send size={24} />
@@ -814,22 +820,22 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
             placeholder="Rechercher un utilisateur..." 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
-            className="w-full px-6 py-4 rounded-[2rem] bg-white border border-gray-100 shadow-xl focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all text-lg font-medium"
+            className={`w-full px-6 py-4 rounded-[2rem] border shadow-xl focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all text-lg font-medium ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white placeholder-gray-500' : 'bg-white border-gray-100 placeholder-gray-400'}`}
           />
           <div className={`absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full ${djStyleBg}`}>
             <User size={20} className="text-white" />
           </div>
         </div>
         
-        <div className="mt-6 bg-white rounded-3xl shadow-2xl border border-gray-50 overflow-hidden animate-in slide-in-from-top-4">
-          <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+        <div className={`mt-6 rounded-3xl shadow-2xl border overflow-hidden animate-in slide-in-from-top-4 ${state.darkMode ? 'bg-zinc-800 border-white/10' : 'bg-white border-gray-50'}`}>
+          <div className={`p-4 border-b flex justify-between items-center ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
               {searchResults.length} Utilisateur(s) trouvé(s)
             </span>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className={`divide-y ${state.darkMode ? 'divide-white/5' : 'divide-gray-50'}`}>
             {searchResults.length > 0 ? searchResults.map((u, i) => (
-              <div key={u.id || `admin-user-${i}`} className="flex items-center justify-between p-5 hover:bg-gray-50 transition-colors">
+              <div key={u.id || `admin-user-${i}`} className={`flex items-center justify-between p-5 transition-colors ${state.darkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
               <div className="flex items-center gap-4">
                 <button 
                   onClick={() => updateState({ selectedUserModal: u.uid || u.id })}
@@ -841,7 +847,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                   <div className="flex items-center gap-1">
                     <button 
                       onClick={() => updateState({ selectedUserModal: u.uid || u.id })}
-                      className="font-bold text-gray-800 text-lg hover:text-[#0D98BA] transition-colors"
+                      className={`font-bold text-lg hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
                     >
                       @{u.name}
                     </button>
@@ -1051,7 +1057,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
       {!isTest && (
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-8 space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="font-bold text-gray-800">{currentUser?.isAdmin ? 'Faire une annonce' : 'Nouvelle proposition'}</h3>
+            <h3 className={`font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>{currentUser?.isAdmin ? 'Faire une annonce' : 'Nouvelle proposition'}</h3>
             {currentUser?.isAdmin && (
               <button 
                 onClick={() => setShowPollCreator(!showPollCreator)}
@@ -1120,13 +1126,13 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
       )}
 
       <div className="space-y-4">
-        <h3 className="font-bold text-gray-800">Propositions et Annonces</h3>
+        <h3 className={`font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Propositions et Annonces</h3>
         {state.proposals.filter(p => p.user === 'test' || state.users[p.user]).slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(p => (
           <div key={p.id} className={`p-5 rounded-3xl shadow-sm border ${p.isAdminAnnouncement ? 'bg-gradient-to-r from-blue-50 to-green-50 border-blue-100' : 'bg-white border-gray-100'}`}>
             <div className="flex justify-between items-start mb-2">
               <button 
                 onClick={() => updateState({ selectedUserModal: p.user })}
-                className={`font-bold hover:text-[#0D98BA] transition-colors ${p.isAdminAnnouncement ? djStyleText : 'text-gray-800'}`}
+                className={`font-bold hover:text-[#0D98BA] transition-colors ${p.isAdminAnnouncement ? djStyleText : (state.darkMode ? 'text-white' : 'text-gray-800')}`}
               >
                 @{state.users[p.user]?.name || p.user} {p.isAdminAnnouncement && ' (Admin)'}
               </button>
@@ -1147,7 +1153,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
                 )}
               </div>
             </div>
-            <p className={`${p.isAdminAnnouncement ? 'text-gray-800 font-medium' : 'text-gray-600'} mb-3`}>{renderMessageText(p.text)}</p>
+            <p className={`${p.isAdminAnnouncement ? (state.darkMode ? 'text-white font-medium' : 'text-gray-800 font-medium') : (state.darkMode ? 'text-zinc-400' : 'text-gray-600')} mb-3`}>{renderMessageText(p.text)}</p>
             
             {p.poll && (
               <div className="mb-4 p-4 bg-black rounded-2xl border border-white/10 space-y-3 shadow-xl">
@@ -1245,10 +1251,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
   );
 }
 
-export function Updates({ state }: any) {
-  const [selectedUpdate, setSelectedUpdate] = useState<number | null>(null);
-
-  const updates = [
+export const APP_UPDATES = [
     { version: '3.0.1', date: '30/04/2026', desc: 'Actualisation PWA instantanée : À chaque réouverture ou focus de la fenêtre, l\'application déclenche un update serveur en fond pour injecter les mises à jour sans forcer la main. Le système s\'actualise aussi via un reload silencieux toutes les 10 minutes d\'inactivité, évitant de vous déranger en pleine frappe. Le menu latéral est désormais toujours masqué lors d\'un rafraîchissement.' },
     { version: '3.0.0', date: '30/04/2026', desc: 'Mise à jour v3.0 Stabilité & Ergonomie : Mode Sombre complété avec correction du texte invisible des zones de saisie. La personnalisation de la couleur de fond s\'applique enfin aux discussions. Les avatars des groupes sont maintenant bien visibles dans la liste. Affinage complet du rendu du texte (gras/italique) pour qu\'il ne chevauche plus la ponctuation ni les numéros. Suppression intégrale rétablie : supprimer un SMS ou un groupe supprime désormais formellement *tous* les messages du serveur de façon irréversible. Actions message (supprimer, sélectionner, muter) disposées horizontalement avec de nouvelles infobulles. Optimisation des paramètres avec boutons de confirmation discrets.' },
     { version: '2.9.9', date: '19/04/2026', desc: 'Optimisation Layout Mobile : Le menu latéral repousse désormais le contenu au lieu de l\'écraser, garantissant une lisibilité parfaite sur petit écran. Unification totale de l\'interface entre mobile et PC, avec suppression des effets de flou pour une meilleure clarté visuelle.' },
@@ -1275,17 +1278,28 @@ export function Updates({ state }: any) {
     { version: '1.2.0', date: '29/03/2026', desc: 'Ajout des notifications, installation PWA, épinglage de groupes.' },
     { version: '1.1.0', date: '28/03/2026', desc: 'Ajout des groupes privés, profils, amis et DJ Society.' },
     { version: '1.0.0', date: '28/03/2026', desc: 'Création de DJ Messenger. Chat public et authentification de base.' }
-  ];
+];
+
+export function Updates({ state }: { state: AppState }) {
+  const [selectedUpdate, setSelectedUpdate] = useState<number | null>(null);
+
+  const currentUser = state.currentUser ? state.users[state.currentUser] : null;
+  const isPrivileged = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
+
+  const displayUpdates = APP_UPDATES.map(u => ({
+    ...u,
+    desc: isPrivileged ? u.desc : (u.desc.replace(/([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|staff|admin)[^.!?]*[.!?])/gi, '').trim() || u.desc)
+  }));
 
   if (selectedUpdate !== null) {
-    const u = updates[selectedUpdate];
+    const u = displayUpdates[selectedUpdate];
     return (
-      <div className="fixed inset-y-0 right-0 left-0 lg:left-72 bg-white z-[2000] flex flex-col animate-in slide-in-from-right-8 duration-300">
-        <div className="p-4 bg-white/80 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[2001]">
-          <button onClick={() => setSelectedUpdate(null)} className="p-2 hover:bg-gray-100 rounded-xl transition mr-4">
+      <div className={`fixed inset-y-0 right-0 left-0 lg:left-72 z-[2000] flex flex-col animate-in slide-in-from-right-8 duration-300 ${state.darkMode ? 'bg-[#111827]' : 'bg-white'}`}>
+        <div className={`p-4 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[2001] ${state.darkMode ? 'bg-black/80 border-white/10' : 'bg-white/80'}`}>
+          <button onClick={() => setSelectedUpdate(null)} className={`p-2 rounded-xl transition mr-4 ${state.darkMode ? 'hover:bg-white/10 text-white' : 'hover:bg-gray-100 text-gray-600'}`}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
-          <h2 className={`font-black uppercase tracking-tighter text-xl text-gray-800 ${djStyleText}`}>Détails Mise à jour</h2>
+          <h2 className={`font-black uppercase tracking-tighter text-xl ${state.darkMode ? 'text-white' : 'text-gray-800'} ${djStyleText}`}>Détails Mise à jour</h2>
         </div>
         <div className="flex-1 overflow-y-auto w-full custom-scrollbar">
           <div className="p-6 md:p-12 max-w-3xl mx-auto">
@@ -1294,11 +1308,11 @@ export function Updates({ state }: any) {
                 Version {u.version}
               </h1>
               <div className="flex items-center gap-3 text-[#0D98BA] font-bold">
-                <span className="bg-blue-50 border border-blue-100 px-3 py-1 rounded-full text-xs uppercase tracking-widest">Date de sortie</span>
+                <span className={`px-3 py-1 rounded-full text-xs uppercase tracking-widest ${state.darkMode ? 'bg-blue-900/30 border border-blue-800' : 'bg-blue-50 border border-blue-100'}`}>Date de sortie</span>
                 <time>{u.date}</time>
               </div>
             </div>
-            <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed space-y-6">
+            <div className={`prose prose-lg max-w-none leading-relaxed space-y-6 ${state.darkMode ? 'text-zinc-300' : 'text-gray-700'}`}>
               <p className="font-medium text-xl md:text-2xl whitespace-pre-wrap">{u.desc}</p>
             </div>
           </div>
@@ -1310,21 +1324,21 @@ export function Updates({ state }: any) {
   return (
     <div className="p-6 max-w-2xl mx-auto animate-in fade-in duration-300">
       <h2 className={`text-2xl font-bold mb-8 ${djStyleText}`}>Mises à jour</h2>
-      <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-300 before:to-transparent">
-        {updates.map((u, i) => (
+      <div className={`space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent ${state.darkMode ? 'before:via-white/20' : 'before:via-gray-300'} before:to-transparent`}>
+        {displayUpdates.map((u, i) => (
           <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-[#0D98BA] text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 ${state.darkMode ? 'border-[#111827]' : 'border-white'} bg-[#0D98BA] text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10`}>
               <div className="w-2 h-2 bg-white rounded-full"></div>
             </div>
-            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+            <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-2xl shadow-sm border flex flex-col ${state.darkMode ? 'bg-zinc-800/80 border-white/10' : 'bg-white border-gray-100'}`}>
               <div className="flex items-center justify-between mb-1">
-                <h3 className="font-bold text-gray-800 text-lg">v{u.version}</h3>
+                <h3 className={`font-bold text-lg ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>v{u.version}</h3>
                 <time className="text-xs font-medium text-gray-400">{u.date}</time>
               </div>
-              <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 mb-3">{u.desc}</p>
+              <p className={`text-sm leading-relaxed line-clamp-3 mb-3 ${state.darkMode ? 'text-zinc-400' : 'text-gray-600'}`}>{u.desc}</p>
               <button 
                 onClick={() => setSelectedUpdate(i)}
-                className="self-end px-4 py-1.5 text-[10px] font-black uppercase tracking-widest bg-gray-50 text-gray-600 rounded-xl hover:bg-[#0D98BA] hover:text-white transition-colors"
+                className={`self-end px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[#0D98BA] hover:text-white transition-colors ${state.darkMode ? 'bg-zinc-700 text-zinc-300' : 'bg-gray-50 text-gray-600'}`}
               >
                 Détail
               </button>
