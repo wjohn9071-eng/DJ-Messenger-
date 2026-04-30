@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppState, Group, Message } from '../types';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from '../lib/utils';
-import { SimulatedApp } from './tutorial/SimulatedApp';
+import { AppMock } from '../tutorial/AppMock';
 import { 
   MessageSquare, 
   User, 
@@ -64,18 +64,53 @@ export function TutorialGame({
     return {
       ...state,
       currentUser: currentUid,
-      groups: { ...state.groups },
-      proposals: [...state.proposals],
+      proposals: [],
       newMessages: [],
+      notifications: [],
+      groups: {
+        'sim-public': { 
+          id: 'sim-public', 
+          name: 'Mix Public (Demo)', 
+          type: 'public', 
+          members: [currentUid, 'dj-bot'], 
+          messages: [
+            { id: 'm1', user: 'dj-bot', text: 'Bienvenue dans le salon public de démo ! 🎧 Tout le monde peut nous lire ici.', time: '12:00', timestamp: new Date().toISOString() }
+          ],
+          isSMS: false,
+          lastActivity: new Date().toISOString()
+        },
+        'sim-private': { 
+          id: 'sim-private', 
+          name: 'Studio Privé (Demo)', 
+          type: 'private', 
+          members: [currentUid, 'dj-bot'], 
+          messages: [
+            { id: 'm2', user: 'dj-bot', text: 'Chut... Celui-ci est privé. Utile pour parler à une équipe spécifique.', time: '12:05', timestamp: new Date().toISOString() }
+          ],
+          isSMS: false,
+          lastActivity: new Date().toISOString()
+        },
+        'sim-sms': { 
+          id: 'sim-sms', 
+          name: 'DJ Bot (SMS Demo)', 
+          type: 'private', 
+          members: [currentUid, 'dj-bot'], 
+          messages: [
+            { id: 'm3', user: 'dj-bot', text: 'Je suis aussi disponible en SMS direct ! 📱 Pose-moi tes questions.', time: '12:10', timestamp: new Date().toISOString() }
+          ],
+          isSMS: true,
+          lastActivity: new Date().toISOString()
+        }
+      },
       users: { 
         ...users,
-        'Simulateur DJ (IA)': {
-          id: 'Simulateur DJ (IA)',
-          uid: 'Simulateur DJ (IA)',
-          name: 'Simulateur DJ (IA)',
+        'dj-bot': {
+          id: 'dj-bot',
+          uid: 'dj-bot',
+          name: 'DJ Bot',
           isAdmin: true,
           friends: [],
-          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=sim-ia',
+          avatar: '',
           email: 'bot@dj.com',
           lastSeen: new Date().toISOString(),
           lastReadTimestamps: {},
@@ -358,11 +393,10 @@ export function TutorialGame({
 
   return (
     <div className="fixed inset-0 z-[150] bg-gray-100 flex flex-col overflow-hidden">
-      <SimulatedApp 
+      <AppMock 
         state={simulatedAppState} 
         updateState={updateSimulatedState} 
-        currentView={currentView} 
-        setCurrentView={setCurrentView} 
+        onComplete={onComplete}
       />
 
       {/* Tutorial Overlay Layer */}

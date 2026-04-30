@@ -24,6 +24,7 @@ import {
 } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, reauthenticateWithPopup } from 'firebase/auth';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -66,6 +67,7 @@ async function testConnection() {
 testConnection();
 
 export const storage = getStorage(app);
+export const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
 export const googleProvider = new GoogleAuthProvider();
 export const googleProviderWithPrompt = new GoogleAuthProvider();
 googleProviderWithPrompt.setCustomParameters({ prompt: 'select_account' });
@@ -95,5 +97,7 @@ export {
   getDocs,
   ref,
   uploadBytesResumable,
-  getDownloadURL
+  getDownloadURL,
+  getToken,
+  onMessage
 };

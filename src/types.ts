@@ -19,7 +19,11 @@ export interface User {
   proposalsToday?: number;
   lastProposalDate?: string;
   autoHideSidebar?: boolean;
-  lastSeen?: string;
+  lastSeen?: number | string;
+  isOnline?: boolean;
+  createdAt?: string | number;
+  lastLogin?: string;
+  lastActivity?: string;
   tutorialCompleted?: boolean;
   botQuestionsToday?: number;
   lastBotQuestionDate?: string;
@@ -76,6 +80,7 @@ export interface Group {
   allowOthersToSpeak?: boolean;
   allowOthersToInvite?: boolean;
   lastActivity?: string;
+  typingStatus?: Record<string, number>;
 }
 
 export interface Proposal {
@@ -95,6 +100,7 @@ export interface PrivateChat {
   messages: Message[];
   createdAt: string;
   lastActivity?: string;
+  typingStatus?: Record<string, number>;
   deletedForUsers?: string[];
   deletedForEveryone?: boolean;
   // Added for compatibility with Group type in UI

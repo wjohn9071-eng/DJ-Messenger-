@@ -1,11 +1,11 @@
 import React from 'react';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from '../lib/utils';
 import { AppState } from '../types';
-import { APP_UPDATES } from './Views';
+import { APP_UPDATES } from '../constants';
 import { Pin, ChevronDown, ChevronUp } from 'lucide-react';
 
-export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string) => void, updateState: any, startSimulation: () => void }) {
-  const currentVersion = APP_UPDATES[0].version;
+export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string, p?: boolean) => void, updateState: any, startSimulation: () => void }) {
+  const currentVersion = APP_UPDATES[0]?.version || '3.0.0';
   const isTest = state.currentUser === 'test';
   const currentUserData = !isTest && state.currentUser ? (state.currentUserData || state.users[state.currentUser as string]) : null;
   const isPrivileged = currentUserData?.isAdmin || currentUserData?.isGrandAdmin || currentUserData?.isSuperAdmin;
@@ -16,8 +16,8 @@ export default function Home({ state, setView, updateState, startSimulation }: {
   
   // Filter description for Home Notice
   const filteredDesc = isPrivileged 
-    ? APP_UPDATES[0].desc 
-    : (APP_UPDATES[0].desc.replace(/([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive)[^.!?]*[.!?])/gi, '').trim() || APP_UPDATES[0].desc);
+    ? (APP_UPDATES[0]?.desc || "")
+    : ((APP_UPDATES[0]?.desc || "").replace(/([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive)[^.!?]*[.!?])/gi, '').trim() || APP_UPDATES[0]?.desc || "");
 
   const username = isTest ? 'Anonyme' : (currentUserData?.name || state.currentUser);
   const isNewUser = !isTest && currentUserData && currentUserData.friends?.length === 0;
@@ -103,33 +103,45 @@ export default function Home({ state, setView, updateState, startSimulation }: {
       activeGroup: id,
       discussionTab: isSMS ? 'sms' : (isPublic ? 'public' : 'private')
     });
-    setView('discussions');
+    setView('discussions', true);
   };
 
   const renderPinnedList = () => (
-    <div className="space-y-3 mt-4">
+    <div className="space-y-4 mt-4">
       {pinnedDiscussions.length === 0 ? (
-        <p className={`text-sm italic pb-4 ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Aucune discussion épinglée.</p>
+        <div className={`p-6 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center gap-3 ${state.darkMode ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
+          <Pin className="text-zinc-300" size={32} />
+          <p className={`text-xs font-medium italic ${state.darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Épingle tes discussions favorites pour les voir ici !</p>
+        </div>
       ) : (
         pinnedDiscussions.map((grp) => (
           <button
             key={`pinned-${grp.id}`}
             onClick={() => handleOpenPinned(grp.id, grp.isSMS, grp.isPublic)}
-            className={`w-full flex items-center justify-between p-3 rounded-2xl shadow-sm border transition-all hover:scale-[1.02] active:scale-95 text-left ${state.darkMode ? 'bg-zinc-800/80 border-white/10 hover:border-[#0D98BA]' : 'bg-white border-gray-100 hover:border-blue-100'}`}
+            className={`w-full flex items-center justify-between p-4 rounded-[1.75rem] shadow-sm border transition-all hover:scale-[1.02] hover:shadow-xl active:scale-95 text-left group ${state.darkMode ? 'bg-zinc-900/80 border-white/10 hover:border-[#0D98BA]/50' : 'bg-white border-zinc-100 hover:border-blue-200'}`}
           >
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-[#007FFF] to-[#32CD32] flex items-center justify-center text-white font-bold shadow-inner overflow-hidden">
-                {grp.avatar ? <img src={grp.avatar} alt={grp.name} className="w-full h-full object-cover" /> : <span>{(grp.name || '?')[0].toUpperCase()}</span>}
+            <div className="flex items-center gap-4 overflow-hidden">
+              <div className="w-12 h-12 shrink-0 rounded-2xl bg-zinc-100 flex items-center justify-center text-white font-bold shadow-inner overflow-hidden border border-black/5">
+                {grp.avatar ? (
+                  <img src={grp.avatar} alt={grp.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className={`w-full h-full flex items-center justify-center text-lg ${djStyleBg}`}>
+                    {(grp.name || '?')[0].toUpperCase()}
+                  </div>
+                )}
               </div>
               <div className="flex-1 min-w-0 pr-2">
-                <p className={`font-bold truncate text-sm leading-tight ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>{grp.name}</p>
-                <p className={`text-[10px] font-black uppercase tracking-widest ${grp.isSMS ? 'text-[#32CD32]' : (grp.isPublic ? 'text-[#0D98BA]' : 'text-purple-500')}`}>
-                  {grp.isSMS ? 'Message Privé' : (grp.isPublic ? 'Groupe Public' : 'Groupe Privé')}
-                </p>
+                <p className={`font-black truncate text-xs uppercase tracking-tighter mb-0.5 ${state.darkMode ? 'text-white' : 'text-zinc-800'}`}>{grp.name}</p>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${grp.isSMS ? 'bg-green-500' : (grp.isPublic ? 'bg-[#0D98BA]' : 'bg-purple-500')}`} />
+                  <p className={`text-[9px] font-black uppercase tracking-widest opacity-60 ${state.darkMode ? 'text-white' : 'text-zinc-600'}`}>
+                    {grp.isSMS ? 'Privé' : (grp.isPublic ? 'Public' : 'Groupe')}
+                  </p>
+                </div>
               </div>
             </div>
             {grp.unreadCount > 0 && (
-              <div className="shrink-0 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_10px_rgba(239,68,68,0.4)] animate-pulse">
+              <div className="shrink-0 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-[0_0_15px_rgba(239,68,68,0.5)] animate-pulse border-2 border-white">
                 <span className="text-[10px] font-black text-white">{grp.unreadCount > 9 ? '9+' : grp.unreadCount}</span>
               </div>
             )}
@@ -161,9 +173,8 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         {/* Main Center Content */}
         <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto py-8 text-center">
-        <div className={`w-40 h-40 md:w-48 md:h-48 mb-6 flex-shrink-0 flex items-center justify-center shadow-2xl rounded-[2.5rem] overflow-hidden p-6 border relative ${state.darkMode ? 'bg-white/10 border-white/20' : 'bg-white border-gray-100'}`}>
+        <div className={`w-40 h-40 md:w-48 md:h-48 mb-6 flex-shrink-0 flex items-center justify-center shadow-2xl rounded-[2.5rem] overflow-hidden p-6 border ${state.darkMode ? 'bg-white/10 border-white/20' : 'bg-white border-gray-100'}`}>
           <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
-          <div className="absolute bottom-4 right-4 bg-[#0D98BA] text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-lg">v{currentVersion}</div>
         </div>
 
         <h1 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2 ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
@@ -238,6 +249,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           <p className="text-sm font-semibold text-gray-600 italic">💡 {currentTip}</p>
         </div>
 
+        <div className="flex flex-col gap-4 w-full max-w-xs mb-12">
         {(isTest || isNewUser) && (
           <button 
             onClick={startSimulation}
@@ -246,6 +258,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             Découvrir le tutoriel
           </button>
         )}
+        </div>
         </div>
 
         {/* Empty Spacer on Right for Balancing Desktop Layout */}
@@ -260,6 +273,8 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             <span className={djStyleText}>DJ Society</span>
             <span className="text-gray-300 font-light">|</span>
             <span className={djStyleText}>DJ MESSENGER</span>
+            <span className="text-gray-300 font-light">|</span>
+            <span className={djStyleText}>v3.0.0 • 30/04/2026</span>
             <span className="text-gray-300 font-light">|</span>
             <span className={djStyleText}>DJ Society</span>
           </p>

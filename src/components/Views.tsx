@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState } from '../types';
+import { APP_UPDATES } from '../constants';
 import { djStyleBg, djStyleText, compressImage, setDraftStatus } from '../lib/utils';
 import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight, Bell, Lightbulb, Settings as SettingsIcon, HelpCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
@@ -52,7 +53,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
   const isTest = state.currentUser === 'test';
   const user = isTest ? null : state.users[state.currentUser as string];
   const [username, setUsername] = useState(user?.name || '');
-  const [password, setPassword] = useState('••••••••');
+  const [password, setPassword] = useState(user?.password || '');
   const [showPassword, setShowPassword] = useState(false);
   const [avatar, setAvatar] = useState(user?.avatar || null);
   const [toast, setToast] = useState<string | null>(null);
@@ -63,8 +64,13 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
     if (user) {
       setUsername(user.name || '');
       setAvatar(user.avatar || null);
+      setPassword(user.password || '');
     }
-  }, [user?.name, user?.avatar]);
+  }, [user?.name, user?.avatar, user?.password]);
+
+  const hasUsernameChanged = username !== (user?.name || '');
+  const hasPasswordChanged = password !== (user?.password || '') && password !== '';
+  const hasAvatarChanged = avatar !== (user?.avatar || null);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -92,7 +98,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           photoURL: (avatar && avatar.startsWith('http')) ? avatar : null
         });
 
-        if (password && password !== '••••••••') {
+        if (password && password !== (user?.password || '')) {
           try {
             await updatePassword(auth.currentUser, password);
           } catch (pwdError: any) {
@@ -111,7 +117,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           await updateDoc(userRef, {
             name: username,
             avatar: avatar || '',
-            password: (password && password !== '••••••••') ? password : user.password || ''
+            password: password || user?.password || ''
           });
           
           await updateDoc(publicRef, {
@@ -179,74 +185,90 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
             </button>
           )}
         </div>
+        {hasAvatarChanged && (
+          <button 
+            type="button"
+            onClick={handleSave}
+            className={`mt-4 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 animate-in fade-in zoom-in duration-200 ${djStyleBg}`}
+          >
+            <CheckCircle2 size={16} />
+            Valider la photo
+          </button>
+        )}
       </div>
 
-      <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-6 bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/50 mb-8">
+      <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-8 bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/50 mb-8">
         <div className="space-y-4">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Nom d'utilisateur</label>
-          <div className="relative flex flex-col sm:flex-row gap-3">
-            <input 
-              type="text" 
-              autoComplete="username"
-              value={username} 
-              onChange={e => setUsername(e.target.value)} 
-              className={`flex-1 px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white' : 'border-gray-100 bg-gray-50/50 text-gray-800'}`} 
-              placeholder="Ton nom de scène..."
-            />
-            <button 
-              type="button"
-              onClick={handleSave}
-              className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0 flex items-center justify-center gap-2 ${djStyleBg}`}
-            >
-              <CheckCircle2 size={16} />
-              Valider
-            </button>
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Nom d'utilisateur</label>
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <input 
+                type="text" 
+                autoComplete="username"
+                value={username} 
+                onChange={e => setUsername(e.target.value)} 
+                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
+                placeholder="Ton nom..."
+              />
+            </div>
+            {hasUsernameChanged && (
+              <button 
+                type="button"
+                onClick={handleSave}
+                className={`shrink-0 h-14 w-14 rounded-2xl flex items-center justify-center text-white shadow-lg hover:scale-110 active:scale-95 transition-all shadow-[#0D98BA]/30 ${djStyleBg}`}
+                title="Sauvegarder le nom"
+              >
+                <CheckCircle2 size={24} />
+              </button>
+            )}
           </div>
         </div>
+
         <div className="space-y-4">
-          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Mot de passe</label>
-          <div className="relative flex flex-col sm:flex-row gap-3">
+          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Sécurité / Mot de passe</label>
+          <div className="flex items-center gap-3">
             <div className="relative flex-1">
               <input 
                 type={showPassword ? "text" : "password"} 
                 autoComplete="new-password"
                 value={password} 
                 onChange={e => setPassword(e.target.value)} 
-                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-12 ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white' : 'border-gray-100 bg-gray-50/50 text-gray-800'}`} 
-                placeholder="••••••••"
+                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-14 ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
+                placeholder="Nouveau mot de passe..."
               />
               <button 
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                title={showPassword ? "Masquer" : "Afficher"}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 transition-all"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
-            <button 
-              type="button"
-              onClick={handleSave}
-              className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0 flex items-center justify-center gap-2 ${djStyleBg}`}
-            >
-              <CheckCircle2 size={16} />
-              Valider
-            </button>
+            {hasPasswordChanged && (
+              <button 
+                type="button"
+                onClick={handleSave}
+                className={`shrink-0 h-14 w-14 rounded-2xl flex items-center justify-center text-white shadow-lg hover:scale-110 active:scale-95 transition-all shadow-[#0D98BA]/30 ${djStyleBg}`}
+                title="Sauvegarder le mot de passe"
+              >
+                <CheckCircle2 size={24} />
+              </button>
+            )}
           </div>
         </div>
         
-        <div className="pt-4">
+        <div className="pt-2">
           <button 
             type="submit"
-            className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-[0_10px_30px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition active:scale-95 text-white flex items-center justify-center gap-2 ${djStyleBg}`}
+            className={`w-full py-5 rounded-[1.75rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-[0_10px_30px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition active:scale-95 text-white flex items-center justify-center gap-3 ${djStyleBg}`}
           >
-            <CheckCircle2 size={18} />
-            Enregistrer les modifications
+            <Shield size={16} />
+            Mettre à jour le profil complet
           </button>
         </div>
         
-        {user?.isAdmin && (
-          <div className="pt-4 border-t border-gray-100 mt-4">
+        <div className="pt-4 border-t border-gray-100 mt-4 space-y-4">
+          {user?.isAdmin && (
             <button 
               type="button"
               onClick={() => {
@@ -282,9 +304,38 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
             >
               Réinitialiser la base de données
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </form>
+
+      <div className="bg-white/50 backdrop-blur-md rounded-[2.5rem] p-8 mb-8 border border-white/20 animate-in fade-in slide-in-from-bottom-4 duration-700 shadow-xl">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Statut de connexion</span>
+            <div className="flex items-center gap-2.5">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${user?.isOnline ? 'text-green-500' : 'text-zinc-500'}`}>
+                {user?.isOnline ? 'Connecté' : 'Déconnecté'}
+              </span>
+              <div className={`w-3 h-3 rounded-full ${user?.isOnline ? 'bg-green-500 animate-pulse ring-4 ring-green-500/20 shadow-[0_0_12px_rgba(34,197,94,0.4)]' : 'bg-gray-300'}`}></div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Membre depuis</span>
+              <span className="text-[11px] font-bold text-gray-700">
+                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Acteur v3'}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1 border-l border-white/10 pl-4">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Dernière activité</span>
+              <span className="text-[11px] font-bold text-gray-700">
+                {user?.lastActivity ? new Date(user.lastActivity).toLocaleDateString() + ' ' + new Date(user.lastActivity).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : 'À l\'instant'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <ConfirmModal 
         isOpen={!!confirmDialog} 
@@ -305,7 +356,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
   );
 }
 
-export function Friends({ state, updateState, setView }: { state: AppState, updateState: any, setView?: (v: string) => void }) {
+export function Friends({ state, updateState, setView }: { state: AppState, updateState: any, setView?: (v: string, p?: boolean) => void }) {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
@@ -486,7 +537,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
                         });
                       }
                       updateState({ activeGroup: smsId, discussionTab: 'sms' });
-                      if (setView) setView('discussions');
+                      if (setView) setView('discussions', true);
                     } catch (error) {
                       console.error("Error starting SMS from friends list:", error);
                       showToast("Erreur lors du lancement de la discussion.");
@@ -876,13 +927,47 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                     {u.isGrandAdmin && !u.isSuperAdmin && ADMIN_BADGE}
                     {u.isAdmin && !u.isGrandAdmin && !u.isSuperAdmin && STAFF_BADGE}
                   </div>
-                    {isSuperAdmin && u.password && (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <Key size={10} className="text-blue-500" />
-                        <p className="text-[10px] text-blue-600 font-black uppercase tracking-tighter">Mot de passe: {u.password}</p>
+                    {isSuperAdmin ? (
+                      <div className="flex gap-2 mt-3">
+                        <button 
+                          onClick={() => {
+                            if (window.confirm(`Supprimer définitivement le compte de ${u.name || u.id} ?`)) {
+                              deleteDoc(doc(db, 'users', u.id));
+                              deleteDoc(doc(db, 'public_users', u.id));
+                              updateState({ users: Object.fromEntries(Object.entries(state.users).filter(([id]) => id !== u.id)) });
+                            }
+                          }}
+                          className="flex-1 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest py-2 rounded-xl hover:bg-red-100 transition-colors"
+                        >
+                          Supprimer
+                        </button>
+                        <button 
+                          onClick={() => {
+                            const newPwd = window.prompt("Nouveau mot de passe pour cet utilisateur :", u.password || '');
+                            if (newPwd) {
+                              updateDoc(doc(db, 'users', u.id), { password: newPwd });
+                              updateState({ users: { ...state.users, [u.id]: { ...u, password: newPwd } } });
+                            }
+                          }}
+                          className="flex-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest py-2 rounded-xl hover:bg-blue-100 transition-colors"
+                        >
+                          Modifier MDP
+                        </button>
+                        {u.password && (
+                          <div className="flex-1 bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest py-2 rounded-xl text-center">
+                            MDP: {u.password}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-[10px] text-gray-400 font-medium italic">
+                        {u.isOnline ? '🟢 En ligne' : `⚪ Dernière activité: ${u.lastActivity ? new Date(u.lastActivity).toLocaleDateString() : 'Inconnu'}`}
                       </div>
                     )}
-                    <p className="text-xs text-gray-400 font-medium mt-1">Dernière activité: {u.lastSeen ? new Date(u.lastSeen).toLocaleDateString() : 'Inconnue'}</p>
+                    <p className="text-[9px] text-gray-400 font-medium mt-2 italic px-1">
+                      Créé le: {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Ancien compte'} • Actif: {u.lastSeen ? new Date(u.lastSeen).toLocaleDateString() : 'Inconnue'}
+                      {u.isOnline && <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1272,33 +1357,6 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
   );
 }
 
-export const APP_UPDATES = [
-    { version: '3.0', date: '30/04/2026', desc: 'Mise à jour v3.0 UX & Sécurité & Ergonomie : Ajout d\'un bouton œil pour gérer la visibilité du mot de passe dans le profil. Intégration de boutons de validation pour chaque champ de modification. Refonte de l\'onglet Discussions épinglées sur l\'accueil pour une navigation plus fluide. Mode Sombre complété avec correction du texte invisible des zones de saisie. La personnalisation de la couleur de fond s\'applique enfin aux discussions. Les avatars des groupes sont maintenant bien visibles dans la liste. Affinage complet du rendu du texte (gras/italique) pour qu\'il ne chevauche plus la ponctuation ni les numéros. Les détails techniques de gestion administrative ne sont désormais visibles que par le personnel autorisé. Amélioration de la persistance de la bannière de mise à jour. Correction de l\'affichage des messages non lus sur l\'accueil.' },
-    { version: '2.9.9', date: '19/04/2026', desc: 'Optimisation Layout Mobile : Le menu latéral repousse désormais le contenu au lieu de l\'écraser, garantissant une lisibilité parfaite sur petit écran. Unification totale de l\'interface entre mobile et PC, avec suppression des effets de flou pour une meilleure clarté visuelle.' },
-    { version: '2.9.8', date: '19/04/2026', desc: 'Interface unifiée et Profils : Le menu latéral divise désormais l\'écran sans superposition. Un nouveau système de profil universel "Style DJ" est accessible en cliquant sur n\'importe quel avatar ou nom d\'utilisateur (Voir photo ou SMS direct).' },
-    { version: '2.9.7', date: '19/04/2026', desc: 'Stabilité et corrections ultimes : Les SMS supprimés ne disparaissent plus chez votre interlocuteur. Les notifications locales sont désormais intelligentes et regroupent vos messages non lus. Enfin, le système de déploiement des mises à jour PWA passe en natif pour une réactivité immédiate sans cache.' },
-    { version: '2.9.6', date: '19/04/2026', desc: 'Gestion avancée de la suppression des messages : Tout le monde peut masquer un message "Pour soi". Les Admins/Sous-Admins peuvent supprimer un message "Pour tous" dans leur groupe. Le Staff a un pouvoir de suppression définitive de la bulle ! Ajout de la suppression en lot avec sélection multiple. De plus, la nomination et révocation des sous-admins est réparée.' },
-    { version: '2.9.5', date: '19/04/2026', desc: 'Interface Améliorée : Nouveau menu latéral fixe sur PC pour une navigation fluide en 2 colonnes. Ajout d\'une fenêtre de profil universelle (style DJ) au clic sur n\'importe quel avatar/nom pour voir la photo ou envoyer un SMS direct. C\'est aussi ce nouveau système d\'affichage des mises à jour avec bouton Détail !' },
-    { version: '2.9.4', date: '15/04/2026', desc: 'Réparation complète du système de notifications (PWA et navigateur) et de l\'indicateur de nouveaux messages. Ajout d\'un bouton "Tout marquer comme lu" dans les discussions. Les messages non lus ne restent plus bloqués.' },
-    { version: '2.9.3', date: '14/04/2026', desc: 'Améliorations majeures : Envoi de multiples fichiers en même temps (jusqu\'à 200 Mo), support des fichiers Microsoft (Word, Excel), des archives (.zip, .rar) et des fichiers de code (.html, .js, etc.). Gestion complète des sous-admins dans les groupes privés. Possibilité de modifier l\'icône pour tous les types de groupes. Correction de l\'affichage des icônes de groupe et du défilement dans les paramètres.' },
-    { version: '2.9.2', date: '14/04/2026', desc: 'Correction de l\'erreur BloomFilter et améliorations de stabilité.' },
-    { version: '2.9.1', date: '14/04/2026', desc: 'Nouveau système de mise à jour automatique : Détection instantanée des nouvelles versions et réactualisation intelligente lors de l\'entrée dans l\'application.' },
-    { version: '2.9.0', date: '13/04/2026', desc: 'Gestion avancée des groupes : Liste des membres en privé, filtrage Admin/Sous-Admins en public. Système de bannissement temporaire (3 semaines) avec limite de 5 fois. Permissions étendues pour les Sous-Admins. Suppression des messages via menu 3 points mis en évidence. Suppression des discussions vides. Révélation des messages supprimés pour Super Admins.' },
-    { version: '2.8.0', date: '13/04/2026', desc: 'Support multi-fichiers : Envoi d\'audio, PDF, DOCX et fichiers application (.apk, .exe). Synchronisation des paramètres sur tous les appareils. Correction des paramètres par défaut.' },
-    { version: '2.7.0', date: '13/04/2026', desc: 'Nouveau système de sauvegarde des paramètres avec confirmation. Correction du DJ Bot (icône et réponses). Optimisation de la rotation des astuces (toutes les 10 min). Correction de l\'erreur de profil (URL trop longue).' },
-    { version: '2.6.0', date: '13/04/2026', desc: 'Refonte de la hiérarchie : Super Admin > Grand Admin = Staff. Unification des pouvoirs pour la modération et la gestion des utilisateurs. Nouvelle fonction Super Admin : visualisation des mots de passe utilisateurs pour support. Activation par défaut du masquage automatique du menu. Optimisation majeure de l\'espacement des bulles de message.' },
-    { version: '2.5.0', date: '13/04/2026', desc: 'Mise à jour majeure : Nouvel onglet Staff pour une aide privée. Hiérarchie des rôles renforcée (Grand Admin > Super Admin > Staff). Masquage des IDs utilisateurs. Optimisation responsive pour PC, Tablettes et Smart TV. Retour de la discussion SMS avec DJ Bot. Mode Secret pour les Admins/Staff dans les groupes privés. Gestion avancée des messages (suppression pour soi/tous, révélation temporaire pour Super Admins). Rôles de groupe (Admin/Sous-Admins). Mode paysage activé pour PWA.' },
-    { version: '2.4.0', date: '12/04/2026', desc: 'Intégration Cloudinary : Support des fichiers jusqu\'à 100 Mo avec stockage intelligent (Cloudinary pour le lourd, Firebase pour le léger). Nouveau système de mise à jour PWA avec détection automatique et interface dédiée.' },
-    { version: '2.3.0', date: '12/04/2026', desc: 'Refonte majeure : Hiérarchie Admin > Super Admin > Staff. Nouvel onglet Discussions avec mini-onglets (Publics, Privés, SMS). Création de groupe en 4 étapes avec progression. Mode Test en lecture seule pour les groupes publics. Nouvel onglet Amis avec recherche. DJ Bot limité à 5 questions/jour.' },
-    { version: '2.2.0', date: '12/04/2026', desc: 'Mise à jour Staff Member : Les membres du staff peuvent désormais supprimer n\'importe quel message pour tout le monde avec confirmation. Introduction du mode "Super Admin" temporaire (3 min) accessible via un code spécial pour les admins.' },
-    { version: '2.1.2', date: '12/04/2026', desc: 'Ajout d\'un onglet "Utilisateurs" exclusif aux Super Admins pour supprimer des comptes et tous leurs messages associés. Ajout d\'un bouton "Retour" fonctionnel dans les discussions.' },
-    { version: '2.1.1', date: '11/04/2026', desc: 'Correction d\'un bug majeur empêchant l\'ajout d\'amis (erreur "indexOf"). Correction d\'un crash lié à l\'affichage des avatars (erreur "0").' },
-    { version: '2.1.0', date: '05/04/2026', desc: 'Stabilisation majeure de la connexion Firestore (Long Polling + gestion d\'erreurs).' },
-    { version: '2.0.0', date: '01/04/2026', desc: 'Refonte majeure des discussions : sous-onglets Publics, Privés et SMS. Nouveau système de création de groupe par étapes.' },
-    { version: '1.2.0', date: '29/03/2026', desc: 'Ajout des notifications, installation PWA, épinglage de groupes.' },
-    { version: '1.1.0', date: '28/03/2026', desc: 'Ajout des groupes privés, profils, amis et DJ Society.' },
-    { version: '1.0.0', date: '28/03/2026', desc: 'Création de DJ Messenger. Chat public et authentification de base.' }
-];
 
 export function Updates({ state }: { state: AppState }) {
   const [selectedUpdate, setSelectedUpdate] = useState<number | null>(null);

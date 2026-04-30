@@ -1,0 +1,9 @@
+import { AppState } from './types';
+
+export const APP_UPDATES = [
+  { version: '3.0.0', date: '30/04/2026', desc: 'Mise à jour finale 🚀 :\n- Tutoriel 100% isolé dans src/tutorial pour garantir l\'intégrité des données réelles.\n- DJ Bot intelligent répondant aux questions dans les Groupes et SMS.\n- Refonte visuelle complète des composants de simulation pour refléter la v3.0 (font-black, rounded-3xl).\n- Amélioration de la logique de réponse automatique avec détection de mots-clés avancée.' },
+  { version: '3.0', date: '30/04/2026', desc: 'Mise à jour majeure Notifications & UX : Intégration des notifications In-App interactives avec bannière cliquables et gestes de balayage (swipe). Support des notifications Push via Firebase Cloud Messaging (FCM) avec Service Worker. Rendu du texte (gras/italique) plus robuste pour ne plus interférer avec la ponctuation et les numéros. Correction définitive de la visibilité du texte dans les zones de saisie en mode sombre et ajout des avatars de groupe manquants dans les listes.' },
+  { version: '2.9.9', date: '19/04/2026', desc: 'Optimisation Layout Mobile : Le menu latéral repousse désormais le contenu au lieu de l\'écraser, garantissant une lisibilité parfaite sur petit écran. Unification totale de l\'interface entre mobile et PC, avec suppression des effets de flou pour une meilleure clarté visuelle.' },
+  { version: '2.9.8', date: '19/04/2026', desc: 'Interface unifiée et Profils : Le menu latéral divise désormais l\'écran sans superposition. Un nouveau système de profil universel "Style DJ" est accessible en cliquant sur n\'importe quel avatar ou nom d\'utilisateur (Voir photo ou SMS direct).' },
+  { version: '2.9.7', date: '19/04/2026', desc: 'Unification visuelle : Suppression du flou sur les composants principaux pour une meilleure lisibilité. Correction de l\'affichage des noms d\'utilisateurs dans la liste des membres.' }
+];

@@ -8,7 +8,7 @@ interface UserProfileModalProps {
   state: AppState;
   updateState: (newState: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => void;
   onClose: () => void;
-  setView: (view: string) => void;
+  setView: (view: string, p?: boolean) => void;
 }
 
 export function UserProfileModal({ userId, state, updateState, onClose, setView }: UserProfileModalProps) {
@@ -23,7 +23,7 @@ export function UserProfileModal({ userId, state, updateState, onClose, setView 
       activeGroup: `sms_${[state.currentUser, userId].sort().join('_')}`,
       discussionTab: 'sms'
     });
-    setView('discussions');
+    setView('discussions', true);
     onClose();
   };
 

@@ -313,6 +313,37 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         const msgRef = collection(db, 'groups', activeGroup, 'messages');
         await addDoc(msgRef, msgData);
 
+        // DJ Bot Response Logic for Groups
+        if (group?.members?.includes('dj-bot') && state.currentUser !== 'dj-bot') {
+          setTimeout(async () => {
+            const text = msgText.toLowerCase();
+            let botText = "";
+            
+            if (text.includes('aide') || text.includes('comment') || text.includes('help')) {
+              botText = "Besoin d'un coup de main ? 🎧 Je suis là ! Pose-moi une question sur les groupes, les SMS ou les réglages. Tu peux aussi me parler en privé pour plus de détails !";
+            } else if (text.includes('bienvenue') || text.includes('salut') || text.includes('bonjour')) {
+              botText = "Bienvenue dans le mix ! 🚀 Je suis DJ Bot. Ravi de voir de l'activité ici !";
+            } else if (text.includes('merci')) {
+              botText = "Pas de souci, on est une équipe ! 🤝";
+            } else if (text.includes('bot') || text.includes('dj bot')) {
+              botText = "On parle de moi ? 😉 Je suis toujours à l'écoute pour aider la communauté !";
+            }
+
+            if (botText) {
+              await addDoc(msgRef, {
+                text: botText,
+                user: 'dj-bot',
+                senderId: 'dj-bot',
+                senderName: 'DJ Bot',
+                timestamp: new Date().toISOString(),
+                isSystem: false,
+                groupName: group?.name || 'Groupe',
+                groupType: group?.type === 'public' ? 'PUBLIC' : 'PRIVÉ'
+              });
+            }
+          }, 2000);
+        }
+
         // Update group last activity
         await setDoc(doc(db, 'groups', activeGroup), {
           lastActivity: new Date().toISOString()
@@ -655,29 +686,23 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         );
       }
       
-      // Strict Markdown Rendering for Bold and Italic with escaping
       let processed = part;
       const tokens: {id: string, html: string}[] = [];
-      
       const escapeHtml = (str: string) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-      // 1. Handle Bold **bold**
-      processed = processed.replace(/(^|[\s.,!?;:])\*\*([^*]+)\*\*([\s.,!?;:]|$)/g, (match, p1, p2, p3) => {
-        if (/^[\d\s+\-.()#*]+$/.test(p2) && !/[a-zA-Z]/.test(p2)) return match;
+      // Improved Regex: Handle bold/italic without interfering with punctuation or phone numbers
+      processed = processed.replace(/(\*\*([^*]+?\w[^*]*?)\*\*)/g, (match, full, inner) => {
         const id = `__BOLD_${tokens.length}__`;
-        tokens.push({ id, html: `<strong class="font-black text-[1.1em]">${escapeHtml(p2)}</strong>` });
-        return `${p1}${id}${p3}`;
+        tokens.push({ id, html: `<strong class="font-black text-[1.05em]">${escapeHtml(inner)}</strong>` });
+        return id;
       });
       
-      // 2. Handle Italic *italic*
-      processed = processed.replace(/(^|[\s.,!?;:])\*([^*]+)\*([\s.,!?;:]|$)/g, (match, p1, p2, p3) => {
-        if (/^[\d\s+\-.()#*]+$/.test(p2) && !/[a-zA-Z]/.test(p2)) return match;
+      processed = processed.replace(/(\*([^*]+?\w[^*]*?)\*)/g, (match, full, inner) => {
         const id = `__ITALIC_${tokens.length}__`;
-        tokens.push({ id, html: `<em class="italic text-[1.05em]">${escapeHtml(p2)}</em>` });
-        return `${p1}${id}${p3}`;
+        tokens.push({ id, html: `<em class="italic text-[1.05em]">${escapeHtml(inner)}</em>` });
+        return id;
       });
       
-      // 3. Re-inject tokens
       let finalText = processed;
       tokens.forEach(token => {
         finalText = finalText.replace(token.id, token.html);
@@ -1403,6 +1428,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
     if (!group) return null;
 
+    const typingUsers = (group as any).typingStatus ? Object.keys((group as any).typingStatus).filter(uid => 
+      uid !== state.currentUser && 
+      (Date.now() - ((group as any).typingStatus[uid] || 0)) < 3000
+    ) : [];
+
     const isSMS = activeGroup.startsWith('sms_');
     const otherUid = isSMS ? (group as any).members?.find((m: string) => m !== state.currentUser) : null;
     const otherUserData = otherUid ? state.users[otherUid] : null;
@@ -1621,7 +1651,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             onClick={() => updateState({ selectedUserModal: u.uid })}
                             className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#0D98BA] transition-all cursor-pointer"
                           >
-                            {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span>{u.name[0]}</span>}
+                            {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span>{(u.name || '?')[0]}</span>}
                           </button>
                           <button 
                             onClick={() => updateState({ selectedUserModal: u.uid })}
@@ -1673,7 +1703,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             onClick={() => updateState({ selectedUserModal: u.uid })}
                             className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#0D98BA] transition-all cursor-pointer"
                           >
-                            {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span>{u.name[0]}</span>}
+                            {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span>{(u.name || '?')[0]}</span>}
                           </button>
                           <button 
                             onClick={() => updateState({ selectedUserModal: u.uid })}
@@ -1913,7 +1943,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 disabled={isDeletedAccount || msg.user === 'dj-bot' || !state.users?.[msg.user]}
                 className={`w-6 h-6 rounded-xl bg-gray-100 flex items-center justify-center text-[8px] font-bold text-gray-400 shadow-inner shrink-0 overflow-hidden ${isSameSender ? 'opacity-0' : 'opacity-100 cursor-pointer hover:ring-2 hover:ring-[#0D98BA] transition-all'}`}
               >
-                {isDeletedAccount ? '?' : (senderAvatar ? <img src={senderAvatar} className="w-full h-full object-cover" /> : senderName[0].toUpperCase())}
+                {isDeletedAccount ? '?' : (senderAvatar ? <img src={senderAvatar} className="w-full h-full object-cover" /> : (senderName || '?')[0].toUpperCase())}
               </button>
               <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-[85%]`}>
                 {!isSameSender && (
@@ -2146,7 +2176,21 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             );
           })}
-          <div ref={messagesEndRef} className="h-1" />
+            <div className={`transition-opacity duration-300 px-6 py-2 ${typingUsers.length > 0 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50/80 rounded-2xl w-fit border border-gray-100 shadow-sm">
+                <div className="flex gap-1">
+                  <div className="w-1.5 h-1.5 bg-[#0D98BA] rounded-full animate-bounce [animation-duration:0.8s]"></div>
+                  <div className="w-1.5 h-1.5 bg-[#0D98BA] rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.1s]"></div>
+                  <div className="w-1.5 h-1.5 bg-[#0D98BA] rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.2s]"></div>
+                </div>
+                <span className="text-[10px] font-black uppercase text-[#0D98BA] tracking-widest ml-1">
+                  {typingUsers.length === 1 
+                    ? `@${state.users[typingUsers[0]]?.name || typingUsers[0]} écrit...` 
+                    : `${typingUsers.length} personnes écrivent...`}
+                </span>
+              </div>
+            </div>
+            <div ref={messagesEndRef} className="h-1" />
         </div>
         </div>
 
@@ -2240,7 +2284,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       placeholder="Question du sondage..."
                       value={pollQuestion}
                       onChange={e => setPollQuestion(e.target.value)}
-                      className="w-full px-4 py-2 rounded-xl bg-gray-50 border-none focus:ring-2 focus:ring-[#0D98BA] text-sm outline-none"
+                      className="w-full px-4 py-2 rounded-xl bg-gray-50 dark:bg-zinc-800/50 dark:text-white dark:placeholder:text-zinc-500 border-none focus:ring-2 focus:ring-[#0D98BA] text-sm outline-none"
                     />
                     <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                       {pollOptions.map((opt, i) => (
@@ -2254,7 +2298,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                               newOpts[i] = e.target.value;
                               setPollOptions(newOpts);
                             }}
-                            className="flex-1 px-4 py-2 rounded-xl bg-gray-50 border-none focus:ring-2 focus:ring-[#0D98BA] text-xs outline-none"
+                            className="flex-1 px-4 py-2 rounded-xl bg-gray-50 dark:bg-zinc-800/50 dark:text-white dark:placeholder:text-zinc-500 border-none focus:ring-2 focus:ring-[#0D98BA] text-xs outline-none"
                           />
                           {pollOptions.length > 2 && (
                             <button 
@@ -2291,6 +2335,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   setDraftStatus(e.target.value.trim().length > 0);
                   e.target.style.height = 'auto'; // Reset height to recalculate
                   e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+
+                  // Typing Status Update
+                  if (!isTest && state.currentUser) {
+                    const roomRef = doc(db, isSMS ? 'private_messages' : 'groups', activeGroup);
+                    updateDoc(roomRef, {
+                      [`typingStatus.${state.currentUser}`]: Date.now()
+                    }).catch(() => {}); // Ingore errors if room doesn't exist yet
+                  }
                 }} 
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -2311,7 +2363,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator) ? "Seuls les admins peuvent parler ici." :
                   "Écris un message... (MAJ+Entrée pour passer à la ligne)"
                 } 
-                className="flex-1 px-5 py-3 rounded-[1.5rem] bg-gray-100 border-none focus:ring-2 focus:ring-[#0D98BA] outline-none transition-all disabled:opacity-50 resize-none overflow-y-auto custom-scrollbar min-h-[48px]" 
+                className="flex-1 px-5 py-3 rounded-[1.5rem] bg-gray-100 dark:bg-zinc-800/50 dark:text-white dark:placeholder:text-zinc-500 border-none focus:ring-2 focus:ring-[#0D98BA] outline-none transition-all disabled:opacity-50 resize-none overflow-y-auto custom-scrollbar min-h-[48px]" 
                 readOnly={isTest || (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator)}
                 style={{ maxHeight: '150px' }}
               />
@@ -2618,7 +2670,12 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-bold mb-0.5 ${state.darkMode ? 'text-zinc-300' : 'text-gray-700'}`}>@{item.lastMessage.user === 'test' ? 'Anonyme' : (state.users[item.lastMessage.user]?.name || item.lastMessage.user)}</p>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <p className={`text-xs font-bold ${state.darkMode ? 'text-zinc-300' : 'text-gray-700'}`}>@{item.lastMessage.user === 'test' ? 'Anonyme' : (state.users[item.lastMessage.user]?.name || item.lastMessage.user)}</p>
+                      {item.type === 'sms' && state.users[item.lastMessage.user]?.isOnline && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                      )}
+                    </div>
                     <p className={`text-sm truncate ${item.newCount > 0 ? (state.darkMode ? 'text-white font-bold' : 'text-gray-900 font-bold') : 'text-gray-500'}`}>{item.lastMessage.text}</p>
                   </div>
                 </div>
