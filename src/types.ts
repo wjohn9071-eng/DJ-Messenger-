@@ -59,6 +59,9 @@ export interface Message {
   deletedForUsers?: string[]; // UIDs who deleted it for themselves
   originalText?: string; // For super admin view
   deletedAt?: string; // ISO timestamp for the 3-minute timer
+  threadId?: string; // If this message belongs to a thread
+  threadName?: string; // Optional name for the thread (usually on root message)
+  isThreadRoot?: boolean;
 }
 
 export interface Group {
@@ -81,6 +84,7 @@ export interface Group {
   allowOthersToInvite?: boolean;
   lastActivity?: string;
   typingStatus?: Record<string, number>;
+  threads?: Record<string, { id: string; name: string; parentMessageId: string; createdAt: string }>;
 }
 
 export interface Proposal {
@@ -130,6 +134,8 @@ export interface AppState {
   menuOpen?: boolean;
   autoHideSidebar?: boolean;
   activeGroup?: string | null;
+  activeThreadId?: string | null;
+  activeThreadName?: string | null;
   selectedUserModal?: string | null;
   darkMode?: boolean;
 }

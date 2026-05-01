@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { db, collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, getDocs, setDoc, arrayUnion, arrayRemove, storage, ref, uploadBytesResumable, getDownloadURL } from '../lib/firebase';
 import { djStyleBg, djStyleText, setDraftStatus } from '../lib/utils';
-import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, CheckSquare, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search, FileText, FileAudio, File as FileIcon, Globe as GlobeIcon } from 'lucide-react';
+import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, CheckSquare, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search, FileText, FileAudio, File as FileIcon, Globe as GlobeIcon, MessagesSquare, CornerUpLeft, RotateCcw } from 'lucide-react';
 import { DJ_FRAME_STYLE, STAFF_BADGE, ADMIN_BADGE, SUPER_ADMIN_BADGE } from './Views';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 import { AppState, Group } from '../types';
@@ -100,6 +100,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [showStickers, setShowStickers] = useState(false);
   const [showPollCreator, setShowPollCreator] = useState(false);
+  const [showThreadNaming, setShowThreadNaming] = useState(false);
+  const [threadNameInput, setThreadNameInput] = useState('');
+  const [threadSelectionMode, setThreadSelectionMode] = useState(false);
+  const [threadParentId, setThreadParentId] = useState<string | null>(null);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -269,7 +273,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
 
     try {
-      const msgData = {
+      const msgData: any = {
         text: msgText,
         user: state.currentUser,
         senderId: state.currentUser,
@@ -279,6 +283,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         groupName: isSMS ? otherUser : (group?.name || 'Groupe'),
         groupType: isSMS ? 'SMS' : (group?.type === 'public' ? 'PUBLIC' : 'PRIVÉ')
       };
+
+      if (state.activeThreadId) {
+        msgData.threadId = state.activeThreadId;
+      }
       
       if (isSMS) {
         const chatRef = doc(db, 'private_messages', activeGroup);
@@ -327,6 +335,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               botText = "Pas de souci, on est une équipe ! 🤝";
             } else if (text.includes('bot') || text.includes('dj bot')) {
               botText = "On parle de moi ? 😉 Je suis toujours à l'écoute pour aider la communauté !";
+            } else if (text.startsWith('dj bot') || text.startsWith('@dj bot')) {
+              botText = "Je t'écoute ! Pose-moi ta question ou demande-moi de l'aide. 🎧";
             }
 
             if (botText) {
@@ -743,6 +753,81 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     showToast(`${files.length} téléchargement(s) lancé(s)...`);
   };
 
+  const handleStartThreadSelection = () => {
+    const isSMSIn = activeGroup?.startsWith('sms_');
+    if (isSMSIn) return showToast("Les fils ne sont dispo que dans les groupes.");
+    if (threadSelectionMode) {
+      setThreadSelectionMode(false);
+      showToast("Sélection annulée.");
+      return;
+    }
+    setThreadSelectionMode(true);
+    showToast("Sélectionnez le message pour créer un fil.");
+  };
+
+  const handleSelectThreadParent = (msgId: string) => {
+    setThreadParentId(msgId);
+    setThreadSelectionMode(false);
+    setShowThreadNaming(true);
+  };
+
+  const handleConfirmThreadCreation = async () => {
+    if (!threadNameInput.trim() || !threadParentId || !activeGroup) return;
+    
+    const threadId = `thread-${Date.now()}`;
+    const threadName = threadNameInput.trim();
+    
+    try {
+      // 1. Mark parent message as thread root
+      const msgRef = doc(db, 'groups', activeGroup, 'messages', threadParentId);
+      await updateDoc(msgRef, {
+        isThreadRoot: true,
+        threadId: threadId,
+        threadName: threadName
+      });
+
+      // 2. Add thread metadata to group
+      const groupRef = doc(db, 'groups', activeGroup);
+      await setDoc(groupRef, {
+        threads: {
+          [threadId]: {
+            id: threadId,
+            name: threadName,
+            parentMessageId: threadParentId,
+            createdAt: new Date().toISOString()
+          }
+        }
+      }, { merge: true });
+
+      updateState({
+        activeThreadId: threadId,
+        activeThreadName: threadName
+      });
+
+      setShowThreadNaming(false);
+      setThreadNameInput('');
+      setThreadParentId(null);
+      showToast(`Fil "${threadName}" créé !`);
+    } catch (err) {
+      console.error(err);
+      showToast("Erreur lors de la création du fil.");
+    }
+  };
+
+  const handleExitThread = () => {
+    updateState({
+      activeThreadId: null,
+      activeThreadName: null
+    });
+  };
+
+  const handleEnterThread = (threadId: string, threadName: string) => {
+    updateState({
+      activeThreadId: threadId,
+      activeThreadName: threadName
+    });
+  };
+
   const handleCreateGroup = async () => {
     if (!state.currentUser) return;
     if (isTest) {
@@ -1116,6 +1201,45 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
     setActiveTab(tab);
     updateState({ discussionTab: tab });
+  };
+
+  const handleDeleteThread = async (threadId: string) => {
+    if (isTest) return setShowRestrictedPopup(true);
+    if (!activeGroup || !window.confirm("Voulez-vous vraiment supprimer ce fil et tous ses messages ?")) return;
+
+    try {
+      const groupRef = doc(db, 'groups', activeGroup);
+      const groupSnap = await getDoc(groupRef);
+      if (!groupSnap.exists()) return;
+      
+      const groupData = groupSnap.data() as Group;
+      const threads = { ...groupData.threads };
+      delete threads[threadId];
+
+      // 1. Update group metadata
+      await updateDoc(groupRef, { threads });
+
+      // 2. Delete all messages in the thread
+      const messagesRef = collection(db, 'groups', activeGroup, 'messages');
+      const messagesQuery = query(messagesRef);
+      const messagesSnap = await getDocs(messagesQuery);
+      
+      for (const m of messagesSnap.docs) {
+        const msg = m.data();
+        if (msg.threadId === threadId) {
+          await deleteDoc(doc(messagesRef, m.id));
+        }
+      }
+
+      if (state.activeThreadId === threadId) {
+        handleExitThread();
+      }
+      
+      showToast("Fil de discussion supprimé !");
+    } catch (err) {
+      console.error(err);
+      showToast("Erreur lors de la suppression du fil.");
+    }
   };
 
   const handleDeleteMessage = async (msgIds: string[], option: 'me' | 'everyone' | 'bubble' = 'me') => {
@@ -1912,8 +2036,45 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           </div>
         )}
         <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 custom-scrollbar w-full">
+        {state.activeThreadId && (
+          <div className="mb-6 flex items-center justify-between p-4 bg-[#0D98BA]/5 border border-[#0D98BA]/10 rounded-[2rem] animate-in slide-in-from-top-4 duration-300">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-[#0D98BA] text-white rounded-2xl shadow-lg">
+                <MessagesSquare size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest text-[#0D98BA]">Fil de discussion</h3>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{state.activeThreadName}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => handleDeleteThread(state.activeThreadId!)}
+                className="p-2 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-colors mr-1"
+                title="Supprimer le fil entier"
+              >
+                <Trash2 size={16} />
+              </button>
+              <button 
+                onClick={handleExitThread}
+                className="px-6 py-2 bg-white border border-[#0D98BA]/20 text-[#0D98BA] text-[10px] font-black uppercase rounded-2xl shadow-sm hover:bg-[#0D98BA] hover:text-white transition-all active:scale-95"
+              >
+                Quitter le fil
+              </button>
+            </div>
+          </div>
+        )}
         <div className="flex flex-col gap-2 w-full">
-        {(group.messages || []).filter(msg => msg.isSystem || msg.user === state.currentUser || (state.users && state.users[msg.user])).map((msg, idx, arr) => {
+        {(group.messages || [])
+          .filter(msg => msg.isSystem || msg.user === state.currentUser || (state.users && state.users[msg.user]))
+          .filter(msg => {
+            if (state.activeThreadId) {
+              return msg.threadId === state.activeThreadId;
+            }
+            // In main chat, don't show thread replies (only roots)
+            return !msg.threadId || msg.isThreadRoot;
+          })
+          .map((msg, idx, arr) => {
           const prevMsg = idx > 0 ? arr[idx - 1] : null;
           const isSameSender = prevMsg && prevMsg.user === msg.user && !msg.isSystem && !prevMsg.isSystem;
           const isMine = msg.user === state.currentUser;
@@ -1957,6 +2118,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               else newSel.add(msg.id);
               setSelectedMessages(newSel);
               if (newSel.size === 0) setSelectionMode(false);
+            } else if (threadSelectionMode) {
+              handleSelectThreadParent(msg.id);
             }
           };
           
@@ -2001,6 +2164,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     <div className={`flex gap-1 mb-1.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
                       {isStaff && <span className="text-[7.5px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-sm">Staff App</span>}
                       {isGroupAdmin && <span className="text-[7.5px] font-black uppercase tracking-widest text-green-600 bg-green-50 px-1.5 py-0.5 rounded-sm shrink-0">Admin Groupe</span>}
+                    {msg.isThreadRoot && !state.activeThreadId && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleEnterThread(msg.threadId!, msg.threadName!); }}
+                        className="text-[7.5px] font-black uppercase tracking-widest text-[#0D98BA] bg-[#0D98BA]/5 px-1.5 py-0.5 rounded-sm flex items-center gap-1 hover:bg-[#0D98BA]/10 transition-colors"
+                      >
+                        <MessagesSquare size={10} /> Fil: {msg.threadName}
+                      </button>
+                    )}
                     </div>
                   )}
                   {(msg.files && msg.files.length > 0) ? (
@@ -2193,30 +2364,40 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
-                      <div className={`absolute right-full mr-2 top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-2 z-10 lg:opacity-0 lg:group-hover/msg:opacity-100 opacity-100 transition-opacity duration-200 lg:pointer-events-none lg:group-hover/msg:pointer-events-auto`}>
+                      <div className={`absolute ${isMine ? 'right-full mr-2' : 'left-full ml-10'} top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-2 z-10 lg:opacity-0 lg:group-hover/msg:opacity-100 opacity-100 transition-opacity duration-200 lg:pointer-events-none lg:group-hover/msg:pointer-events-auto shadow-sm whitespace-nowrap`}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
-                          className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}
+                          className={`p-1.5 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}
                           title="Supprimer"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                           <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Supprimer</div>
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setSelectionMode(true); setSelectedMessages(new Set([msg.id])); }}
-                          className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-[#0D98BA]' : 'bg-white border-gray-100 text-gray-600 hover:text-[#0D98BA]'}`}
+                          className={`p-1.5 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-[#0D98BA]' : 'bg-white border-gray-100 text-gray-600 hover:text-[#0D98BA]'}`}
                           title="Sélectionner"
                         >
-                          <CheckCircle2 size={16} />
+                          <CheckCircle2 size={14} />
                           <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Sélectionner</div>
                         </button>
+                        {!isSMS && !state.activeThreadId && !msg.threadId && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleSelectThreadParent(msg.id); }}
+                            className={`p-1.5 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-[#0D98BA]' : 'bg-white border-gray-100 text-gray-600 hover:text-[#0D98BA]'}`}
+                            title="Créer un fil"
+                          >
+                            <RotateCcw size={14} />
+                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Créer un fil</div>
+                          </button>
+                        )}
                         {isAdmin && !isMine && msg.user !== group.creator && (
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} 
-                            className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-orange-400' : 'bg-white border-gray-100 text-orange-500'}`}
+                            className={`p-1.5 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-orange-400' : 'bg-white border-gray-100 text-orange-500'}`}
                             title="Muter"
                           >
-                            <VolumeX size={14} />
+                            <VolumeX size={12} />
                             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Muter</div>
                           </button>
                         )}
@@ -2288,6 +2469,16 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               >
                 <Paperclip size={20} />
               </button>
+              <div className="relative">
+                <button 
+                  type="button"
+                  onClick={handleStartThreadSelection}
+                  className={`p-2 transition ${threadSelectionMode ? 'text-[#0D98BA] animate-pulse' : 'text-gray-400 hover:text-[#0D98BA]'}`}
+                  title="Créer un fil de discussion"
+                >
+                  <RotateCcw size={20} className={threadSelectionMode ? "rotate-180 transition-transform duration-500" : ""} />
+                </button>
+              </div>
               <div className="relative">
                 <button 
                   type="button"
@@ -2382,20 +2573,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <textarea 
                 rows={1}
                 value={messageInput} 
-                onChange={e => {
-                  setMessageInput(e.target.value);
-                  setDraftStatus(e.target.value.trim().length > 0);
-                  e.target.style.height = 'auto'; // Reset height to recalculate
-                  e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
-
-                  // Typing Status Update
-                  if (!isTest && state.currentUser) {
-                    const roomRef = doc(db, isSMS ? 'private_messages' : 'groups', activeGroup);
-                    updateDoc(roomRef, {
-                      [`typingStatus.${state.currentUser}`]: Date.now()
-                    }).catch(() => {}); // Ingore errors if room doesn't exist yet
-                  }
-                }} 
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -2411,12 +2588,27 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 disabled={!isMember && group.type === 'public' && group.name !== 'Général'}
                 placeholder={
                   isTest ? "Connectez-vous pour écrire..." : 
+                  state.activeThreadId ? `Écrire dans le fil "${state.activeThreadName}"...` :
                   (!isMember && group.type === 'public' && group.name !== 'Général') ? "Rejoins le groupe pour écrire..." :
                   (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator) ? "Seuls les admins peuvent parler ici." :
                   "Écris un message... (MAJ+Entrée pour passer à la ligne)"
                 } 
                 className="flex-1 px-5 py-3 rounded-[1.5rem] bg-gray-100 dark:bg-zinc-800/50 dark:text-white dark:placeholder:text-zinc-500 border-none focus:ring-2 focus:ring-[#0D98BA] outline-none transition-all disabled:opacity-50 resize-none overflow-y-auto custom-scrollbar min-h-[48px]" 
                 readOnly={isTest || (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator)}
+                onChange={e => {
+                  setMessageInput(e.target.value);
+                  setDraftStatus(e.target.value.trim().length > 0);
+                  e.target.style.height = 'auto'; // Reset height to recalculate
+                  e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+
+                  // Typing Status Update
+                  if (!isTest && state.currentUser) {
+                    const roomRef = doc(db, isSMS ? 'private_messages' : 'groups', activeGroup);
+                    updateDoc(roomRef, {
+                      [`typingStatus.${state.currentUser}`]: Date.now()
+                    }).catch(() => {}); // Ingore errors if room doesn't exist yet
+                  }
+                }} 
                 style={{ maxHeight: '150px' }}
               />
               <button 
@@ -2946,6 +3138,47 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           </div>
         </div>
       )}
+      {showThreadNaming && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
+              <div className={`p-8 ${djStyleBg}`}>
+                <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center mb-4 backdrop-blur-xl">
+                  <MessagesSquare size={32} className="text-white" />
+                </div>
+                <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-1">Nom du fil</h3>
+                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Donnez un titre à cette discussion</p>
+              </div>
+              <div className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-1">Titre du fil</label>
+                  <input 
+                    type="text" 
+                    value={threadNameInput}
+                    onChange={e => setThreadNameInput(e.target.value)}
+                    placeholder="Ex: Organisation soirée, Feedback important..." 
+                    className="w-full px-6 py-4 rounded-3xl bg-gray-50 border-none outline-none ring-2 ring-transparent focus:ring-[#0D98BA] transition-all text-sm font-bold h-14"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={() => { setShowThreadNaming(false); setThreadParentId(null); setThreadNameInput(''); }}
+                    className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition h-14"
+                  >
+                    Annuler
+                  </button>
+                  <button 
+                    onClick={handleConfirmThreadCreation}
+                    disabled={!threadNameInput.trim()}
+                    className={`flex-1 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-[#0D98BA]/20 transition-all active:scale-95 disabled:opacity-50 h-14 ${djStyleBg}`}
+                  >
+                    Créer le fil
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }
