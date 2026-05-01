@@ -59,7 +59,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     setView('discussions');
   };
 
-  const unreadIds = state.newMessages?.filter(id => !id.startsWith('sms_dj_bot_') && id !== 'simulated-group') || [];
+  const unreadIds = state.newMessages?.filter(id => !id.startsWith('sms_dj_bot_') && id !== 'sim-group') || [];
   let latestUnreadExtract = "";
   if (unreadIds.length > 0) {
     const firstUnreadId = unreadIds[0];
@@ -177,6 +177,20 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
         </div>
 
+        {(isTest || isNewUser) && (
+          <div className="w-full mb-8" id="tutorial-launch-area">
+            <button 
+              onClick={startSimulation}
+              className={`w-full px-6 py-5 rounded-3xl font-black uppercase tracking-widest text-lg shadow-[0_0_20px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition-transform active:scale-95 text-white flex items-center justify-center gap-2 ${djStyleBg}`}
+            >
+              <span>{isTest ? 'Lancer le Tutoriel' : 'Mode Découverte'}</span>
+            </button>
+            <p className="text-xs font-semibold text-gray-500 mt-3 px-4 leading-relaxed">
+              Clique ci-dessus pour un tour rapide et interactif des fonctionnalités !
+            </p>
+          </div>
+        )}
+
         <h1 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2 ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
           {getGreeting()} !
         </h1>
@@ -247,17 +261,6 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
         <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-100 w-full mb-8 animate-in slide-in-from-bottom-4">
           <p className="text-sm font-semibold text-gray-600 italic">💡 {currentTip}</p>
-        </div>
-
-        <div className="flex flex-col gap-4 w-full max-w-xs mb-12">
-        {(isTest || isNewUser) && (
-          <button 
-            onClick={startSimulation}
-            className={`px-10 py-5 rounded-full font-black uppercase tracking-widest text-lg shadow-2xl hover:scale-105 transition-transform active:scale-95 mb-12 w-full max-w-xs ${djStyleBg}`}
-          >
-            Découvrir le tutoriel
-          </button>
-        )}
         </div>
         </div>
 

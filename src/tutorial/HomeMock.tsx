@@ -109,6 +109,21 @@ export function HomeMock({ state, setView, updateState, onComplete }: { state: A
             </p>
           </div>
 
+          <div className="bg-zinc-900 justify-center text-white p-8 rounded-[2.5rem] shadow-2xl w-full mb-8 text-left relative animate-in zoom-in-95 duration-300 border border-zinc-800">
+              <h3 className="text-xl font-black uppercase tracking-tighter text-[#0D98BA] mb-2">Bienvenue & Découverte</h3>
+              <p className="text-sm text-zinc-300 font-medium mb-6 leading-relaxed">
+                Tu te trouves dans l'espace de simulation pour découvrir rapidement les fonctionnalités principales de DJ Messenger.
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setView('discussions')}
+                  className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs text-white shadow-lg transition-all active:scale-95 ${djStyleBg}`}
+                >
+                  Voir Discussions
+                </button>
+              </div>
+          </div>
+
           {showUpdateNotice && (
             <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-8 text-left relative animate-in zoom-in-95 duration-300">
               <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour v{currentVersion} - Simulation</h3>

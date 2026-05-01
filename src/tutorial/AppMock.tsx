@@ -30,19 +30,20 @@ export function AppMock({ state, setView: setParentView, updateState, onComplete
 
   const renderView = () => {
     switch (view) {
-      case 'home': return <HomeMock state={state} setView={setView} updateState={updateState} onComplete={onComplete} />;
+      case 'home': return <HomeMock state={state} setView={handleNavClick} updateState={updateState} onComplete={onComplete} />;
       case 'discussions': return <DiscussionsMock state={state} updateState={updateState} />;
       case 'friends': return <FriendsMock state={state} updateState={updateState} />;
       case 'djsociety': return <SocietyMock state={state} updateState={updateState} />;
       case 'profile': return <ProfileMock state={state} updateState={updateState} />;
       case 'updates': return <UpdatesMock state={state} />;
       case 'settings': return <SettingsMock state={state} updateState={updateState} onLogout={onComplete} />;
-      default: return <HomeMock state={state} setView={setView} updateState={updateState} onComplete={onComplete} />;
+      default: return <HomeMock state={state} setView={handleNavClick} updateState={updateState} onComplete={onComplete} />;
     }
   };
 
   const handleNavClick = (id: string) => {
     setView(id);
+    if (setParentView) setParentView(id);
     setMenuOpen(false);
   };
 
@@ -51,7 +52,6 @@ export function AppMock({ state, setView: setParentView, updateState, onComplete
     const root = document.documentElement;
     if (state.darkMode) root.classList.add('dark'); else root.classList.remove('dark');
     if (user?.bgColor) root.style.setProperty('--bg-color', user.bgColor);
-    if (user?.btnColor) root.style.setProperty('--btn-color', user.btnColor);
   }, [state.darkMode, user]);
 
   return (

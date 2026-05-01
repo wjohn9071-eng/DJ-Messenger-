@@ -69,9 +69,9 @@ export function DiscussionsMock({ state, updateState }: { state: AppState, updat
   const renderGroupList = () => {
     let groups = Object.values(state.groups).filter(g => g.id.startsWith('sim-')) as Group[];
     
-    if (activeTab === 'public') groups = groups.filter(g => g.type === 'public' && !g.isSMS);
-    else if (activeTab === 'private') groups = groups.filter(g => g.type === 'private' && !g.isSMS);
-    else if (activeTab === 'sms') groups = groups.filter(g => g.isSMS);
+    if (activeTab === 'public') groups = groups.filter((g: any) => g.type === 'public' && !g.isSMS);
+    else if (activeTab === 'private') groups = groups.filter((g: any) => g.type === 'private' && !g.isSMS);
+    else if (activeTab === 'sms') groups = groups.filter((g: any) => g.isSMS);
     
     if (search) {
       groups = groups.filter(g => g.name.toLowerCase().includes(search.toLowerCase()));

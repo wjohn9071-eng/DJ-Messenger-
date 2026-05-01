@@ -142,8 +142,8 @@ export function TutorialGame({
     },
     { 
       id: 'home_info',
-      title: "Ton Tableau de Bord", 
-      description: "Ici, tu retrouves tes notifications, des conseils et les dernières nouvelles. Clique sur le bouton de notification rouge pour voir les messages récents !", 
+      title: "Ton Espace Découverte", 
+      description: "Voici ton accueil moderne ! Tu peux y voir les actualités et y retrouver tes discussions. Utilise le bouton 'Voir Discussions' de la carte ou le menu latéral pour continuer !", 
       view: 'home',
       requiredAction: 'click_discussions'
     },
@@ -162,7 +162,7 @@ export function TutorialGame({
           timestamp: new Date().toISOString()
         };
         const simulatedGroup: Group = {
-          id: 'simulated-group',
+          id: 'sim-group',
           name: 'DJ Crew (SIMULATION)',
           type: 'public',
           creator: 'Simulateur DJ (IA)',
@@ -186,12 +186,12 @@ export function TutorialGame({
           ...prev,
           groups: { 
             ...prev.groups, 
-            'simulated-group': {
+            'sim-group': {
               ...simulatedGroup,
               members: [prev.currentUser as string, 'Simulateur DJ (IA)']
             }
           },
-          newMessages: [...(prev.newMessages || []), 'simulated-group'],
+          newMessages: [...(prev.newMessages || []), 'sim-group'],
           discussionTab: 'recent'
         }));
         setShowBotMessage(true);
@@ -245,7 +245,7 @@ export function TutorialGame({
       setActionCompleted(true);
     }
     if (currentStep.requiredAction === 'send_message') {
-      const group = simulatedAppState.groups?.['simulated-group'];
+      const group = simulatedAppState.groups?.['sim-group'];
       if (group && (group.messages || []).length > 2) {
         setActionCompleted(true);
       }
@@ -395,6 +395,7 @@ export function TutorialGame({
     <div className="fixed inset-0 z-[150] bg-gray-100 flex flex-col overflow-hidden">
       <AppMock 
         state={simulatedAppState} 
+        setView={setCurrentView}
         updateState={updateSimulatedState} 
         onComplete={onComplete}
       />

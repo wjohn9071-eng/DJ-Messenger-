@@ -76,14 +76,17 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
         }
       }
     } catch (error: any) {
+      if (error.code === 'auth/popup-closed-by-user') {
+        showToast("Connexion annulée.");
+        return;
+      }
+      
       console.error("Google Login Error Full Object:", JSON.stringify(error, null, 2));
       console.error("Google Login Error Code:", error.code);
       console.error("Google Login Error Message:", error.message);
       
       if (error.code === 'auth/unauthorized-domain') {
         showToast("Erreur: Ce domaine n'est pas autorisé dans la console Firebase.");
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        showToast("Connexion annulée.");
       } else if (error.code === 'auth/network-request-failed') {
         showToast("Erreur réseau: Impossible de joindre les serveurs Google.");
       } else {
@@ -196,30 +199,35 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
 
         {authMode === 'select' ? (
           <div className="flex flex-col gap-4">
+            <div className="flex flex-col items-center">
+              <button 
+                onClick={() => updateState({ currentUser: 'test' })} 
+                className={`w-full py-4 rounded-3xl text-white font-black uppercase tracking-widest shadow-[0_0_20px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition-all active:scale-95 text-lg flex items-center justify-center gap-2 ${djStyleBg}`}
+              >
+                <Eye size={22} /> Mode Découverte (Test)
+              </button>
+              <p className="text-xs font-semibold text-gray-500 mt-3 text-center px-4 max-w-sm leading-relaxed">
+                Idéal si tu es nouveau ! Découvre l'application anonymement et en toute sécurité.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4 my-2">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ou connecte-toi / inscris-toi</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+
             <button 
               onClick={() => setAuthMode('login')} 
-              className={`w-full py-4 rounded-2xl text-white font-bold shadow-lg hover:opacity-90 transition active:scale-95 text-lg ${djStyleBg}`}
+              className="w-full py-4 rounded-2xl text-white font-bold bg-gray-900 shadow-xl hover:bg-black transition-all active:scale-95 text-lg border border-gray-800"
             >
               Se connecter
             </button>
             <button 
               onClick={() => setAuthMode('register')} 
-              className="w-full py-4 rounded-2xl text-gray-700 font-bold bg-gray-100 hover:bg-gray-200 transition active:scale-95 text-lg border border-gray-200"
+              className="w-full py-4 rounded-2xl text-gray-800 font-bold bg-white border-2 border-gray-100 hover:border-gray-200 hover:bg-gray-50 shadow-sm transition-all active:scale-95 text-lg"
             >
-              S'inscrire
-            </button>
-            
-            <div className="flex items-center gap-4 my-2">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Ou</span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
-
-            <button 
-              onClick={() => updateState({ currentUser: 'test' })} 
-              className="w-full py-4 rounded-2xl text-blue-600 font-bold bg-blue-50 border border-blue-100 shadow-sm hover:bg-blue-100 transition active:scale-95 text-lg flex items-center justify-center gap-2"
-            >
-              <Eye size={20} /> Mode Test (Anonyme)
+              Créer un compte
             </button>
 
             <button 

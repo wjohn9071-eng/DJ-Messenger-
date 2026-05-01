@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { db, collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, getDocs, setDoc, arrayUnion, arrayRemove, storage, ref, uploadBytesResumable, getDownloadURL } from '../lib/firebase';
 import { djStyleBg, djStyleText, setDraftStatus } from '../lib/utils';
-import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search, FileText, FileAudio, File as FileIcon, Globe as GlobeIcon } from 'lucide-react';
+import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, CheckSquare, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search, FileText, FileAudio, File as FileIcon, Globe as GlobeIcon } from 'lucide-react';
 import { DJ_FRAME_STYLE, STAFF_BADGE, ADMIN_BADGE, SUPER_ADMIN_BADGE } from './Views';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 import { AppState, Group } from '../types';
@@ -1316,23 +1316,41 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
   };
 
-  const handlePinGroup = () => {
-    if (isTest || !activeGroup) return;
-    updateState((prev: AppState) => {
-      const newUsers = { ...prev.users };
-      const user = { ...newUsers[prev.currentUser as string] };
-      const pinned = user.pinnedGroups ? [...user.pinnedGroups] : [];
+  const handlePinGroup = async () => {
+    if (isTest || !activeGroup || !state.currentUser) return;
+    try {
+      const userRef = doc(db, 'users', state.currentUser as string);
+      let newPinned = [];
       
-      if (pinned.includes(activeGroup)) {
-        user.pinnedGroups = pinned.filter(id => id !== activeGroup);
-        showToast("Groupe désépinglé.");
+      if (currentUser?.pinnedGroups?.includes(activeGroup)) {
+        newPinned = (currentUser.pinnedGroups || []).filter(id => id !== activeGroup);
+        await updateDoc(userRef, { pinnedGroups: arrayRemove(activeGroup) });
+        showToast("Discussion désépinglée.");
       } else {
-        user.pinnedGroups = [...pinned, activeGroup];
-        showToast("Groupe épinglé !");
+        newPinned = [...(currentUser?.pinnedGroups || []), activeGroup];
+        await updateDoc(userRef, { pinnedGroups: arrayUnion(activeGroup) });
+        showToast("Discussion épinglée !");
       }
-      newUsers[prev.currentUser as string] = user;
-      return { users: newUsers };
-    });
+      
+      updateState((prev: AppState) => {
+        const newUsers = { ...prev.users };
+        let newCurrentUserData = prev.currentUserData;
+        
+        if (prev.currentUser && newUsers[prev.currentUser]) {
+          const user = { ...newUsers[prev.currentUser] };
+          user.pinnedGroups = newPinned;
+          newUsers[prev.currentUser] = user;
+          
+          if (newCurrentUserData) {
+            newCurrentUserData = { ...newCurrentUserData, pinnedGroups: newPinned };
+          }
+        }
+        return { users: newUsers, currentUserData: newCurrentUserData };
+      });
+    } catch (e) {
+      console.error("Error pinning group:", e);
+      showToast("Erreur lors de l'épinglage.");
+    }
   };
 
   const visibleGroups = Object.values(state.groups || {}).filter(g => {
@@ -1532,6 +1550,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 <SettingsIcon size={20} />
               </button>
             )}
+            <button onClick={() => setSelectionMode(true)} className="p-2.5 ml-1 rounded-2xl transition-all bg-gray-100 text-gray-500 hover:bg-gray-200" title="Mode Sélection multiple">
+              <CheckSquare size={20} />
+            </button>
           </div>
         </div>
         )}
@@ -1893,6 +1914,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           const isUnread = !isMine && !msg.isSystem && msg.timestamp > msgSessionLastRead && msg.timestamp <= msgSessionEnterTime;
           const isDeletedAccount = !msg.isSystem && (!state.users || !state.users[msg.user]);
           const isStaff = sender?.isAdmin || sender?.isGrandAdmin || sender?.isSuperAdmin;
+          const isGroupAdmin = !isSMS && msg.user !== 'dj-bot' && ((group as Group).creator === msg.user || (group as Group).subAdmins?.includes(msg.user));
           
           const isDeletedForMe = msg.deletedForUsers?.includes(state.currentUser as string);
           const isDeletedForEveryone = msg.deletedForEveryone;
@@ -1930,7 +1952,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           };
           
           return (
-            <div key={msg.id} onClick={handleMsgClick} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-1.5 group/msg ${isSameSender ? 'mt-0.5' : 'mt-2'} ${selectionMode ? 'cursor-pointer hover:bg-gray-100/50 p-1 rounded-xl transition-colors' : ''} ${isSelected ? 'bg-blue-50/50 outline outline-2 outline-blue-200' : ''}`}>
+            <div key={msg.id} onClick={handleMsgClick} className={`flex ${isMine ? 'flex-row-reverse' : 'flex-row'} items-end gap-1.5 group/msg ${isSameSender ? 'mt-0.5' : 'mt-3'} ${selectionMode ? 'cursor-pointer hover:bg-gray-100/50 p-1 rounded-xl transition-colors' : ''} ${isSelected ? 'bg-blue-50/50 outline outline-2 outline-blue-200' : ''}`}>
               {selectionMode && (
                 <div className="shrink-0 mr-1 self-center">
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-[#0D98BA] border-[#0D98BA] text-white' : 'border-gray-300'}`}>
@@ -1961,7 +1983,17 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
                   </div>
                 )}
-                <div className={`relative px-2.5 py-1 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : (state.darkMode ? 'rounded-tl-none bg-zinc-800 border border-white/10 text-white' : 'rounded-tl-none bg-white border border-gray-100 text-gray-800')} ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} ${isStaff && !isMine ? (state.darkMode ? 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-900/30' : 'border-2 border-[#0D98BA] shadow-[0_0_10px_rgba(13,152,186,0.3)] bg-blue-50/50') : ''}`}>
+                <div className={`relative px-2.5 py-1.5 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : (state.darkMode ? 'rounded-tl-none bg-zinc-800 border-white/10 text-white' : 'rounded-tl-none bg-white text-gray-800')} 
+                  ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} 
+                  ${isStaff ? 'outline outline-[3px] outline-offset-1 outline-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.4)]' : ''}
+                  ${isGroupAdmin ? 'border-2 border-green-500' : (state.darkMode ? 'border border-white/10' : 'border border-gray-100')}
+                `}>
+                  {(isStaff || isGroupAdmin) && (
+                    <div className={`flex gap-1 mb-1.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
+                      {isStaff && <span className="text-[7.5px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-sm">Staff App</span>}
+                      {isGroupAdmin && <span className="text-[7.5px] font-black uppercase tracking-widest text-green-600 bg-green-50 px-1.5 py-0.5 rounded-sm shrink-0">Admin Groupe</span>}
+                    </div>
+                  )}
                   {(msg.files && msg.files.length > 0) ? (
                     <div className="mb-2 space-y-2">
                       {msg.files.map((file, idx) => (

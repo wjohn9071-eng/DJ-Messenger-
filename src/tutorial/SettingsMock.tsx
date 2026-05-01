@@ -1,82 +1,270 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppState } from '../types';
 import { djStyleText, djStyleBg } from '../lib/utils';
-import { Palette, Shield, User, Bell, ChevronRight, Moon, Sun, Smartphone } from 'lucide-react';
+import { CheckCircle2, Trash2 } from 'lucide-react';
+import { RestrictedActionPopup } from '../components/RestrictedActionPopup';
 
 export function SettingsMock({ 
   state, 
-  updateState 
+  updateState,
+  onLogout
 }: { 
   state: AppState, 
-  updateState: any 
+  updateState: any,
+  onLogout: () => void
 }) {
-  const [color, setColor] = useState('#0D98BA');
+  const user = state.users[state.currentUser as string];
+  const [bgColor, setBgColor] = useState(user?.bgColor || '#f0f2f5');
+  const [notifications, setNotifications] = useState(user?.notificationsEnabled || false);
+  const [autoHideSidebar, setAutoHideSidebar] = useState(user?.autoHideSidebar ?? true);
+  const [adminCode, setAdminCode] = useState('');
+  const [superAdminCode, setSuperAdminCode] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
+  const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
-  const handleColorChange = (c: string) => {
-    setColor(c);
+  // Focus only on the visual changes, as it is a mock
+  
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const saveSettings = () => {
     updateState((prev: AppState) => {
       const newUsers = { ...prev.users };
-      newUsers[prev.currentUser as string] = {
-        ...newUsers[prev.currentUser as string],
-        bgColor: c
-      };
-      return { ...prev, users: newUsers };
+      if (newUsers[prev.currentUser as string]) {
+        newUsers[prev.currentUser as string].bgColor = bgColor;
+        newUsers[prev.currentUser as string].notificationsEnabled = notifications;
+        newUsers[prev.currentUser as string].autoHideSidebar = autoHideSidebar;
+        newUsers[prev.currentUser as string].darkMode = state.darkMode;
+      }
+      return { users: newUsers };
     });
+    
+    document.documentElement.style.setProperty('--bg-color', bgColor);
+    
+    setShowSaveConfirm(false);
+    showToast("Paramètres sauvegardés (Simulation) !");
+  };
+
+  const handleAdminAuth = () => {
+    if (adminCode === 'Dj2024in') {
+      updateState((prev: AppState) => {
+        const newUsers = { ...prev.users };
+        newUsers[prev.currentUser as string].isAdmin = true;
+        return { users: newUsers };
+      });
+      showToast("Mode Staff activé (Simulation) !");
+    } else {
+      showToast("Code incorrect.");
+    }
+    setAdminCode('');
+  };
+
+  const handleSuperAdminAuth = () => {
+    if (superAdminCode === 'DJ24026IN') {
+      updateState((prev: AppState) => {
+        const newUsers = { ...prev.users };
+        newUsers[prev.currentUser as string].isAdmin = true;
+        newUsers[prev.currentUser as string].isSuperAdmin = true;
+        return { users: newUsers };
+      });
+      showToast("Mode SUPER ADMIN activé (Simulation) !");
+    } else {
+      showToast("Code incorrect.");
+    }
+    setSuperAdminCode('');
   };
 
   return (
-    <div className="h-full overflow-y-auto p-8 md:p-12 space-y-12 bg-gray-50/30 custom-scrollbar">
-      <div className="max-w-3xl mx-auto space-y-12">
-        <header>
-          <h1 className="text-5xl font-black text-black uppercase tracking-tighter mb-4">Mes <span className={djStyleText}>Réglages</span></h1>
-          <p className="text-zinc-400 font-bold uppercase tracking-widest text-[10px]">Personnalisation v3.0 • Simulation</p>
-        </header>
+    <div className="p-6 max-w-lg mx-auto animate-in fade-in duration-300 pb-20 overflow-y-auto h-full custom-scrollbar">
+      <h2 className={`text-2xl font-bold mb-6 ${state.darkMode ? 'text-white' : djStyleText}`}>Paramètres</h2>
+      
+      <div className="flex flex-col gap-4 mb-8">
+        <button onClick={saveSettings} className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg hover:opacity-90 transition active:scale-95 text-lg ${djStyleBg}`}>
+          Sauvegarder tout
+        </button>
+        
+        <button 
+          onClick={() => {
+            const newMode = !state.darkMode;
+            updateState({ darkMode: newMode });
+          }}
+          className={`w-full py-4 rounded-2xl font-bold shadow-lg transition active:scale-95 text-lg flex items-center justify-center gap-3 ${state.darkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-white text-gray-800 border border-gray-100'}`}
+        >
+          {state.darkMode ? <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>}
+          {state.darkMode ? 'Désactiver Mode Sombre' : 'Activer Mode Sombre'}
+        </button>
+      </div>
 
-        <section className="space-y-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Palette className="text-[#0D98BA]" size={18} />
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Design de l'application</h3>
+      <div className="space-y-8">
+        {/* Section Apparence */}
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Apparence</h3>
+            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
+              <CheckCircle2 size={16} />
+            </button>
+          </div>
+          <div className="mb-4">
+            <label className={`block text-sm font-semibold mb-2 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Couleur d'arrière-plan</label>
+            <div className="flex items-center gap-3">
+              <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
+              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: red) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 text-gray-900 focus:ring-[#0D98BA]'}`} />
+              {bgColor !== (user?.bgColor || '#f0f2f5') && (
+                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
+                  <CheckCircle2 size={24} />
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Section Notifications */}
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Notifications</h3>
+            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
+              <CheckCircle2 size={16} />
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex-1 flex flex-col justify-center cursor-pointer">
+              <div className="flex items-center justify-between">
+                <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Activer les notifications</span>
+                <div className="relative">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only" 
+                    checked={notifications} 
+                    onChange={e => setNotifications(e.target.checked)} 
+                  />
+                  <div className={`block w-14 h-8 rounded-full transition-colors ${notifications ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
+                  <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${notifications ? 'transform translate-x-6' : ''}`}></div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Reçois des alertes comme sur WhatsApp. (Simulation)</p>
+            </label>
+            {notifications !== !!user?.notificationsEnabled && (
+                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95 shrink-0" title="Appliquer">
+                  <CheckCircle2 size={24} />
+                </button>
+            )}
+          </div>
+        </section>
+
+        {/* Section Application */}
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Application</h3>
+            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
+              <CheckCircle2 size={16} />
+            </button>
+          </div>
+          <div className="mb-6 flex items-center gap-3">
+            <label className="flex-1 flex flex-col justify-center cursor-pointer">
+              <div className="flex items-center justify-between">
+                <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Masquer le menu automatiquement</span>
+                <div className="relative">
+                  <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => setAutoHideSidebar(e.target.checked)} />
+                  <div className={`block w-14 h-8 rounded-full transition-colors ${autoHideSidebar ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
+                  <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${autoHideSidebar ? 'transform translate-x-6' : ''}`}></div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Ferme le menu après avoir cliqué sur un onglet. (Simulation)</p>
+            </label>
+            {autoHideSidebar !== (user?.autoHideSidebar ?? true) && (
+                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95 shrink-0" title="Appliquer">
+                  <CheckCircle2 size={24} />
+                </button>
+            )}
+          </div>
+          <div>
+            <label className="flex items-center justify-between pointer-events-none opacity-50">
+              <span className="text-sm font-semibold text-gray-700">Installer l'application (PWA)</span>
+              <div className="relative">
+                <input 
+                  type="checkbox" 
+                  className="sr-only" 
+                  checked={false} 
+                  onChange={()=>{}}
+                />
+                <div className="block w-14 h-8 rounded-full bg-gray-300"></div>
+                <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full"></div>
+              </div>
+            </label>
+            <p className="text-xs text-gray-500 mt-2">Désactivé en mode simulation.</p>
+          </div>
+        </section>
+
+        {/* Section Compte */}
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Compte</h3>
+            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
+              <CheckCircle2 size={16} />
+            </button>
           </div>
           
-          <div className="bg-white rounded-[2.5rem] p-10 shadow-2xl border border-zinc-100">
-            <p className="text-sm font-bold text-zinc-600 mb-8 uppercase tracking-tight">Couleur principale du thème</p>
-            <div className="flex flex-wrap gap-4">
-              {['#0D98BA', '#FF4B2B', '#8E2DE2', '#2193b0', '#11998e', '#000000'].map((c) => (
-                <button
-                  key={c}
-                  onClick={() => handleColorChange(c)}
-                  className={`w-14 h-14 rounded-2xl transition-all hover:scale-110 active:scale-95 shadow-lg border-4 ${color === c ? 'border-white ring-4 ring-[#0D98BA]/20' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                  style={{ backgroundColor: c }}
+          <div className="mb-6">
+            <label className={`block text-sm font-semibold mb-2 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>
+              Code Administrateur (Staff / Grand Admin)
+            </label>
+            <div className="flex gap-2">
+              <input 
+                type="password" 
+                placeholder="Entrer le code..." 
+                value={adminCode} 
+                onChange={e => setAdminCode(e.target.value)} 
+                className="flex-1 px-4 py-3 rounded-xl border border-gray-200 outline-none bg-gray-50" 
+              />
+              <button onClick={handleAdminAuth} className="px-6 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 transition">OK</button>
+            </div>
+          </div>
+
+          {user?.isAdmin && (
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Code Super Admin (Temporaire)
+              </label>
+              <div className="flex gap-2">
+                <input 
+                  type="password" 
+                  placeholder="Entrer le code Super Admin..." 
+                  value={superAdminCode} 
+                  onChange={e => setSuperAdminCode(e.target.value)} 
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none bg-gray-50" 
                 />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-zinc-100 flex items-center justify-between group">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:scale-110 transition-transform">
-                <Moon size={24} />
+                <button onClick={handleSuperAdminAuth} className="px-6 py-3 bg-[#0D98BA] text-white rounded-xl font-bold hover:opacity-90 transition">OK</button>
               </div>
-              <span className="font-black text-[10px] uppercase tracking-widest">Mode Sombre</span>
             </div>
-            <div className="w-12 h-6 bg-zinc-200 rounded-full relative">
-              <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full" />
-            </div>
-          </div>
+          )}
 
-          <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-zinc-100 flex items-center justify-between group">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:scale-110 transition-transform">
-                <Shield size={24} />
-              </div>
-              <span className="font-black text-[10px] uppercase tracking-widest">Sécurité</span>
-            </div>
-            <ChevronRight className="text-zinc-300" />
-          </div>
+          {user?.isAdmin && (
+            <button 
+              onClick={() => showToast("Droits déclinés. (Simulation)")} 
+              className="w-full py-3 rounded-xl text-white font-bold bg-red-600 hover:bg-red-700 transition active:scale-95 mb-4 shadow-lg uppercase tracking-widest text-xs"
+            >
+              DÉCLINER LES DROIT
+            </button>
+          )}
+
+          <button onClick={saveSettings} className={`w-full py-3 rounded-xl font-bold text-white shadow-lg hover:opacity-90 transition active:scale-95 mb-4 ${djStyleBg}`}>
+            Sauvegarder les paramètres
+          </button>
+          
+          <button onClick={onLogout} className="w-full py-3 rounded-xl text-gray-700 font-bold bg-gray-100 hover:bg-gray-200 transition active:scale-95 mb-4">
+            Quitter la simulation (Se déconnecter)
+          </button>
+
+          <button onClick={() => showToast("Impossible de supprimer en simulation.")} className="w-full py-3 rounded-xl text-red-600 font-bold bg-red-50 hover:bg-red-100 transition active:scale-95 flex items-center justify-center gap-2">
+            <Trash2 size={18} /> Supprimer le compte
+          </button>
         </section>
       </div>
+      
+      {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
     </div>
   );
 }
