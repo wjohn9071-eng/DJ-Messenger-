@@ -30,20 +30,96 @@ export function SettingsMock({
     setTimeout(() => setToast(null), 3000);
   };
 
+  const frenchColors: Record<string, string> = {
+    "vert lime": "#32CD32",
+    "vert citron": "#CCFF00",
+    "rose": "#FFC0CB",
+    "bleu d'azur": "#007FFF",
+    "bleu azur": "#007FFF",
+    "rouge": "#FF0000",
+    "bleu": "#0000FF",
+    "vert": "#008000",
+    "jaune": "#FFFF00",
+    "noir": "#000000",
+    "blanc": "#FFFFFF",
+    "gris": "#808080",
+    "orange": "#FFA500",
+    "violet": "#EE82EE",
+    "marron": "#A52A2A",
+    "cyan": "#00FFFF",
+    "magenta": "#FF00FF",
+    "or": "#FFD700",
+    "argent": "#C0C0C0",
+    "turquoise": "#40E0D0",
+    "indigo": "#4B0082",
+    "beige": "#F5F5DC",
+    "lilas": "#B666D2",
+    "saumon": "#FA8072",
+    "corail": "#FF7F50",
+    "kaki": "#F0E68C",
+    "lavande": "#E6E6FA",
+    "prune": "#DDA0DD",
+    "chocolat": "#D2691E",
+    "tomate": "#FF6347",
+    "émeraude": "#50C878",
+    "saphir": "#0F52BA",
+    "rubis": "#E0115F",
+    "jade": "#00A86B",
+    "ambre": "#FFBF00",
+    "bordeaux": "#800000",
+    "bleu marine": "#000080",
+    "bleu ciel": "#87CEEB",
+    "vert olive": "#808000",
+    "jaune moutarde": "#FFDB58",
+    "rose poudré": "#FFD1DC",
+    "vert d'eau": "#B0F2B6",
+    "rouge brique": "#B22222",
+    "vert menthe": "#98FF98",
+    "bleu roi": "#4169E1",
+    "bleu nuit": "#191970",
+    "jaune citron": "#FFF700",
+    "vert sapin": "#095228",
+    "rose fuchsia": "#FD3F92",
+    "gris anthracite": "#303030",
+    "blanc cassé": "#FEFEE2"
+  };
+
+  const colorNameToHex = (color: string) => {
+    const lowerColor = color.toLowerCase().trim();
+    if (frenchColors[lowerColor]) return frenchColors[lowerColor];
+    if (color.startsWith('#')) return color;
+    
+    // Check if it's a valid CSS color name
+    const s = document.createElement('div').style;
+    s.color = lowerColor;
+    if (s.color !== '') {
+      const ctx = document.createElement('canvas').getContext('2d');
+      if (!ctx) return color;
+      ctx.fillStyle = lowerColor;
+      return ctx.fillStyle;
+    }
+    return color;
+  };
+
   const handleColorChange = (newColor: string) => {
     setBgColor(newColor);
-    // Auto-save in mock for better tutorial experience
-    updateState((prev: AppState) => {
-      const newUsers = { ...prev.users };
-      if (newUsers[prev.currentUser as string]) {
-        newUsers[prev.currentUser as string] = {
-          ...newUsers[prev.currentUser as string],
-          bgColor: newColor
-        };
-      }
-      return { users: newUsers };
-    });
-    document.documentElement.style.setProperty('--bg-color', newColor);
+    const hex = colorNameToHex(newColor);
+    
+    const s = document.createElement('div').style;
+    s.color = hex;
+    if (s.color !== '') {
+      updateState((prev: AppState) => {
+        const newUsers = { ...prev.users };
+        if (newUsers[prev.currentUser as string]) {
+          newUsers[prev.currentUser as string] = {
+            ...newUsers[prev.currentUser as string],
+            bgColor: hex
+          };
+        }
+        return { users: newUsers };
+      });
+      document.documentElement.style.setProperty('--bg-color', hex);
+    }
   };
 
   const saveSettings = () => {

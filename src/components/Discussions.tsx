@@ -173,9 +173,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         
         // Update Firestore
         const userRef = doc(db, 'users', state.currentUser as string);
-        updateDoc(userRef, {
-          [`lastReadTimestamps.${activeGroup}`]: readTimestamp
-        }).catch(e => console.error("Error updating last read:", e));
+        setDoc(userRef, {
+          lastReadTimestamps: {
+            [activeGroup]: readTimestamp
+          }
+        }, { merge: true }).catch(e => console.error("Error updating last read:", e));
 
         updateState((prev: AppState) => {
           const newUsers = { ...prev.users };
@@ -681,50 +683,72 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       if (part.match(urlRegex)) {
         return (
           <a 
-            key={i} 
+            key={`url-${i}`} 
             href={part} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-[#00FFFF] font-bold underline decoration-[#00FFFF] decoration-2 underline-offset-4 transition-all px-1.5 py-0.5 rounded-lg bg-[#00FFFF]/10 border border-[#00FFFF]/20 hover:bg-[#00FFFF]/20"
-            style={{ 
-              textShadow: '0 0 12px rgba(0, 255, 255, 0.9)',
-              boxShadow: '0 0 15px rgba(0, 255, 255, 0.2)'
-            }}
+            className="text-[#00FFFF] font-bold underline underline-offset-4 hover:opacity-80 transition-opacity"
+            style={{ textShadow: '0 0 8px rgba(0, 255, 255, 0.5)' }}
           >
             {part}
           </a>
         );
       }
       
+      // Strict Bold/Italic formatting
+      // We use a temporary placeholder system to avoid double-processing and overlapping
       let processed = part;
-      const tokens: {id: string, html: string}[] = [];
-      const escapeHtml = (str: string) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const tokens: { id: string, html: React.ReactNode }[] = [];
+      let tokenIndex = 0;
 
-      // Improved Regex: Handle bold/italic without interfering with punctuation or phone numbers
-      processed = processed.replace(/(\*\*([^*]+?\w[^*]*?)\*\*)/g, (match, full, inner) => {
-        const id = `__BOLD_${tokens.length}__`;
-        tokens.push({ id, html: `<strong class="font-black text-[1.05em]">${escapeHtml(inner)}</strong>` });
+      // Bold: **Text** - Must be surrounded by non-asterisks or boundary
+      // Avoid matching if it's part of a longer sequence of asterisks
+      const boldRegex = /(?<!\*)\*\*([^*]+?)\*\*(?!\*)/g;
+      processed = processed.replace(boldRegex, (match, content) => {
+        const id = `__BOLD_TOKEN_${tokenIndex}__`;
+        tokens.push({
+          id,
+          html: <strong key={id} className="font-black text-[1.05em] px-0.5">{content}</strong>
+        });
+        tokenIndex++;
         return id;
       });
-      
-      processed = processed.replace(/(\*([^*]+?\w[^*]*?)\*)/g, (match, full, inner) => {
-        const id = `__ITALIC_${tokens.length}__`;
-        tokens.push({ id, html: `<em class="italic text-[1.05em]">${escapeHtml(inner)}</em>` });
+
+      // Italic: *Text* - Safe check to avoid phone numbers or single asterisks
+      // Must have at least one character and not just spaces
+      const italicRegex = /(?<!\*)\*([^*]+?)\*(?!\*)/g;
+      processed = processed.replace(italicRegex, (match, content) => {
+        const id = `__ITALIC_TOKEN_${tokenIndex}__`;
+        tokens.push({
+          id,
+          html: <em key={id} className="italic text-[1.05em] px-0.5 opacity-90">{content}</em>
+        });
+        tokenIndex++;
         return id;
       });
+
+      // Split by tokens and recompose with React elements
+      const finalParts: (string | React.ReactNode)[] = [processed];
       
-      let finalText = processed;
       tokens.forEach(token => {
-        finalText = finalText.replace(token.id, token.html);
+        for (let j = 0; j < finalParts.length; j++) {
+          const p = finalParts[j];
+          if (typeof p === 'string' && p.includes(token.id)) {
+            const splitted = p.split(token.id);
+            const newSegments: (string | React.ReactNode)[] = [];
+            splitted.forEach((seg, idx) => {
+              newSegments.push(seg);
+              if (idx < splitted.length - 1) {
+                newSegments.push(token.html);
+              }
+            });
+            finalParts.splice(j, 1, ...newSegments);
+            j += newSegments.length - 1;
+          }
+        }
       });
-      
-      return (
-        <span 
-          key={i} 
-          dangerouslySetInnerHTML={{ __html: finalText }}
-          className="whitespace-pre-wrap leading-relaxed"
-        />
-      );
+
+      return <span key={`text-${i}`} className="whitespace-pre-wrap leading-relaxed">{finalParts}</span>;
     });
   };
 
@@ -1064,6 +1088,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     if (isTest) {
       setShowRestrictedPopup(true);
       return;
+    }
+    if (joinCode.length < 5 || joinCode.length > 7) {
+      return showToast("Le code doit faire entre 5 et 7 caractères.");
     }
     const group = Object.values(state.groups).find(g => g.type === 'private' && g.code === joinCode);
     if (!group) return showToast("Code invalide.");
@@ -1457,11 +1484,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       
       if (currentUser?.pinnedGroups?.includes(activeGroup)) {
         newPinned = (currentUser.pinnedGroups || []).filter(id => id !== activeGroup);
-        await updateDoc(userRef, { pinnedGroups: arrayRemove(activeGroup) });
+        await setDoc(userRef, { pinnedGroups: arrayRemove(activeGroup) }, { merge: true });
         showToast("Discussion désépinglée.");
       } else {
         newPinned = [...(currentUser?.pinnedGroups || []), activeGroup];
-        await updateDoc(userRef, { pinnedGroups: arrayUnion(activeGroup) });
+        await setDoc(userRef, { pinnedGroups: arrayUnion(activeGroup) }, { merge: true });
         showToast("Discussion épinglée !");
       }
       
@@ -1540,7 +1567,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
     try {
       const userRef = doc(db, 'users', state.currentUser as string);
-      await updateDoc(userRef, { lastReadTimestamps: newTimestamps });
+      await setDoc(userRef, { lastReadTimestamps: newTimestamps }, { merge: true });
       
       updateState((prev: AppState) => {
         const newUsers = { ...prev.users };
@@ -1592,7 +1619,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     const isAdmin = !isSMS && ((group as Group).admins?.includes(state.currentUser as string) || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin);
     const isSubAdmin = !isSMS && (group as Group).subAdmins?.includes(state.currentUser as string);
     const isCreator = !isSMS && (group as Group).creator === state.currentUser;
-    const isMember = (group.members || []).includes(state.currentUser as string);
+    const isMember = group.type === 'public' || (group.members || []).includes(state.currentUser as string);
     const isPinned = currentUser?.pinnedGroups?.includes(activeGroup);
     const lastRead = currentUser?.lastReadTimestamps?.[activeGroup] || '0';
 
@@ -1673,7 +1700,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill={isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
               </button>
             )}
-            {!isSMS && isMember && (
+            {!isSMS && isMember && group.type !== 'public' && (
               <button onClick={() => handleLeaveGroup(activeGroup)} className="p-2 rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="Quitter le groupe">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
               </button>
@@ -2439,14 +2466,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             </div>
           )}
-          {!isMember && group.type === 'public' && group.name !== 'Général' ? (
-            <div className="flex flex-col items-center gap-3 p-2">
-              <p className="text-xs text-gray-500 font-medium italic">Rejoins le groupe pour participer à la discussion !</p>
-              <button onClick={() => handleJoinPublicGroup(activeGroup)} className={`w-full py-3 rounded-2xl font-black uppercase tracking-widest text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}>
-                Être membre
-              </button>
-            </div>
-          ) : (!isMember && group.type === 'private' && !isSMS) ? (
+          {(!isMember && group.type === 'private' && !isSMS) ? (
             <div className="flex flex-col items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
               <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Mode Secret</p>
               <p className="text-xs text-gray-400 italic">Vous êtes en lecture seule sur ce groupe privé.</p>
@@ -2585,11 +2605,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 onClick={() => {
                   if (isTest) setShowRestrictedPopup(true);
                 }}
-                disabled={!isMember && group.type === 'public' && group.name !== 'Général'}
+                disabled={!isMember && group.type === 'private' && !isSMS}
                 placeholder={
                   isTest ? "Connectez-vous pour écrire..." : 
                   state.activeThreadId ? `Écrire dans le fil "${state.activeThreadName}"...` :
-                  (!isMember && group.type === 'public' && group.name !== 'Général') ? "Rejoins le groupe pour écrire..." :
+                  (!isMember && group.type === 'private' && !isSMS) ? "Mode Secret - Lecture seule" :
                   (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator) ? "Seuls les admins peuvent parler ici." :
                   "Écris un message... (MAJ+Entrée pour passer à la ligne)"
                 } 
@@ -2947,7 +2967,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       {state.newMessages?.includes(g.id) && (
                         <div className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse z-10" />
                       )}
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#007FFF] to-[#32CD32] flex items-center justify-center text-white font-bold text-xl shadow-inner group-hover:scale-105 transition-transform overflow-hidden">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-inner group-hover:scale-105 transition-transform overflow-hidden ${g.avatar ? 'bg-white' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'}`}>
                         {g.avatar ? <img src={g.avatar} alt={g.name} className="w-full h-full object-cover" /> : <span>{(g.name || '?')[0].toUpperCase()}</span>}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -2959,14 +2979,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           <p className={`text-sm truncate ${state.newMessages?.includes(g.id) ? (state.darkMode ? 'text-white font-bold' : 'text-gray-900 font-bold') : 'text-gray-500'}`}>
                             {g.messages && g.messages.length > 0 ? g.messages[g.messages.length - 1]?.text : 'Aucun message'}
                           </p>
-                          {!isMember && g.name !== 'Général' && (
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleJoinPublicGroup(g.id); }} 
-                              className={`ml-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-md ${djStyleBg}`}
-                            >
-                              Rejoindre
-                            </button>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -2993,7 +3005,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     <input 
                       type="text" 
                       placeholder="Code (ex: A1b2!)" 
-                      maxLength={5}
+                      maxLength={7}
                       value={joinCode} 
                       onChange={e => setJoinCode(e.target.value)} 
                       className="flex-1 px-4 py-3 rounded-xl border border-gray-100 focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all bg-gray-50 font-mono text-center tracking-widest" 
@@ -3007,7 +3019,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     {state.newMessages?.includes(g.id) && (
                       <div className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse z-10" />
                     )}
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#007FFF] to-[#32CD32] flex items-center justify-center text-white font-bold text-xl shadow-inner group-hover:scale-105 transition-transform overflow-hidden">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-inner group-hover:scale-105 transition-transform overflow-hidden ${g.avatar ? 'bg-white' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'}`}>
                       {g.avatar ? <img src={g.avatar} alt={g.name} className="w-full h-full object-cover" /> : <span>{(g.name || '?')[0].toUpperCase()}</span>}
                     </div>
                     <div className="flex-1 min-w-0">

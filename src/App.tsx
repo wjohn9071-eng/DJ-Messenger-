@@ -34,16 +34,18 @@ export default function App() {
     const markOnline = async () => {
       try {
         const timestamp = new Date().toISOString();
-        await updateDoc(userRef, { isOnline: true, lastLogin: timestamp, lastActivity: timestamp });
-        await updateDoc(userPublicRef, { isOnline: true, lastLogin: timestamp, lastActivity: timestamp });
+        const updates = { isOnline: true, lastLogin: timestamp, lastActivity: timestamp, lastSeen: Date.now() };
+        await setDoc(userRef, updates, { merge: true });
+        await setDoc(userPublicRef, updates, { merge: true });
       } catch (e) { console.error("Error marking online:", e); }
     };
 
     const markOffline = async () => {
       try {
         const timestamp = new Date().toISOString();
-        await updateDoc(userRef, { isOnline: false, lastActivity: timestamp });
-        await updateDoc(userPublicRef, { isOnline: false, lastActivity: timestamp });
+        const updates = { isOnline: false, lastActivity: timestamp, lastSeen: Date.now() };
+        await setDoc(userRef, updates, { merge: true });
+        await setDoc(userPublicRef, updates, { merge: true });
       } catch (e) { console.error("Error marking offline:", e); }
     };
 
@@ -53,8 +55,8 @@ export default function App() {
       const now = Date.now();
       if (!(window as any).lastActivityUpdate || now - (window as any).lastActivityUpdate > 60000) {
         (window as any).lastActivityUpdate = now;
-        updateDoc(userRef, { lastActivity: new Date().toISOString() });
-        updateDoc(userPublicRef, { lastActivity: new Date().toISOString() });
+        setDoc(userRef, { lastActivity: new Date().toISOString() }, { merge: true });
+        setDoc(userPublicRef, { lastActivity: new Date().toISOString() }, { merge: true });
       }
     };
 
@@ -82,7 +84,7 @@ export default function App() {
             vapidKey: 'BD8X8a_fP0U7Nn-_pYRP_Y1f_P6n9n9n9n9n9n9n9n9n9n9n' // Example key, should be user's if they have one
           });
           if (token) {
-            await updateDoc(doc(db, 'users', state.currentUser as string), { fcmToken: token });
+            await setDoc(doc(db, 'users', state.currentUser as string), { fcmToken: token }, { merge: true });
           }
         }
       } catch (e) {
@@ -157,8 +159,24 @@ export default function App() {
       initialLoadDone.current = true;
     }, 3000);
 
+    // Real-time current user data listener
+    const unsubUser = onSnapshot(doc(db, 'users', state.currentUser as string), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data() as User;
+        updateState((prev: AppState) => {
+          const newUsers = { ...prev.users };
+          newUsers[state.currentUser as string] = {
+            ...newUsers[state.currentUser as string],
+            ...data
+          };
+          return { ...prev, users: newUsers, currentUserData: data };
+        });
+      }
+    });
+
     return () => {
       unsubscribers.forEach(unsub => unsub());
+      unsubUser();
       clearTimeout(timer);
     };
   }, [state.currentUser, state.activeGroup]);
@@ -318,7 +336,7 @@ export default function App() {
     if (!state.currentUser || state.currentUser === 'test') return;
 
     const userRef = doc(db, 'users', state.currentUser);
-    const publicRef = doc(db, 'public_users', state.currentUser);
+    const publicRef = doc(db, 'users_public', state.currentUser);
 
     const updatePresence = async (isOnline: boolean) => {
       const now = Date.now();
@@ -328,8 +346,8 @@ export default function App() {
       };
       
       try {
-        await updateDoc(userRef, updates);
-        await updateDoc(publicRef, updates);
+        await setDoc(userRef, updates, { merge: true });
+        await setDoc(publicRef, updates, { merge: true });
       } catch (e) {
         console.error("Presence error:", e);
       }
@@ -346,8 +364,8 @@ export default function App() {
       const userData = state.users[state.currentUser as string];
       if (userData && !userData.createdAt) {
         const now = Date.now();
-        await updateDoc(userRef, { createdAt: now });
-        await updateDoc(publicRef, { createdAt: now });
+        await setDoc(userRef, { createdAt: now }, { merge: true });
+        await setDoc(publicRef, { createdAt: now }, { merge: true });
       }
     };
     initUserData();
@@ -513,7 +531,7 @@ export default function App() {
       "Astuce : Consultez l'onglet 'Mises à jour' pour découvrir les dernières nouveautés de DJ Messenger.",
       "Astuce : Si un utilisateur est supprimé, vous pouvez choisir de supprimer tous ses messages passés pour nettoyer la discussion.",
       "Astuce : Pour devenir administrateur, utilisez le code 'Dj2024in' dans la section Compte des paramètres.",
-      "Astuce : Les groupes privés sont protégés par un code de 5 caractères que seul le créateur connaît au départ.",
+      "Astuce : Les groupes privés sont protégés par un code de 5 à 7 caractères que seul le créateur connaît au départ.",
       "Astuce : L'onglet 'Récents' dans les discussions vous montre les derniers messages de tous vos groupes en un coup d'œil.",
       "Astuce : Vous pouvez proposer jusqu'à 3 idées par jour dans la DJ Society si vous n'êtes pas admin."
     ];
@@ -622,10 +640,10 @@ export default function App() {
             await addDoc(msgRef, botResponse);
             
             const userRef = doc(db, 'users', state.currentUser as string);
-            await updateDoc(userRef, {
+            await setDoc(userRef, {
               botQuestionsToday: questionsToday + 1,
               lastBotQuestionDate: today
-            });
+            }, { merge: true });
           } catch (e) {
             console.error("Error sending bot response:", e);
           }
@@ -662,9 +680,12 @@ export default function App() {
 
   navItems.push(
     { id: 'updates', label: 'Mises à jour', icon: Bell },
-    { id: 'settings', label: 'Paramètres', icon: SettingsIcon },
-    { id: 'tutorial', label: 'Tutoriel', icon: HelpCircle }
+    { id: 'settings', label: 'Paramètres', icon: SettingsIcon }
   );
+
+  if (isTest) {
+    navItems.push({ id: 'tutorial', label: 'Tutoriel', icon: HelpCircle });
+  }
 
   const renderView = () => {
     switch (view) {

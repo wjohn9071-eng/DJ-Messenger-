@@ -76,8 +76,11 @@ export function TutorialGame({
           messages: [
             { id: 'm1', user: 'dj-bot', text: 'Bienvenue dans le salon public de démo ! 🎧 Tout le monde peut nous lire ici.', time: '12:00', timestamp: new Date().toISOString() }
           ],
-          isSMS: false,
-          lastActivity: new Date().toISOString()
+          lastActivity: new Date().toISOString(),
+          creator: 'dj-bot',
+          admins: ['dj-bot'],
+          banned: [],
+          muted: []
         },
         'sim-private': { 
           id: 'sim-private', 
@@ -87,8 +90,11 @@ export function TutorialGame({
           messages: [
             { id: 'm2', user: 'dj-bot', text: 'Chut... Celui-ci est privé. Utile pour parler à une équipe spécifique.', time: '12:05', timestamp: new Date().toISOString() }
           ],
-          isSMS: false,
-          lastActivity: new Date().toISOString()
+          lastActivity: new Date().toISOString(),
+          creator: 'dj-bot',
+          admins: ['dj-bot'],
+          banned: [],
+          muted: []
         },
         'sim-sms': { 
           id: 'sim-sms', 
@@ -98,8 +104,11 @@ export function TutorialGame({
           messages: [
             { id: 'm3', user: 'dj-bot', text: 'Je suis aussi disponible en SMS direct ! 📱 Pose-moi tes questions.', time: '12:10', timestamp: new Date().toISOString() }
           ],
-          isSMS: true,
-          lastActivity: new Date().toISOString()
+          lastActivity: new Date().toISOString(),
+          creator: 'dj-bot',
+          admins: ['dj-bot'],
+          banned: [],
+          muted: []
         }
       },
       users: { 

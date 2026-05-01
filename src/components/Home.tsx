@@ -2,7 +2,7 @@ import React from 'react';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from '../lib/utils';
 import { AppState } from '../types';
 import { APP_UPDATES } from '../constants';
-import { Pin, ChevronDown, ChevronUp } from 'lucide-react';
+import { Pin, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react';
 
 export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string, p?: boolean) => void, updateState: any, startSimulation: () => void }) {
   const currentVersion = APP_UPDATES[0]?.version || '3.0.0';
@@ -155,19 +155,39 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     <div className={`min-h-full p-6 animate-in fade-in duration-500 overflow-y-auto backdrop-blur-sm ${state.darkMode ? 'bg-black/50 text-white' : 'bg-white/50 text-gray-800'}`}>
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-center w-full max-w-6xl mx-auto gap-8">
         
-        {/* Main Center Content (Maintained center with ml-auto/mr-auto if needed, but flex-1 handles it) */}
-        <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto py-8 text-center">
-        <div className={`w-40 h-40 md:w-48 md:h-48 mb-6 flex-shrink-0 flex items-center justify-center shadow-2xl rounded-[2.5rem] overflow-hidden p-6 border ${state.darkMode ? 'bg-white/10 border-white/20' : 'bg-white border-gray-100'}`}>
+        {/* Main Center Content */}
+        <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto py-8 text-center relative overflow-visible">
+        
+        {/* Astuces en second plan (fond) */}
+        {!isTest && (
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 opacity-20 pointer-events-none z-0">
+             <div className="bg-[#0D98BA]/20 blur-[100px] w-full h-full rounded-full" />
+             <p className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-black uppercase tracking-[0.3em] text-center w-full whitespace-nowrap hidden lg:block">
+               {currentTip}
+             </p>
+          </div>
+        )}
+
+        <div className={`w-40 h-40 md:w-48 md:h-48 mb-6 flex-shrink-0 flex items-center justify-center shadow-2xl rounded-[2.5rem] overflow-hidden p-6 border relative z-10 ${state.darkMode ? 'bg-white/10 border-white/20' : 'bg-white border-gray-100'}`}>
           <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
         </div>
 
-        {(isTest || isNewUser) && (
-          <div className="w-full mb-8" id="tutorial-launch-area">
+        {!isTest && (
+          <div className="bg-white/5 backdrop-blur-md p-3 px-6 rounded-full border border-white/5 w-full max-w-sm mb-8 animate-in fade-in slide-in-from-top-4 text-center z-10">
+            <p className="text-[9px] font-black tracking-widest text-gray-500 uppercase flex items-center justify-center gap-2">
+              <Lightbulb size={12} className="text-yellow-500" />
+              {currentTip}
+            </p>
+          </div>
+        )}
+
+        {isTest && (
+          <div className="w-full mb-8 relative z-10" id="tutorial-launch-area">
             <button 
               onClick={startSimulation}
               className={`w-full px-6 py-5 rounded-3xl font-black uppercase tracking-widest text-lg shadow-[0_0_20px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition-transform active:scale-95 text-white flex items-center justify-center gap-2 ${djStyleBg}`}
             >
-              <span>{isTest ? 'Lancer le Tutoriel' : 'Mode Découverte'}</span>
+              <span>Lancer le Tutoriel</span>
             </button>
             <p className="text-xs font-semibold text-gray-500 mt-3 px-4 leading-relaxed">
               Clique ci-dessus pour un tour rapide et interactif des fonctionnalités !
@@ -218,7 +238,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           </div>
         )}
 
-        {/* Pinned Discussions - Mobile */}
+        {/* Pinned Discussions - Mobile moved here under updates */}
         <div className="lg:hidden w-full mb-8 text-left">
           <button
             onClick={() => setShowMobilePinned(!showMobilePinned)}
@@ -243,24 +263,24 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           )}
         </div>
 
-        <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-100 w-full mb-8 animate-in slide-in-from-bottom-4 text-center">
-          <p className="text-sm font-semibold text-gray-600 italic">💡 {currentTip}</p>
-        </div>
         </div>
 
-        {/* Pinned Discussions - Desktop Right */}
-        <div className="hidden lg:block w-80 shrink-0 sticky top-8">
-          <div className={`p-5 rounded-3xl shadow-xl border ${state.darkMode ? 'bg-black/60 border-white/10' : 'bg-white/80 border-gray-100'}`}>
-            <h2 className="flex items-center gap-2 text-lg font-black uppercase tracking-tighter mb-2">
-              <Pin size={18} className="text-[#0D98BA]" />
-              Discussions Épinglées
+        <div className="hidden lg:block w-80 shrink-0 sticky top-8 self-start">
+          <div className={`p-6 rounded-[2.5rem] shadow-2xl border ${state.darkMode ? 'bg-black/80 border-white/10' : 'bg-white/90 border-gray-100 backdrop-blur-xl'}`}>
+            <h2 className="flex items-center gap-3 text-xl font-black uppercase tracking-tighter mb-6">
+              <div className={`p-2 rounded-xl ${djStyleBg} shadow-lg`}>
+                <Pin size={20} className="text-white" />
+              </div>
+              <span>Épinglées</span>
               {pinnedDiscussions.reduce((acc, g) => acc + g.unreadCount, 0) > 0 && (
-                <div className="w-5 h-5 ml-auto rounded-full bg-red-500 flex items-center justify-center animate-pulse shadow-lg">
+                <div className="w-6 h-6 ml-auto rounded-full bg-[#0D98BA] flex items-center justify-center animate-pulse shadow-lg">
                   <span className="text-[10px] font-black text-white">{pinnedDiscussions.reduce((acc, g) => acc + g.unreadCount, 0)}</span>
                 </div>
               )}
             </h2>
-            {renderPinnedList()}
+            <div className="max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+              {renderPinnedList()}
+            </div>
           </div>
         </div>
 

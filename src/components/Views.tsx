@@ -114,15 +114,29 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
         const publicRef = doc(db, 'users_public', auth.currentUser.uid);
 
         try {
-          await updateDoc(userRef, {
+          await setDoc(userRef, {
             name: username,
             avatar: avatar || '',
             password: password || user?.password || ''
-          });
+          }, { merge: true });
           
-          await updateDoc(publicRef, {
+          await setDoc(publicRef, {
             name: username,
             avatar: avatar || ''
+          }, { merge: true });
+
+          // Immediate local update for better UX
+          updateState((prev: AppState) => {
+            const newUsers = { ...prev.users };
+            if (newUsers[prev.currentUser as string]) {
+              newUsers[prev.currentUser as string] = {
+                ...newUsers[prev.currentUser as string],
+                name: username,
+                avatar: avatar || '',
+                password: password || user?.password || ''
+              };
+            }
+            return { users: newUsers };
           });
         } catch (e: any) {
           console.error("Erreur Firestore lors de la mise à jour du profil:", e);
@@ -153,13 +167,26 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
     setAvatar(null);
   };
 
+  const hasChanged = hasUsernameChanged || hasPasswordChanged || hasAvatarChanged;
+
   return (
     <div className="p-4 md:p-8 max-w-xl mx-auto animate-in fade-in duration-300 pb-24">
-      <div className="flex items-center gap-4 mb-8">
-        <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg`}>
-          <User className="text-white" size={24} />
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg`}>
+            <User className="text-white" size={24} />
+          </div>
+          <h2 className={`text-3xl font-black uppercase tracking-tighter ${djStyleText}`}>Mon Profil</h2>
         </div>
-        <h2 className={`text-3xl font-black uppercase tracking-tighter ${djStyleText}`}>Mon Profil</h2>
+        {hasChanged && (
+          <button 
+            type="button"
+            onClick={handleSave}
+            className="px-6 py-3 bg-[#0D98BA] text-white text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] shadow-lg shadow-[#0D98BA]/30 hover:scale-[1.05] active:scale-95 transition-all animate-in zoom-in"
+          >
+            Sauvegarder
+          </button>
+        )}
       </div>
       
       <div className="flex flex-col items-center mb-10">
@@ -185,16 +212,6 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
             </button>
           )}
         </div>
-        {hasAvatarChanged && (
-          <button 
-            type="button"
-            onClick={handleSave}
-            className={`mt-4 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 animate-in fade-in zoom-in duration-200 ${djStyleBg}`}
-          >
-            <CheckCircle2 size={16} />
-            Valider la photo
-          </button>
-        )}
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-8 bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/50 mb-8">
@@ -207,20 +224,20 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
                 autoComplete="username"
                 value={username} 
                 onChange={e => setUsername(e.target.value)} 
-                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
+                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-14 ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
                 placeholder="Ton nom..."
               />
+              {hasUsernameChanged ? (
+                <button 
+                  type="button"
+                  onClick={handleSave}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95 z-10"
+                  title="Enregistrer le nom"
+                >
+                  <CheckCircle2 size={20} />
+                </button>
+              ) : <User className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300" size={20} />}
             </div>
-            {hasUsernameChanged && (
-              <button 
-                type="button"
-                onClick={handleSave}
-                className={`shrink-0 h-14 w-14 rounded-2xl flex items-center justify-center text-white shadow-lg hover:scale-110 active:scale-95 transition-all shadow-[#0D98BA]/30 ${djStyleBg}`}
-                title="Sauvegarder le nom"
-              >
-                <CheckCircle2 size={24} />
-              </button>
-            )}
           </div>
         </div>
 
@@ -233,38 +250,42 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
                 autoComplete="new-password"
                 value={password} 
                 onChange={e => setPassword(e.target.value)} 
-                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-14 ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
+                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-24 ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
                 placeholder="Nouveau mot de passe..."
               />
-              <button 
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 transition-all"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 transition-all"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+                {hasPasswordChanged && (
+                  <button 
+                    type="button"
+                    onClick={handleSave}
+                    className="p-2 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95"
+                    title="Enregistrer le mot de passe"
+                  >
+                    <CheckCircle2 size={20} />
+                  </button>
+                )}
+              </div>
             </div>
-            {hasPasswordChanged && (
-              <button 
-                type="button"
-                onClick={handleSave}
-                className={`shrink-0 h-14 w-14 rounded-2xl flex items-center justify-center text-white shadow-lg hover:scale-110 active:scale-95 transition-all shadow-[#0D98BA]/30 ${djStyleBg}`}
-                title="Sauvegarder le mot de passe"
-              >
-                <CheckCircle2 size={24} />
-              </button>
-            )}
           </div>
         </div>
         
         <div className="pt-2">
-          <button 
-            type="submit"
-            className={`w-full py-5 rounded-[1.75rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-[0_10px_30px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition active:scale-95 text-white flex items-center justify-center gap-3 ${djStyleBg}`}
-          >
-            <Shield size={16} />
-            Mettre à jour le profil complet
-          </button>
+          {hasChanged && (
+            <button 
+              type="submit"
+              className={`w-full py-5 rounded-[1.75rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-[0_10px_30px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition active:scale-95 text-white flex items-center justify-center gap-3 ${djStyleBg}`}
+            >
+              <CheckCircle2 size={16} />
+              Enregistrer les modifications
+            </button>
+          )}
         </div>
         
         <div className="pt-4 border-t border-gray-100 mt-4 space-y-4">
@@ -324,13 +345,13 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
             <div className="flex flex-col gap-1">
               <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Membre depuis</span>
               <span className="text-[11px] font-bold text-gray-700">
-                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Acteur v3'}
+                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Depuis toujours'}
               </span>
             </div>
             <div className="flex flex-col gap-1 border-l border-white/10 pl-4">
               <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Dernière activité</span>
               <span className="text-[11px] font-bold text-gray-700">
-                {user?.lastActivity ? new Date(user.lastActivity).toLocaleDateString() + ' ' + new Date(user.lastActivity).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : 'À l\'instant'}
+                {user?.lastSeen ? new Date(user.lastSeen).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'À l\'instant'}
               </span>
             </div>
           </div>
@@ -392,8 +413,8 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
       const userRef = doc(db, 'users', state.currentUser as string);
       const friendRef = doc(db, 'users', friendUid);
       
-      await updateDoc(userRef, { friends: arrayUnion(friendUid) });
-      await updateDoc(friendRef, { friends: arrayUnion(state.currentUser as string) });
+      await setDoc(userRef, { friends: arrayUnion(friendUid) }, { merge: true });
+      await setDoc(friendRef, { friends: arrayUnion(state.currentUser as string) }, { merge: true });
       
       updateState((prev: AppState) => {
         const newUsers = { ...prev.users };
@@ -644,10 +665,10 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
       });
 
       if (!activeHelpRequest) {
-        await updateDoc(doc(db, 'users', state.currentUser), {
+        await setDoc(doc(db, 'users', state.currentUser), {
           problemsToday: problemsToday + 1,
           lastProblemDate: today
-        });
+        }, { merge: true });
       }
 
       setMessage('');
@@ -826,8 +847,8 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   const handleToggleAdmin = async (uid: string, currentStatus: boolean) => {
     if (!isAdmin && !isGrandAdmin && !isSuperAdmin) return showToast("Seul le Staff, Grand Admin ou Super Admin peut modifier les droits.");
     try {
-      await updateDoc(doc(db, 'users', uid), { isAdmin: !currentStatus });
-      await updateDoc(doc(db, 'users_public', uid), { isAdmin: !currentStatus });
+      await setDoc(doc(db, 'users', uid), { isAdmin: !currentStatus }, { merge: true });
+      await setDoc(doc(db, 'users_public', uid), { isAdmin: !currentStatus }, { merge: true });
       showToast(`Droits admin ${!currentStatus ? 'accordés' : 'révoqués'}.`);
     } catch (error) {
       console.error("Error toggling admin:", error);
@@ -931,10 +952,14 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                       <div className="flex gap-2 mt-3">
                         <button 
                           onClick={() => {
-                            if (window.confirm(`Supprimer définitivement le compte de ${u.name || u.id} ?`)) {
-                              deleteDoc(doc(db, 'users', u.id));
-                              deleteDoc(doc(db, 'public_users', u.id));
-                              updateState({ users: Object.fromEntries(Object.entries(state.users).filter(([id]) => id !== u.id)) });
+                            if (window.confirm(`Supprimer définitivement le compte de ${u.name || (u.uid || u.id)} ?`)) {
+                              deleteDoc(doc(db, 'users', u.uid || u.id));
+                              deleteDoc(doc(db, 'users_public', u.uid || u.id));
+                              updateState((prev: AppState) => {
+                                const newUsers = { ...prev.users };
+                                delete newUsers[u.uid || u.id];
+                                return { users: newUsers };
+                              });
                             }
                           }}
                           className="flex-1 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest py-2 rounded-xl hover:bg-red-100 transition-colors"
@@ -945,8 +970,8 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                           onClick={() => {
                             const newPwd = window.prompt("Nouveau mot de passe pour cet utilisateur :", u.password || '');
                             if (newPwd) {
-                              updateDoc(doc(db, 'users', u.id), { password: newPwd });
-                              updateState({ users: { ...state.users, [u.id]: { ...u, password: newPwd } } });
+                              setDoc(doc(db, 'users', u.uid || u.id), { password: newPwd }, { merge: true });
+                              updateState({ users: { ...state.users, [u.uid || u.id]: { ...u, password: newPwd } } });
                             }
                           }}
                           className="flex-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest py-2 rounded-xl hover:bg-blue-100 transition-colors"
@@ -1066,10 +1091,10 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
       await addDoc(collection(db, 'proposals'), proposalData);
 
       if (!currentUser.isAdmin) {
-        await updateDoc(doc(db, 'users', state.currentUser as string), {
+        await setDoc(doc(db, 'users', state.currentUser as string), {
           lastProposalDate: today,
           proposalsToday: (currentUser.proposalsToday || 0) + 1
-        });
+        }, { merge: true });
       }
 
       setText('');
@@ -1366,7 +1391,7 @@ export function Updates({ state }: { state: AppState }) {
   const currentUser = state.currentUser ? state.users[state.currentUser] : null;
   const isPrivileged = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
 
-  const sensitiveRegex = /([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive|visualisation des mots de passe|Visualisation|modération|sécurité)[^.!?]*[.!?])/gi;
+  const sensitiveRegex = /([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|Staff-Help|Dj2024in|DJ_MASTER_2026|DJ24026IN|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive|visualisation des mots de passe|Visualisation|modération|sécurité)[^.!?]*[.!?])/gi;
 
   const displayUpdates = APP_UPDATES.map(u => {
     const rawDesc = isPrivileged ? u.desc : u.desc.replace(sensitiveRegex, '').split('\n').filter(line => line.trim()).join('\n').trim() || u.desc;
@@ -1449,20 +1474,31 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   const [bgColor, setBgColor] = useState(user?.bgColor || '#f0f2f5');
   const [notifications, setNotifications] = useState(user?.notificationsEnabled || false);
   const [autoHideSidebar, setAutoHideSidebar] = useState(user?.autoHideSidebar ?? true);
+  const [tempDarkMode, setTempDarkMode] = useState(state.darkMode);
   const [adminCode, setAdminCode] = useState('');
   const [superAdminCode, setSuperAdminCode] = useState('');
+  const [showAdminCodeInput, setShowAdminCodeInput] = useState(false);
+  const [showSuperAdminCodeInput, setShowSuperAdminCodeInput] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
-  // Sync state with user data when it changes externally (e.g. from another device)
+  // Sync state with user data when it changes externally
   useEffect(() => {
     if (user && !showSaveConfirm) {
       setBgColor(user.bgColor || '#f0f2f5');
       setNotifications(user.notificationsEnabled || false);
       setAutoHideSidebar(user.autoHideSidebar ?? true);
+      setTempDarkMode(user.darkMode ?? state.darkMode);
     }
   }, [user, showSaveConfirm]);
+
+  const hasChanges = user && (
+    bgColor !== (user.bgColor || '#f0f2f5') ||
+    notifications !== (user.notificationsEnabled || false) ||
+    autoHideSidebar !== (user.autoHideSidebar ?? true) ||
+    tempDarkMode !== state.darkMode
+  );
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -1532,13 +1568,22 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
     if (frenchColors[lowerColor]) return frenchColors[lowerColor];
     if (color.startsWith('#')) return color;
     
-    const ctx = document.createElement('canvas').getContext('2d');
-    if (!ctx) return color;
-    ctx.fillStyle = color;
-    return ctx.fillStyle;
+    // Check if it's a valid CSS color name
+    const s = document.createElement('div').style;
+    s.color = lowerColor;
+    if (s.color !== '') {
+      const ctx = document.createElement('canvas').getContext('2d');
+      if (!ctx) return color;
+      ctx.fillStyle = lowerColor;
+      return ctx.fillStyle;
+    }
+    return color;
   };
 
-  const saveSettings = () => {
+  // Preview effect: removed - color should only apply after save
+  // useEffect(() => { ... })
+
+  const saveSettings = async () => {
     if (isTest) {
       setShowRestrictedPopup(true);
       setShowSaveConfirm(false);
@@ -1546,48 +1591,51 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
     }
     const hexColor = colorNameToHex(bgColor);
     
-    updateState((prev: AppState) => {
-      const newUsers = { ...prev.users };
-      newUsers[prev.currentUser as string].bgColor = hexColor;
-      newUsers[prev.currentUser as string].notificationsEnabled = notifications;
-      newUsers[prev.currentUser as string].autoHideSidebar = autoHideSidebar;
-      newUsers[prev.currentUser as string].darkMode = state.darkMode;
-      return { users: newUsers };
-    });
-    
-    updateDoc(doc(db, 'users', state.currentUser as string), {
-      bgColor: hexColor,
-      notificationsEnabled: notifications,
-      autoHideSidebar: autoHideSidebar,
-      darkMode: state.darkMode || false
-    }).catch(e => console.error("Error saving settings to Firestore:", e));
+    try {
+      const userRef = doc(db, 'users', state.currentUser as string);
+      const updates = {
+        bgColor: hexColor,
+        notificationsEnabled: notifications,
+        autoHideSidebar: autoHideSidebar,
+        darkMode: tempDarkMode
+      };
+      
+      await setDoc(userRef, updates, { merge: true });
+      
+      updateState((prev: AppState) => {
+        const newUsers = { ...prev.users };
+        if (newUsers[prev.currentUser as string]) {
+          newUsers[prev.currentUser as string] = {
+            ...newUsers[prev.currentUser as string],
+            ...updates
+          };
+        }
+        return { users: newUsers, darkMode: tempDarkMode };
+      });
 
-    document.documentElement.style.setProperty('--bg-color', hexColor);
-    setBgColor(hexColor);
-    
-    if (notifications && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-             showToast("Notifications activées !");
-          } else {
-             setNotifications(false);
-             showToast("Permission refusée.");
-          }
-        });
-      } else if (Notification.permission === 'denied') {
-        showToast("Les notifications sont bloquées par votre navigateur.");
-        setNotifications(false);
-      } else {
-        showToast("Notifications déjà activées !");
+      document.documentElement.style.setProperty('--bg-color', hexColor);
+      setBgColor(hexColor);
+      
+      if (notifications && 'Notification' in window) {
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+               showToast("Notifications activées !");
+            } else {
+               setNotifications(false);
+               showToast("Permission refusée.");
+            }
+          });
+        }
       }
-    } else if (notifications) {
-      showToast("Votre navigateur ne supporte pas les notifications.");
-      setNotifications(false);
+      
+      showToast("Paramètres sauvegardés !");
+    } catch (e: any) {
+      console.error("Error saving settings:", e);
+      showToast("Erreur lors de la sauvegarde.");
     }
     
     setShowSaveConfirm(false);
-    showToast("Paramètres sauvegardés !");
   };
 
   const cancelSettings = () => {
@@ -1595,6 +1643,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       setBgColor(user.bgColor || '#f0f2f5');
       setNotifications(user.notificationsEnabled || false);
       setAutoHideSidebar(user.autoHideSidebar ?? true);
+      setTempDarkMode(state.darkMode);
     }
     setShowSaveConfirm(false);
   };
@@ -1610,7 +1659,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         newUsers[prev.currentUser as string].isAdmin = true;
         return { users: newUsers };
       });
-      updateDoc(doc(db, 'users', state.currentUser as string), { isAdmin: true });
+      setDoc(doc(db, 'users', state.currentUser as string), { isAdmin: true }, { merge: true });
       showToast("Mode Staff activé !");
     } else if (adminCode === 'DJ_MASTER_2026') {
       updateState((prev: AppState) => {
@@ -1619,10 +1668,10 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         newUsers[prev.currentUser as string].isGrandAdmin = true;
         return { users: newUsers };
       });
-      updateDoc(doc(db, 'users', state.currentUser as string), { 
+      setDoc(doc(db, 'users', state.currentUser as string), { 
         isAdmin: true,
         isGrandAdmin: true 
-      });
+      }, { merge: true });
       showToast("Mode GRAND ADMIN activé !");
     } else {
       showToast("Code incorrect.");
@@ -1645,11 +1694,11 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         newUsers[prev.currentUser as string].superAdminUntil = until;
         return { users: newUsers };
       });
-      updateDoc(doc(db, 'users', state.currentUser as string), { 
+      setDoc(doc(db, 'users', state.currentUser as string), { 
         isAdmin: true,
         isSuperAdmin: true,
         superAdminUntil: until
-      });
+      }, { merge: true });
       showToast("Mode SUPER ADMIN activé pour 3 minutes !");
     } else {
       showToast("Code Super Admin incorrect.");
@@ -1660,12 +1709,12 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   const handleRevokeAdmin = async () => {
     if (isTest || !state.currentUser) return;
     try {
-      await updateDoc(doc(db, 'users', state.currentUser), { 
+      await setDoc(doc(db, 'users', state.currentUser), { 
         isAdmin: false,
         isSuperAdmin: false,
         isGrandAdmin: false,
         superAdminUntil: null
-      });
+      }, { merge: true });
       showToast("Droits déclinés. Vous devez retaper le code pour redevenir admin.");
     } catch (e) {
       console.error(e);
@@ -1718,9 +1767,9 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       const querySnapshot = await getDocs(q);
       
       const friendUpdatePromises = querySnapshot.docs.map(userDoc => 
-        updateDoc(doc(db, 'users', userDoc.id), {
+        setDoc(doc(db, 'users', userDoc.id), {
           friends: arrayRemove(uid)
-        })
+        }, { merge: true })
       );
       await Promise.all(friendUpdatePromises);
 
@@ -1771,76 +1820,99 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
 
   return (
     <div className="p-6 max-w-lg mx-auto animate-in fade-in duration-300 pb-20">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className={`text-2xl font-bold ${state.darkMode ? 'text-white' : djStyleText}`}>Paramètres</h2>
+        {hasChanges && (
+          <button 
+            onClick={() => setShowSaveConfirm(true)}
+            className="px-4 py-2 bg-[#0D98BA] text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg animate-in zoom-in"
+          >
+            Sauvegarder
+          </button>
+        )}
+      </div>
+      
       <ConfirmModal 
         isOpen={showSaveConfirm} 
         message="Voulez-vous sauvegarder les modifications apportées aux paramètres ?" 
         onConfirm={saveSettings} 
         onCancel={cancelSettings} 
       />
-      <h2 className={`text-2xl font-bold mb-6 ${state.darkMode ? 'text-white' : djStyleText}`}>Paramètres</h2>
       
       <div className="flex flex-col gap-4 mb-8">
-        <button onClick={saveSettings} className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg hover:opacity-90 transition active:scale-95 text-lg ${djStyleBg}`}>
-          Sauvegarder tout
-        </button>
-        
         <button 
-          onClick={() => {
-            const newMode = !state.darkMode;
-            updateState({ darkMode: newMode });
-            if (!isTest) {
-              updateDoc(doc(db, 'users', state.currentUser as string), { darkMode: newMode }).catch(e => console.error(e));
-              updateState((prev: AppState) => {
-                const newUsers = { ...prev.users };
-                if (newUsers[prev.currentUser as string]) {
-                  newUsers[prev.currentUser as string].darkMode = newMode;
-                }
-                return { users: newUsers };
-              });
-            }
-          }}
-          className={`w-full py-4 rounded-2xl font-bold shadow-lg transition active:scale-95 text-lg flex items-center justify-center gap-3 ${state.darkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-white text-gray-800 border border-gray-100'}`}
+          onClick={() => setTempDarkMode(!tempDarkMode)}
+          className={`w-full py-4 rounded-2xl font-bold shadow-lg transition active:scale-95 text-lg flex items-center justify-center gap-3 ${tempDarkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-white text-gray-800 border border-gray-100'}`}
         >
-          {state.darkMode ? <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>}
-          {state.darkMode ? 'Désactiver Mode Sombre' : 'Activer Mode Sombre'}
+          {tempDarkMode ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          )}
+          {tempDarkMode ? 'Désactiver Mode Sombre' : 'Activer Mode Sombre'}
+          {tempDarkMode !== state.darkMode && <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
         </button>
       </div>
 
       <div className="space-y-8">
         {/* Section Apparence */}
-        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+        <section className={`p-6 rounded-3xl shadow-sm border ${tempDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
           <div className="flex justify-between items-center mb-4">
-            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Apparence</h3>
-            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
-              <CheckCircle2 size={16} />
-            </button>
+            <h3 className={`text-lg font-bold ${tempDarkMode ? 'text-white' : 'text-gray-800'}`}>Apparence</h3>
+            {bgColor !== (user?.bgColor || '#f0f2f5') && (
+              <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
+                <CheckCircle2 size={16} />
+              </button>
+            )}
           </div>
           <div className="mb-4">
-            <label className={`block text-sm font-semibold mb-2 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Couleur d'arrière-plan</label>
+            <label className={`block text-sm font-semibold mb-2 ${tempDarkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Couleur d'arrière-plan</label>
             <div className="flex items-center gap-3">
-              <input type="color" value={colorNameToHex(bgColor)} onChange={e => setBgColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
-              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: red) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 text-gray-900 focus:ring-[#0D98BA]'}`} />
-              {bgColor !== (user?.bgColor || '#f0f2f5') && (
-                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
-                  <CheckCircle2 size={24} />
-                </button>
-              )}
+              <input type="color" value={colorNameToHex(bgColor).startsWith('#') ? colorNameToHex(bgColor) : '#f0f2f5'} onChange={e => setBgColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
+              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: rouge) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none font-bold ${tempDarkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 text-gray-900 focus:ring-[#0D98BA]'}`} />
+              {bgColor !== (user?.bgColor || '#f0f2f5') && <span className="w-3 h-3 bg-blue-500 rounded-full animate-pulse" />}
             </div>
+          </div>
+          <div className="pt-2">
+            <button 
+              onClick={() => setTempDarkMode(!tempDarkMode)}
+              className={`w-full py-3 rounded-xl font-bold shadow-sm transition active:scale-95 text-sm flex items-center justify-center gap-3 ${tempDarkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-gray-50 text-gray-800 border border-gray-100'}`}
+            >
+              {tempDarkMode ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+              )}
+              {tempDarkMode ? 'Désactiver Mode Sombre' : 'Activer Mode Sombre'}
+              {tempDarkMode !== state.darkMode && (
+                <>
+                  <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); saveSettings(); }}
+                    className="ml-auto p-1.5 bg-green-500 text-white rounded-lg shadow-md hover:scale-110"
+                  >
+                    <CheckCircle2 size={14} />
+                  </button>
+                </>
+              )}
+            </button>
           </div>
         </section>
 
         {/* Section Notifications */}
-        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+        <section className={`p-6 rounded-3xl shadow-sm border ${tempDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
           <div className="flex justify-between items-center mb-4">
-            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Notifications</h3>
-            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
-              <CheckCircle2 size={16} />
-            </button>
+            <h3 className={`text-lg font-bold ${tempDarkMode ? 'text-white' : 'text-gray-800'}`}>Notifications</h3>
+            {notifications !== !!user?.notificationsEnabled && (
+              <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
+                <CheckCircle2 size={16} />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <label className="flex-1 flex flex-col justify-center cursor-pointer">
               <div className="flex items-center justify-between">
-                <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Activer les notifications</span>
+                <span className={`text-sm font-semibold ${tempDarkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Activer les notifications</span>
                 <div className="relative">
                   <input 
                     type="checkbox" 
@@ -1854,26 +1926,24 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
               </div>
               <p className="text-xs text-gray-500 mt-2">Reçois des alertes comme sur WhatsApp.</p>
             </label>
-            {notifications !== !!user?.notificationsEnabled && (
-                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95 shrink-0" title="Appliquer">
-                  <CheckCircle2 size={24} />
-                </button>
-            )}
+            {notifications !== !!user?.notificationsEnabled && <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
           </div>
         </section>
 
         {/* Section Application */}
-        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+        <section className={`p-6 rounded-3xl shadow-sm border ${tempDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
           <div className="flex justify-between items-center mb-4">
-            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Application</h3>
-            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
-              <CheckCircle2 size={16} />
-            </button>
+            <h3 className={`text-lg font-bold ${tempDarkMode ? 'text-white' : 'text-gray-800'}`}>Application</h3>
+            {autoHideSidebar !== (user?.autoHideSidebar ?? true) && (
+              <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
+                <CheckCircle2 size={16} />
+              </button>
+            )}
           </div>
           <div className="mb-6 flex items-center gap-3">
             <label className="flex-1 flex flex-col justify-center cursor-pointer">
               <div className="flex items-center justify-between">
-                <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Masquer le menu automatiquement</span>
+                <span className={`text-sm font-semibold ${tempDarkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Masquer le menu automatiquement</span>
                 <div className="relative">
                   <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => setAutoHideSidebar(e.target.checked)} />
                   <div className={`block w-14 h-8 rounded-full transition-colors ${autoHideSidebar ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
@@ -1882,11 +1952,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
               </div>
               <p className="text-xs text-gray-500 mt-2">Ferme le menu après avoir cliqué sur un onglet.</p>
             </label>
-            {autoHideSidebar !== (user?.autoHideSidebar ?? true) && (
-                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95 shrink-0" title="Appliquer">
-                  <CheckCircle2 size={24} />
-                </button>
-            )}
+            {autoHideSidebar !== (user?.autoHideSidebar ?? true) && <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
           </div>
           <div>
             <label className="flex items-center justify-between cursor-pointer">
@@ -1919,35 +1985,49 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
           </div>
           
           <div className="mb-6">
-            <label className={`block text-sm font-semibold mb-2 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>
+            <label className={`block text-sm font-semibold mb-2 ${tempDarkMode ? 'text-zinc-400' : 'text-gray-700'}`}>
               Code Administrateur (Staff / Grand Admin)
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 relative">
               <input 
-                type="password" 
+                type={showAdminCodeInput ? "text" : "password"} 
                 placeholder="Entrer le code..." 
                 value={adminCode} 
                 onChange={e => setAdminCode(e.target.value)} 
-                className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none bg-gray-50" 
+                className={`flex-1 px-4 py-3 rounded-xl border outline-none pr-12 ${tempDarkMode ? 'bg-zinc-800 border-white/10 text-white' : 'bg-gray-50 border-gray-200'}`} 
               />
-              <button onClick={handleAdminAuth} className="px-6 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 transition">OK</button>
+              <button 
+                type="button"
+                onClick={() => setShowAdminCodeInput(!showAdminCodeInput)}
+                className="absolute right-14 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-[#0D98BA]"
+              >
+                {showAdminCodeInput ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+              <button onClick={handleAdminAuth} className="px-6 py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 transition flex-shrink-0">OK</button>
             </div>
           </div>
 
           {user?.isAdmin && (
             <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+              <label className={`block text-sm font-semibold mb-2 ${tempDarkMode ? 'text-zinc-400' : 'text-gray-700'}`}>
                 Code Super Admin (Temporaire)
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 relative">
                 <input 
-                  type="password" 
+                  type={showSuperAdminCodeInput ? "text" : "password"} 
                   placeholder="Entrer le code Super Admin..." 
                   value={superAdminCode} 
                   onChange={e => setSuperAdminCode(e.target.value)} 
-                  className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#0D98BA] outline-none bg-gray-50" 
+                  className={`flex-1 px-4 py-3 rounded-xl border outline-none pr-12 ${tempDarkMode ? 'bg-zinc-800 border-white/10 text-white' : 'bg-gray-50 border-gray-200'}`} 
                 />
-                <button onClick={handleSuperAdminAuth} className="px-6 py-3 bg-[#0D98BA] text-white rounded-xl font-bold hover:opacity-90 transition">OK</button>
+                <button 
+                  type="button"
+                  onClick={() => setShowSuperAdminCodeInput(!showSuperAdminCodeInput)}
+                  className="absolute right-14 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-[#0D98BA]"
+                >
+                  {showSuperAdminCodeInput ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+                <button onClick={handleSuperAdminAuth} className="px-6 py-3 bg-[#0D98BA] text-white rounded-xl font-bold hover:opacity-90 transition flex-shrink-0">OK</button>
               </div>
             </div>
           )}
