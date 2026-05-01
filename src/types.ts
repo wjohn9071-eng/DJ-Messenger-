@@ -15,6 +15,7 @@ export interface User {
   pinnedGroups?: string[];
   notificationsEnabled?: boolean;
   bgColor?: string;
+  btnColor?: string;
   notifications?: boolean;
   proposalsToday?: number;
   lastProposalDate?: string;

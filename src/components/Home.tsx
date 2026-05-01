@@ -155,23 +155,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     <div className={`min-h-full p-6 animate-in fade-in duration-500 overflow-y-auto backdrop-blur-sm ${state.darkMode ? 'bg-black/50 text-white' : 'bg-white/50 text-gray-800'}`}>
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-center w-full max-w-6xl mx-auto gap-8">
         
-        {/* Pinned Discussions - Desktop Left */}
-        <div className="hidden lg:block w-80 shrink-0 sticky top-8">
-          <div className={`p-5 rounded-3xl shadow-xl border ${state.darkMode ? 'bg-black/60 border-white/10' : 'bg-white/80 border-gray-100'}`}>
-            <h2 className="flex items-center gap-2 text-lg font-black uppercase tracking-tighter mb-2">
-              <Pin size={18} className="text-[#0D98BA]" />
-              Discussions Épinglées
-              {pinnedDiscussions.reduce((acc, g) => acc + g.unreadCount, 0) > 0 && (
-                <div className="w-5 h-5 ml-auto rounded-full bg-red-500 flex items-center justify-center animate-pulse shadow-lg">
-                  <span className="text-[10px] font-black text-white">{pinnedDiscussions.reduce((acc, g) => acc + g.unreadCount, 0)}</span>
-                </div>
-              )}
-            </h2>
-            {renderPinnedList()}
-          </div>
-        </div>
-
-        {/* Main Center Content */}
+        {/* Main Center Content (Maintained center with ml-auto/mr-auto if needed, but flex-1 handles it) */}
         <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md mx-auto py-8 text-center">
         <div className={`w-40 h-40 md:w-48 md:h-48 mb-6 flex-shrink-0 flex items-center justify-center shadow-2xl rounded-[2.5rem] overflow-hidden p-6 border ${state.darkMode ? 'bg-white/10 border-white/20' : 'bg-white border-gray-100'}`}>
           <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
@@ -259,13 +243,27 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           )}
         </div>
 
-        <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-100 w-full mb-8 animate-in slide-in-from-bottom-4">
+        <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-gray-100 w-full mb-8 animate-in slide-in-from-bottom-4 text-center">
           <p className="text-sm font-semibold text-gray-600 italic">💡 {currentTip}</p>
         </div>
         </div>
 
-        {/* Empty Spacer on Right for Balancing Desktop Layout */}
-        <div className="hidden lg:block w-80 shrink-0 select-none pointer-events-none" />
+        {/* Pinned Discussions - Desktop Right */}
+        <div className="hidden lg:block w-80 shrink-0 sticky top-8">
+          <div className={`p-5 rounded-3xl shadow-xl border ${state.darkMode ? 'bg-black/60 border-white/10' : 'bg-white/80 border-gray-100'}`}>
+            <h2 className="flex items-center gap-2 text-lg font-black uppercase tracking-tighter mb-2">
+              <Pin size={18} className="text-[#0D98BA]" />
+              Discussions Épinglées
+              {pinnedDiscussions.reduce((acc, g) => acc + g.unreadCount, 0) > 0 && (
+                <div className="w-5 h-5 ml-auto rounded-full bg-red-500 flex items-center justify-center animate-pulse shadow-lg">
+                  <span className="text-[10px] font-black text-white">{pinnedDiscussions.reduce((acc, g) => acc + g.unreadCount, 0)}</span>
+                </div>
+              )}
+            </h2>
+            {renderPinnedList()}
+          </div>
+        </div>
+
       </div>
 
       <div className="mt-auto pb-6 w-full flex justify-center">
@@ -277,7 +275,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             <span className="text-gray-300 font-light">|</span>
             <span className={djStyleText}>DJ MESSENGER</span>
             <span className="text-gray-300 font-light">|</span>
-            <span className={djStyleText}>v3.0.0 • 30/04/2026</span>
+            <span className={djStyleText}>v3.0 • 01/05/2026</span>
             <span className="text-gray-300 font-light">|</span>
             <span className={djStyleText}>DJ Society</span>
           </p>

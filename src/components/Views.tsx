@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AppState } from '../types';
 import { APP_UPDATES } from '../constants';
 import { djStyleBg, djStyleText, compressImage, setDraftStatus } from '../lib/utils';
-import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight, Bell, Lightbulb, Settings as SettingsIcon, HelpCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight, Bell, Lightbulb, Settings as SettingsIcon, HelpCircle, CheckCircle2, Eye, EyeOff, Globe, Pin } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
 import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs, reauthenticateWithPopup, googleProvider } from '../lib/firebase';
@@ -1358,50 +1358,65 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 }
 
 
+import Markdown from 'react-markdown';
+
 export function Updates({ state }: { state: AppState }) {
   const [selectedUpdate, setSelectedUpdate] = useState<number | null>(null);
 
   const currentUser = state.currentUser ? state.users[state.currentUser] : null;
   const isPrivileged = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
 
-  const displayUpdates = APP_UPDATES.map(u => ({
-    ...u,
-    desc: isPrivileged ? u.desc : (u.desc.replace(/([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive|visualisation des mots de passe|Visualisation|modération)[^.!?]*[.!?])/gi, '').trim() || u.desc)
-  }));
+  const sensitiveRegex = /([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive|visualisation des mots de passe|Visualisation|modération|sécurité)[^.!?]*[.!?])/gi;
 
-  if (selectedUpdate !== null) {
-    const u = displayUpdates[selectedUpdate];
-    return (
-      <div className={`fixed inset-y-0 right-0 left-0 lg:left-72 z-[2000] flex flex-col animate-in slide-in-from-right-8 duration-300 ${state.darkMode ? 'bg-[#111827]' : 'bg-white'}`}>
-        <div className={`p-4 backdrop-blur-md border-b flex items-center shadow-sm sticky top-0 z-[2001] ${state.darkMode ? 'bg-black/80 border-white/10' : 'bg-white/80'}`}>
-          <button onClick={() => setSelectedUpdate(null)} className={`p-2 rounded-xl transition mr-4 ${state.darkMode ? 'hover:bg-white/10 text-white' : 'hover:bg-gray-100 text-gray-600'}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          </button>
-          <h2 className={`font-black uppercase tracking-tighter text-xl ${state.darkMode ? 'text-white' : 'text-gray-800'} ${djStyleText}`}>Détails Mise à jour</h2>
-        </div>
-        <div className="flex-1 overflow-y-auto w-full custom-scrollbar">
-          <div className="p-6 md:p-12 max-w-3xl mx-auto">
-            <div className="mb-8">
-              <h1 className={`text-4xl md:text-5xl font-black tracking-tighter uppercase ${djStyleText} mb-4`}>
-                Version {u.version}
-              </h1>
-              <div className="flex items-center gap-3 text-[#0D98BA] font-bold">
-                <span className={`px-3 py-1 rounded-full text-xs uppercase tracking-widest ${state.darkMode ? 'bg-blue-900/30 border border-blue-800' : 'bg-blue-50 border border-blue-100'}`}>Date de sortie</span>
-                <time>{u.date}</time>
-              </div>
-            </div>
-            <div className={`prose prose-lg max-w-none leading-relaxed space-y-6 ${state.darkMode ? 'text-zinc-300' : 'text-gray-700'}`}>
-              <p className="font-medium text-xl md:text-2xl whitespace-pre-wrap">{u.desc}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const displayUpdates = APP_UPDATES.map(u => {
+    const rawDesc = isPrivileged ? u.desc : u.desc.replace(sensitiveRegex, '').split('\n').filter(line => line.trim()).join('\n').trim() || u.desc;
+    const rawManual = (u.manual || '').replace(sensitiveRegex, '').split('\n').filter(line => line.trim()).join('\n').trim();
+    
+    return {
+      ...u,
+      desc: rawDesc,
+      manual: isPrivileged ? (u.manual || '') : rawManual
+    };
+  });
 
   return (
     <div className="p-6 max-w-2xl mx-auto animate-in fade-in duration-300">
       <h2 className={`text-2xl font-bold mb-8 ${djStyleText}`}>Mises à jour</h2>
+      
+      {/* Modal Détail "Comment l'utiliser ?" */}
+      {selectedUpdate !== null && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className={`w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300 ${state.darkMode ? 'bg-zinc-900 border border-white/10' : 'bg-white'}`}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className={`text-xl font-black uppercase tracking-tighter ${djStyleText}`}>Comment l'utiliser ?</h3>
+              <button onClick={() => setSelectedUpdate(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <X size={24} className="text-gray-400" />
+              </button>
+            </div>
+            <div className={`prose prose-sm max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 ${state.darkMode ? 'text-zinc-300' : 'text-gray-600'}`}>
+              <h4 className="text-2xl font-black mb-2">Version {displayUpdates[selectedUpdate].version}</h4>
+              <p className="text-xs font-bold uppercase tracking-widest text-[#0D98BA] mb-4">{displayUpdates[selectedUpdate].date}</p>
+              
+              {displayUpdates[selectedUpdate].manual ? (
+                <div className={`markdown-body ${state.darkMode ? 'text-zinc-300' : 'text-zinc-800'}`}>
+                  <Markdown>{displayUpdates[selectedUpdate].manual}</Markdown>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap leading-relaxed font-medium">
+                  {displayUpdates[selectedUpdate].desc}
+                </div>
+              )}
+            </div>
+            <button 
+              onClick={() => setSelectedUpdate(null)}
+              className={`w-full mt-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all ${djStyleBg}`}
+            >
+              J'ai compris
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className={`space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent ${state.darkMode ? 'before:via-white/20' : 'before:via-gray-300'} before:to-transparent`}>
         {displayUpdates.map((u, i) => (
           <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
@@ -1413,7 +1428,7 @@ export function Updates({ state }: { state: AppState }) {
                 <h3 className={`font-bold text-lg ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>v{u.version}</h3>
                 <time className="text-xs font-medium text-gray-400">{u.date}</time>
               </div>
-              <p className={`text-sm leading-relaxed line-clamp-3 mb-3 ${state.darkMode ? 'text-zinc-400' : 'text-gray-600'}`}>{u.desc}</p>
+              <p className={`text-sm leading-relaxed mb-3 ${state.darkMode ? 'text-zinc-400' : 'text-gray-600'}`}>{u.desc}</p>
               <button 
                 onClick={() => setSelectedUpdate(i)}
                 className={`self-end px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[#0D98BA] hover:text-white transition-colors ${state.darkMode ? 'bg-zinc-700 text-zinc-300' : 'bg-gray-50 text-gray-600'}`}

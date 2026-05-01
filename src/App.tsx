@@ -653,15 +653,18 @@ export default function App() {
     { id: 'discussions', label: 'Discussions', icon: MessageSquare },
     { id: 'friends', label: 'Amis', icon: Users },
     { id: 'djsociety', label: 'DJ Society', icon: Lightbulb },
-    { id: 'staff', label: 'Staff', icon: Shield },
-    { id: 'updates', label: 'Mises à jour', icon: Bell },
-    { id: 'settings', label: 'Paramètres', icon: SettingsIcon },
-    { id: 'tutorial', label: 'Tutoriel', icon: HelpCircle },
   ];
 
-  if (user?.isAdmin) {
+  if (user?.isAdmin || user?.isGrandAdmin || user?.isSuperAdmin) {
+    navItems.push({ id: 'staff', label: 'Staff', icon: Shield });
     navItems.splice(4, 0, { id: 'admin_users', label: 'Utilisateurs', icon: Shield });
   }
+
+  navItems.push(
+    { id: 'updates', label: 'Mises à jour', icon: Bell },
+    { id: 'settings', label: 'Paramètres', icon: SettingsIcon },
+    { id: 'tutorial', label: 'Tutoriel', icon: HelpCircle }
+  );
 
   const renderView = () => {
     switch (view) {
@@ -694,7 +697,7 @@ export default function App() {
         notification={notification} 
         onClose={() => setNotification(null)}
         onClick={(groupId) => {
-          updateState({ activeGroup: groupId, discussionTab: groupId.startsWith('sms_') ? 'sms' : (state.groups[groupId]?.isPublic ? 'public' : 'private') });
+          updateState({ activeGroup: groupId, discussionTab: groupId.startsWith('sms_') ? 'sms' : (state.groups[groupId]?.type === 'public' ? 'public' : 'private') });
           setView('discussions');
           setNotification(null);
         }}

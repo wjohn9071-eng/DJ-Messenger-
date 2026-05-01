@@ -3038,7 +3038,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             )}
 
-            {visibleGroups.length === 0 && activeTab !== 'recent' && activeTab !== 'sms' && (
+            {(visibleGroups.length === 0 && (activeTab as string) !== 'recent' && (activeTab as string) !== 'sms') && (
               <div className="bg-white/50 border-2 border-dashed border-gray-200 p-12 rounded-[2.5rem] text-center">
                 <p className="text-gray-400 font-bold italic">Aucun groupe trouvé dans cette catégorie.</p>
               </div>
