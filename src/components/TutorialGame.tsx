@@ -459,10 +459,9 @@ export function TutorialGame({
                   
                   <button 
                     onClick={handleNext}
-                    disabled={!actionCompleted}
-                    className={`w-full py-4 rounded-2xl font-black text-white shadow-lg flex items-center justify-center gap-2 group transition-all ${actionCompleted ? djStyleBg : 'bg-gray-400 cursor-not-allowed opacity-50'}`}
+                    className={`w-full py-4 rounded-2xl font-black text-white shadow-lg flex items-center justify-center gap-2 group transition-all ${actionCompleted ? djStyleBg : 'bg-zinc-700/80 hover:bg-zinc-700'}`}
                   >
-                    {stepIndex === steps.length - 1 ? "TERMINER LA SIMULATION" : actionCompleted ? "CONTINUER" : "ACTION REQUISE"}
+                    {stepIndex === steps.length - 1 ? "TERMINER LA SIMULATION" : actionCompleted ? "CONTINUER" : "PASSER L'ACTION"}
                     <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
                   </button>
                 </motion.div>

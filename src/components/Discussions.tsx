@@ -2173,7 +2173,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
-                      <div className={`absolute ${isMine ? 'right-full mr-2' : 'left-full ml-2'} top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-2 z-10 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200 pointer-events-none group-hover/msg:pointer-events-auto`}>
+                      <div className={`absolute ${isMine ? 'right-full mr-2' : 'left-full ml-2'} top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-2 z-10 lg:opacity-0 lg:group-hover/msg:opacity-100 opacity-100 transition-opacity duration-200 lg:pointer-events-none lg:group-hover/msg:pointer-events-auto`}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
                           className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}

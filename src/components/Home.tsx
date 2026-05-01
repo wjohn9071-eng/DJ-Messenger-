@@ -76,7 +76,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
 
   const pinnedIds = currentUserData?.pinnedGroups || [];
   const pinnedDiscussions = pinnedIds.map((id: string) => {
-    const isSMS = id.startsWith('sms_');
+    const isSMS = id.includes('_') && !id.startsWith('simulated-') && !id.startsWith('sim-');
     const group = isSMS ? state.privateMessages?.[id] : state.groups?.[id];
     let name = "Groupe inconnu";
     let avatar = "";
@@ -84,7 +84,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     let unreadCount = state.newMessages?.filter((msgId: string) => msgId === id).length || 0;
 
     if (isSMS) {
-      const otherUser = id.replace('sms_', '').replace(state.currentUser as string, '').replace('_', '');
+      const otherUser = id.replace(state.currentUser as string, '').replace('_', '');
       const otherUserData = state.users[otherUser];
       name = otherUser === 'dj-bot' ? 'DJ Bot' : (otherUserData?.name || otherUser);
       avatar = otherUserData?.avatar || '';
