@@ -734,6 +734,15 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     }
   };
 
+  const handleDownloadAll = (files: any[]) => {
+    files.forEach((file, index) => {
+      setTimeout(() => {
+        handleDownload(file.url, file.name || `fichier_${index + 1}`);
+      }, index * 300);
+    });
+    showToast(`${files.length} téléchargement(s) lancé(s)...`);
+  };
+
   const handleCreateGroup = async () => {
     if (!state.currentUser) return;
     if (isTest) {
@@ -1995,7 +2004,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     </div>
                   )}
                   {(msg.files && msg.files.length > 0) ? (
-                    <div className="mb-2 space-y-2">
+                    <div className="mb-2 space-y-2 min-w-[200px]">
+                      {msg.files.length >= 1 && (
+                        <div className="flex justify-between items-center px-1">
+                          <span className="text-[10px] font-black uppercase opacity-60 tracking-widest">{msg.files.length} {msg.files.length > 1 ? 'fichiers' : 'fichier'}</span>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleDownloadAll(msg.files!); }}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all shadow-sm ${isMine ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
+                          >
+                            <Download size={10} /> {msg.files.length > 1 ? 'Tout télécharger' : 'Télécharger'}
+                          </button>
+                        </div>
+                      )}
                       {msg.files.map((file, idx) => (
                         <div key={idx} className="rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
                           {file.type === 'image' || file.type === 'sticker' ? (
@@ -2041,8 +2061,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             </div>
                           )}
                           <button 
-                            onClick={() => handleDownload(file.url, file.name || 'file')}
-                            className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover/file:opacity-100 transition shadow-lg backdrop-blur-sm"
+                            onClick={(e) => { e.stopPropagation(); handleDownload(file.url, file.name || 'file'); }}
+                            className={`absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full transition shadow-lg backdrop-blur-sm lg:opacity-0 lg:group-hover/file:opacity-100 opacity-100`}
                             title="Télécharger"
                           >
                             <Download size={16} />
@@ -2095,8 +2115,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           </div>
                         )}
                         <button 
-                          onClick={() => handleDownload(msg.fileUrl!, msg.fileName || 'file')}
-                          className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full opacity-0 group-hover/file:opacity-100 transition shadow-lg backdrop-blur-sm"
+                          onClick={(e) => { e.stopPropagation(); handleDownload(msg.fileUrl!, msg.fileName || 'file'); }}
+                          className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full transition shadow-lg backdrop-blur-sm lg:opacity-0 lg:group-hover/file:opacity-100 opacity-100"
                           title="Télécharger"
                         >
                           <Download size={16} />
@@ -2173,7 +2193,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
-                      <div className={`absolute ${isMine ? 'right-full mr-2 flex-row-reverse' : 'left-full ml-2 flex-row-reverse'} top-1/2 -translate-y-1/2 flex items-center gap-2 z-10 lg:opacity-0 lg:group-hover/msg:opacity-100 opacity-100 transition-opacity duration-200 lg:pointer-events-none lg:group-hover/msg:pointer-events-auto`}>
+                      <div className={`absolute right-full mr-2 top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-2 z-10 lg:opacity-0 lg:group-hover/msg:opacity-100 opacity-100 transition-opacity duration-200 lg:pointer-events-none lg:group-hover/msg:pointer-events-auto`}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
                           className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}
