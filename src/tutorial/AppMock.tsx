@@ -10,8 +10,16 @@ import { FriendsMock } from './FriendsMock';
 import { SocietyMock } from './SocietyMock';
 import { SettingsMock } from './SettingsMock';
 
-export function AppMock({ state, setView: setParentView, updateState, onComplete }: { state: AppState, setView: (v: string) => void, updateState: any, onComplete: () => void }) {
-  const [view, setView] = useState('home');
+export function AppMock({ state, view, setView: setParentView, updateState, onComplete }: { state: AppState, view?: string, setView: (v: string) => void, updateState: any, onComplete: () => void }) {
+  const [internalView, setInternalView] = useState('home');
+  
+  useEffect(() => {
+    if (view) {
+      setInternalView(view);
+    }
+  }, [view]);
+
+  const activeView = view || internalView;
   const [menuOpen, setMenuOpen] = useState(false);
 
   const isTest = state.currentUser === 'test';
@@ -29,7 +37,7 @@ export function AppMock({ state, setView: setParentView, updateState, onComplete
   ];
 
   const renderView = () => {
-    switch (view) {
+    switch (activeView) {
       case 'home': return <HomeMock state={state} setView={handleNavClick} updateState={updateState} onComplete={onComplete} />;
       case 'discussions': return <DiscussionsMock state={state} updateState={updateState} />;
       case 'friends': return <FriendsMock state={state} updateState={updateState} />;
@@ -42,7 +50,7 @@ export function AppMock({ state, setView: setParentView, updateState, onComplete
   };
 
   const handleNavClick = (id: string) => {
-    setView(id);
+    setInternalView(id);
     if (setParentView) setParentView(id);
     setMenuOpen(false);
   };
@@ -94,9 +102,9 @@ export function AppMock({ state, setView: setParentView, updateState, onComplete
             <button
               key={item.id}
               onClick={() => handleNavClick(item.id)}
-              className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold uppercase text-xs tracking-widest ${view === item.id ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'}`}
+              className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold uppercase text-xs tracking-widest ${activeView === item.id ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'}`}
             >
-              <item.icon size={18} className={view === item.id ? 'text-[#0D98BA]' : ''} />
+              <item.icon size={18} className={activeView === item.id ? 'text-[#0D98BA]' : ''} />
               {item.label}
             </button>
           ))}
@@ -122,7 +130,7 @@ export function AppMock({ state, setView: setParentView, updateState, onComplete
             <Menu size={24} />
           </button>
           <h1 className={`ml-2 font-black uppercase tracking-tighter text-xl ${djStyleText}`}>
-            {navItems.find(i => i.id === view)?.label || 'Simulation'}
+            {navItems.find(i => i.id === activeView)?.label || 'Simulation'}
           </h1>
         </header>
         

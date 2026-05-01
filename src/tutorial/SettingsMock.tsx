@@ -30,21 +30,38 @@ export function SettingsMock({
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handleColorChange = (newColor: string) => {
+    setBgColor(newColor);
+    // Auto-save in mock for better tutorial experience
+    updateState((prev: AppState) => {
+      const newUsers = { ...prev.users };
+      if (newUsers[prev.currentUser as string]) {
+        newUsers[prev.currentUser as string] = {
+          ...newUsers[prev.currentUser as string],
+          bgColor: newColor
+        };
+      }
+      return { users: newUsers };
+    });
+    document.documentElement.style.setProperty('--bg-color', newColor);
+  };
+
   const saveSettings = () => {
     updateState((prev: AppState) => {
       const newUsers = { ...prev.users };
       if (newUsers[prev.currentUser as string]) {
-        newUsers[prev.currentUser as string].bgColor = bgColor;
-        newUsers[prev.currentUser as string].notificationsEnabled = notifications;
-        newUsers[prev.currentUser as string].autoHideSidebar = autoHideSidebar;
-        newUsers[prev.currentUser as string].darkMode = state.darkMode;
+        newUsers[prev.currentUser as string] = {
+          ...newUsers[prev.currentUser as string],
+          bgColor: bgColor,
+          notificationsEnabled: notifications,
+          autoHideSidebar: autoHideSidebar,
+          darkMode: state.darkMode
+        };
       }
       return { users: newUsers };
     });
     
     document.documentElement.style.setProperty('--bg-color', bgColor);
-    
-    setShowSaveConfirm(false);
     showToast("Paramètres sauvegardés (Simulation) !");
   };
 
@@ -110,12 +127,12 @@ export function SettingsMock({
           <div className="mb-4">
             <label className={`block text-sm font-semibold mb-2 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Couleur d'arrière-plan</label>
             <div className="flex items-center gap-3">
-              <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
-              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: red) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 text-gray-900 focus:ring-[#0D98BA]'}`} />
+              <input type="color" value={bgColor} onChange={e => handleColorChange(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
+              <input type="text" value={bgColor} onChange={e => handleColorChange(e.target.value)} placeholder="Nom (ex: red) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 text-gray-900 focus:ring-[#0D98BA]'}`} />
               {bgColor !== (user?.bgColor || '#f0f2f5') && (
-                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
+                <div className="p-3 bg-green-500/20 text-green-600 rounded-xl animate-in zoom-in duration-300">
                   <CheckCircle2 size={24} />
-                </button>
+                </div>
               )}
             </div>
           </div>
@@ -138,7 +155,11 @@ export function SettingsMock({
                     type="checkbox" 
                     className="sr-only" 
                     checked={notifications} 
-                    onChange={e => setNotifications(e.target.checked)} 
+                    onChange={e => {
+                      const val = e.target.checked;
+                      setNotifications(val);
+                      saveSettings(); // Auto-save for tutorial
+                    }} 
                   />
                   <div className={`block w-14 h-8 rounded-full transition-colors ${notifications ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${notifications ? 'transform translate-x-6' : ''}`}></div>
@@ -146,11 +167,6 @@ export function SettingsMock({
               </div>
               <p className="text-xs text-gray-500 mt-2">Reçois des alertes comme sur WhatsApp. (Simulation)</p>
             </label>
-            {notifications !== !!user?.notificationsEnabled && (
-                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95 shrink-0" title="Appliquer">
-                  <CheckCircle2 size={24} />
-                </button>
-            )}
           </div>
         </section>
 
@@ -167,18 +183,17 @@ export function SettingsMock({
               <div className="flex items-center justify-between">
                 <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Masquer le menu automatiquement</span>
                 <div className="relative">
-                  <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => setAutoHideSidebar(e.target.checked)} />
+                  <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => {
+                    const val = e.target.checked;
+                    setAutoHideSidebar(val);
+                    saveSettings(); // Auto-save for tutorial
+                  }} />
                   <div className={`block w-14 h-8 rounded-full transition-colors ${autoHideSidebar ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${autoHideSidebar ? 'transform translate-x-6' : ''}`}></div>
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">Ferme le menu après avoir cliqué sur un onglet. (Simulation)</p>
             </label>
-            {autoHideSidebar !== (user?.autoHideSidebar ?? true) && (
-                <button onClick={() => setShowSaveConfirm(true)} className="p-3 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95 shrink-0" title="Appliquer">
-                  <CheckCircle2 size={24} />
-                </button>
-            )}
           </div>
           <div>
             <label className="flex items-center justify-between pointer-events-none opacity-50">

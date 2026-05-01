@@ -59,7 +59,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     setView('discussions');
   };
 
-  const unreadIds = state.newMessages?.filter(id => !id.startsWith('sms_dj_bot_') && id !== 'sim-group') || [];
+  const unreadIds = state.newMessages?.filter(id => !id.includes('dj-bot') && id !== 'sim-group') || [];
   let latestUnreadExtract = "";
   if (unreadIds.length > 0) {
     const firstUnreadId = unreadIds[0];
@@ -84,7 +84,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     let unreadCount = state.newMessages?.filter((msgId: string) => msgId === id).length || 0;
 
     if (isSMS) {
-      const otherUser = id.replace(state.currentUser as string, '').replace('_', '');
+      const otherUser = id.split('_').find(p => p !== state.currentUser && p !== 'sms') || 'dj-bot';
       const otherUserData = state.users[otherUser];
       name = otherUser === 'dj-bot' ? 'DJ Bot' : (otherUserData?.name || otherUser);
       avatar = otherUserData?.avatar || '';

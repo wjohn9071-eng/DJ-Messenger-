@@ -427,7 +427,7 @@ export default function App() {
     
     const botGroupId = `bot-private-${state.currentUser}`;
     const simulatedGroupId = 'simulated-group';
-    const helpGroupId = `sms_dj_bot_${state.currentUser}`;
+    const helpGroupId = `sms_${[state.currentUser as string, 'dj-bot'].sort().join('_')}`;
     
     // Check if any group has messages from 'Bot DJ' or 'DJ Help'
     const hasBotMessages = (Object.values(state.groups) as Group[]).some(g => 
@@ -499,7 +499,7 @@ export default function App() {
     useEffect(() => {
       if (!state.currentUser || state.currentUser === 'test') return;
       
-      const helpGroupId = `sms_dj_bot_${state.currentUser}`;
+      const helpGroupId = `sms_${[state.currentUser as string, 'dj-bot'].sort().join('_')}`;
     
     const tips = [
       "Astuce : Les groupes publics sont accessibles à tous, mais les groupes privés nécessitent un code d'invitation ou une invitation directe.",
@@ -638,7 +638,7 @@ export default function App() {
     }
 
     return () => clearInterval(interval);
-  }, [state.currentUser, state.groups, state.users, updateState]);
+  }, [state.currentUser, state.groups, state.users, updateState, state.privateMessages]);
 
   if (!state.currentUser) {
     return <Auth state={state} updateState={updateState} />;

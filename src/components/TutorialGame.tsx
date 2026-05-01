@@ -251,7 +251,7 @@ export function TutorialGame({
       }
     }
     if (currentStep.requiredAction === 'submit_proposal') {
-      if (simulatedAppState.proposals.length > state.proposals.length) {
+      if (simulatedAppState.proposals.length > 0) {
         setActionCompleted(true);
       }
     }
@@ -395,6 +395,7 @@ export function TutorialGame({
     <div className="fixed inset-0 z-[150] bg-gray-100 flex flex-col overflow-hidden">
       <AppMock 
         state={simulatedAppState} 
+        view={currentView}
         setView={setCurrentView}
         updateState={updateSimulatedState} 
         onComplete={onComplete}

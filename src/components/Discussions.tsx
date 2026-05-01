@@ -304,7 +304,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         if (group?.banned?.includes(state.currentUser as string)) return showToast("Tu es banni de ce groupe.");
         if (group?.muted?.includes(state.currentUser as string)) return showToast("Tu es muet dans ce groupe.");
         
-        const isAdmin = group?.admins?.includes(state.currentUser as string) || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
+        const isAdmin = group?.admins?.includes(state.currentUser as string) || group?.subAdmins?.includes(state.currentUser as string) || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
         const isCreator = group?.creator === state.currentUser;
         if (!(group?.allowOthersToSpeak ?? true) && !isAdmin && !isCreator) {
           return showToast("Seuls les admins peuvent parler ici.");
@@ -1651,7 +1651,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             )}
 
-            {!isSMS && group.type === 'private' && (isCreator || isSubAdmin) && (
+            {!isSMS && group.type === 'private' && (isCreator || isSubAdmin || (group.allowOthersToInvite ?? true)) && (
               <div className="space-y-4">
                 <h5 className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Ajouter un membre</h5>
                 <div className="flex gap-2">
@@ -1985,8 +1985,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 )}
                 <div className={`relative px-2.5 py-1.5 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : (state.darkMode ? 'rounded-tl-none bg-zinc-800 border-white/10 text-white' : 'rounded-tl-none bg-white text-gray-800')} 
                   ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} 
-                  ${isStaff ? 'outline outline-[3px] outline-offset-1 outline-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.4)]' : ''}
-                  ${isGroupAdmin ? 'border-2 border-green-500' : (state.darkMode ? 'border border-white/10' : 'border border-gray-100')}
+                  ${isStaff ? 'outline outline-[4px] outline-offset-2 outline-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.4)]' : ''}
+                  ${isGroupAdmin ? 'border-[3px] border-green-500' : (state.darkMode ? 'border border-white/10' : 'border border-gray-100')}
                 `}>
                   {(isStaff || isGroupAdmin) && (
                     <div className={`flex gap-1 mb-1.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
@@ -2173,7 +2173,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
-                      <div className={`absolute ${isMine ? 'right-full mr-2' : 'left-full ml-2'} top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-2 z-10 lg:opacity-0 lg:group-hover/msg:opacity-100 opacity-100 transition-opacity duration-200 lg:pointer-events-none lg:group-hover/msg:pointer-events-auto`}>
+                      <div className={`absolute ${isMine ? 'right-full mr-2 flex-row-reverse' : 'left-full ml-2 flex-row-reverse'} top-1/2 -translate-y-1/2 flex items-center gap-2 z-10 lg:opacity-0 lg:group-hover/msg:opacity-100 opacity-100 transition-opacity duration-200 lg:pointer-events-none lg:group-hover/msg:pointer-events-auto`}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
                           className={`p-2 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}
