@@ -67,7 +67,8 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
             name: userData.name,
             avatar: userData.avatar,
             role: userData.role,
-            isAdmin: userData.isAdmin
+            isAdmin: userData.isAdmin,
+            createdAt: userData.createdAt
           });
         } catch (e: any) {
           console.error("Erreur lors de la création du profil:", e);
@@ -156,7 +157,8 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
           name: userData.name,
           avatar: userData.avatar,
           role: userData.role,
-          isAdmin: userData.isAdmin
+          isAdmin: userData.isAdmin,
+          createdAt: userData.createdAt
         });
       } catch (e: any) {
         console.error("Erreur lors de la création du profil (inscription):", e);

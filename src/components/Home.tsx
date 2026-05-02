@@ -172,15 +172,6 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
         </div>
 
-        {!isTest && (
-          <div className="bg-white/5 backdrop-blur-md p-3 px-6 rounded-full border border-white/5 w-full max-w-sm mb-8 animate-in fade-in slide-in-from-top-4 text-center z-10">
-            <p className="text-[9px] font-black tracking-widest text-gray-500 uppercase flex items-center justify-center gap-2">
-              <Lightbulb size={12} className="text-yellow-500" />
-              {currentTip}
-            </p>
-          </div>
-        )}
-
         {isTest && (
           <div className="w-full mb-8 relative z-10" id="tutorial-launch-area">
             <button 
@@ -195,13 +186,22 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           </div>
         )}
 
-        <h1 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2 ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
+        <h1 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2 z-10 relative ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
           {getGreeting()} !
         </h1>
 
-        <p className={`text-2xl font-bold mb-8 w-full ${djStyleText}`}>
+        <p className={`text-2xl font-bold mb-6 w-full z-10 relative ${djStyleText}`}>
           {welcomeMessage}
         </p>
+
+        {!isTest && (
+          <div className="w-full max-w-md mb-8 z-0 opacity-50 ml-auto mr-auto">
+            <p className="text-[10px] font-black tracking-widest text-gray-400 uppercase text-center flex items-center justify-center gap-2">
+              <Lightbulb size={12} className="text-yellow-500" />
+              {currentTip}
+            </p>
+          </div>
+        )}
 
         {unreadIds.length > 0 && (
           <button 

@@ -683,9 +683,7 @@ export default function App() {
     { id: 'settings', label: 'Paramètres', icon: SettingsIcon }
   );
 
-  if (isTest) {
-    navItems.push({ id: 'tutorial', label: 'Tutoriel', icon: HelpCircle });
-  }
+  navItems.push({ id: 'tutorial', label: 'Tutoriel', icon: HelpCircle });
 
   const renderView = () => {
     switch (view) {
@@ -707,6 +705,10 @@ export default function App() {
       <TutorialGame 
         state={state} 
         onComplete={completeSimulation} 
+        onCancel={() => {
+          setSimulationMode(false);
+          setView('home');
+        }}
       />
     );
   }

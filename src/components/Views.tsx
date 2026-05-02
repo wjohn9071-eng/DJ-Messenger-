@@ -276,6 +276,29 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           </div>
         </div>
         
+        <div className={`mt-6 p-6 rounded-2xl border ${state.darkMode ? 'bg-zinc-800/50 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Date de création</span>
+              <span className={`text-sm font-black ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
+                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Inconnue'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Dernière activité</span>
+              <span className={`text-sm font-black ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
+                {user?.isOnline ? <span className="text-green-500">En ligne</span> : (user?.lastSeen ? new Date(user.lastSeen).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) : 'Inconnue')}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Rôle</span>
+              <span className={`text-[10px] px-2 py-1 rounded-md font-black uppercase text-white ${user?.isSuperAdmin ? 'bg-red-500' : (user?.isGrandAdmin ? 'bg-purple-500' : (user?.isAdmin ? 'bg-blue-500' : 'bg-gray-400'))}`}>
+                {user?.isSuperAdmin ? 'Super Admin' : (user?.isGrandAdmin ? 'Grand Admin' : (user?.isAdmin ? 'Staff' : 'Standard'))}
+              </span>
+            </div>
+          </div>
+        </div>
+
         <div className="pt-2">
           {hasChanged && (
             <button 
@@ -948,71 +971,51 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                     {u.isGrandAdmin && !u.isSuperAdmin && ADMIN_BADGE}
                     {u.isAdmin && !u.isGrandAdmin && !u.isSuperAdmin && STAFF_BADGE}
                   </div>
-                    {isSuperAdmin ? (
-                      <div className="flex gap-2 mt-3">
-                        <button 
-                          onClick={() => {
-                            if (window.confirm(`Supprimer définitivement le compte de ${u.name || (u.uid || u.id)} ?`)) {
-                              deleteDoc(doc(db, 'users', u.uid || u.id));
-                              deleteDoc(doc(db, 'users_public', u.uid || u.id));
-                              updateState((prev: AppState) => {
-                                const newUsers = { ...prev.users };
-                                delete newUsers[u.uid || u.id];
-                                return { users: newUsers };
-                              });
-                            }
-                          }}
-                          className="flex-1 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest py-2 rounded-xl hover:bg-red-100 transition-colors"
-                        >
-                          Supprimer
-                        </button>
-                        <button 
-                          onClick={() => {
-                            const newPwd = window.prompt("Nouveau mot de passe pour cet utilisateur :", u.password || '');
-                            if (newPwd) {
-                              setDoc(doc(db, 'users', u.uid || u.id), { password: newPwd }, { merge: true });
-                              updateState({ users: { ...state.users, [u.uid || u.id]: { ...u, password: newPwd } } });
-                            }
-                          }}
-                          className="flex-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest py-2 rounded-xl hover:bg-blue-100 transition-colors"
-                        >
-                          Modifier MDP
-                        </button>
-                        {u.password && (
-                          <div className="flex-1 bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest py-2 rounded-xl text-center">
-                            MDP: {u.password}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="mt-2 text-[10px] text-gray-400 font-medium italic">
-                        {u.isOnline ? '🟢 En ligne' : `⚪ Dernière activité: ${u.lastActivity ? new Date(u.lastActivity).toLocaleDateString() : 'Inconnu'}`}
-                      </div>
-                    )}
-                    <p className="text-[9px] text-gray-400 font-medium mt-2 italic px-1">
-                      Créé le: {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Ancien compte'} • Actif: {u.lastSeen ? new Date(u.lastSeen).toLocaleDateString() : 'Inconnue'}
-                      {u.isOnline && <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>}
-                    </p>
-                  </div>
+                  <p className="text-[9px] text-gray-400 font-medium mt-2 italic px-1">
+                    Créé le: {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Ancien compte'} • Actif: {u.lastSeen ? new Date(u.lastSeen).toLocaleDateString() : 'Inconnue'}
+                    {u.isOnline && <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" title="En ligne"></span>}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {(isSuperAdmin || isGrandAdmin) && (
-                    <button 
-                      onClick={() => handleToggleAdmin(u.uid || u.id, !!u.isAdmin)}
-                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${u.isAdmin ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-green-50 text-green-500 hover:bg-green-100'}`}
-                    >
-                      {u.isAdmin ? 'Révoquer Admin' : 'Rendre Admin'}
-                    </button>
-                  )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {isSuperAdmin && u.password && (
+                  <div className="bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-gray-100">
+                    MDP: {u.password}
+                  </div>
+                )}
+                {isSuperAdmin && (
+                  <button 
+                    onClick={() => {
+                      const newPwd = window.prompt("Nouveau mot de passe pour cet utilisateur :", u.password || '');
+                      if (newPwd) {
+                        setDoc(doc(db, 'users', u.uid || u.id), { password: newPwd }, { merge: true });
+                        updateState({ users: { ...state.users, [u.uid || u.id]: { ...u, password: newPwd } } });
+                      }
+                    }}
+                    className="px-3 py-2 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-100 transition-colors"
+                  >
+                    Modifier MDP
+                  </button>
+                )}
+                {(isSuperAdmin || isGrandAdmin) && (
+                  <button 
+                    onClick={() => handleToggleAdmin(u.uid || u.id, !!u.isAdmin)}
+                    className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${u.isAdmin ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-green-50 text-green-500 hover:bg-green-100'}`}
+                  >
+                    {u.isAdmin ? 'Révoquer Admin' : 'Rendre Admin'}
+                  </button>
+                )}
+                {isSuperAdmin && (
                   <button 
                     onClick={() => handleDeleteUser(u.uid || u.id)} 
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-red-500 hover:bg-red-50 transition font-bold text-sm"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-red-500 bg-red-50 hover:bg-red-100 transition font-black uppercase text-[10px] tracking-widest"
                     title="Supprimer l'utilisateur et tous ses messages"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={14} />
                     <span className="hidden sm:inline">Supprimer</span>
                   </button>
-                </div>
+                )}
+              </div>
               </div>
             )) : (
               <div className="p-8 text-center">
@@ -1838,81 +1841,57 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         onConfirm={saveSettings} 
         onCancel={cancelSettings} 
       />
-      
-      <div className="flex flex-col gap-4 mb-8">
-        <button 
-          onClick={() => setTempDarkMode(!tempDarkMode)}
-          className={`w-full py-4 rounded-2xl font-bold shadow-lg transition active:scale-95 text-lg flex items-center justify-center gap-3 ${tempDarkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-white text-gray-800 border border-gray-100'}`}
-        >
-          {tempDarkMode ? (
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-          )}
-          {tempDarkMode ? 'Désactiver Mode Sombre' : 'Activer Mode Sombre'}
-          {tempDarkMode !== state.darkMode && <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
-        </button>
-      </div>
 
       <div className="space-y-8">
         {/* Section Apparence */}
-        <section className={`p-6 rounded-3xl shadow-sm border ${tempDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
           <div className="flex justify-between items-center mb-4">
-            <h3 className={`text-lg font-bold ${tempDarkMode ? 'text-white' : 'text-gray-800'}`}>Apparence</h3>
-            {bgColor !== (user?.bgColor || '#f0f2f5') && (
-              <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
-                <CheckCircle2 size={16} />
-              </button>
-            )}
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Apparence</h3>
           </div>
           <div className="mb-4">
-            <label className={`block text-sm font-semibold mb-2 ${tempDarkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Couleur d'arrière-plan</label>
+            <label className={`block text-sm font-semibold mb-2 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Couleur d'arrière-plan</label>
             <div className="flex items-center gap-3">
               <input type="color" value={colorNameToHex(bgColor).startsWith('#') ? colorNameToHex(bgColor) : '#f0f2f5'} onChange={e => setBgColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
-              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: rouge) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none font-bold ${tempDarkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 text-gray-900 focus:ring-[#0D98BA]'}`} />
-              {bgColor !== (user?.bgColor || '#f0f2f5') && <span className="w-3 h-3 bg-blue-500 rounded-full animate-pulse" />}
+              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: rouge) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 text-gray-900 focus:ring-[#0D98BA]'}`} />
+              {bgColor !== (user?.bgColor || '#f0f2f5') && (
+                <button onClick={saveSettings} className="p-2.5 bg-green-500 text-white rounded-xl shadow-md hover:scale-110 transition active:scale-95 flex-shrink-0" title="Sauvegarder">
+                  <CheckCircle2 size={20} />
+                </button>
+              )}
             </div>
           </div>
           <div className="pt-2">
             <button 
               onClick={() => setTempDarkMode(!tempDarkMode)}
-              className={`w-full py-3 rounded-xl font-bold shadow-sm transition active:scale-95 text-sm flex items-center justify-center gap-3 ${tempDarkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-gray-50 text-gray-800 border border-gray-100'}`}
+              className={`w-full py-3 rounded-xl font-bold shadow-sm transition active:scale-95 text-sm flex items-center justify-center gap-3 ${state.darkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-gray-50 text-gray-800 border border-gray-100'}`}
             >
               {tempDarkMode ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
               ) : (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
               )}
-              {tempDarkMode ? 'Désactiver Mode Sombre' : 'Activer Mode Sombre'}
+              {tempDarkMode ? 'Désactiver Mode Sombre (En attente de sauvegarde)' : 'Activer Mode Sombre (En attente de sauvegarde)'}
               {tempDarkMode !== state.darkMode && (
-                <>
-                  <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); saveSettings(); }}
-                    className="ml-auto p-1.5 bg-green-500 text-white rounded-lg shadow-md hover:scale-110"
-                  >
-                    <CheckCircle2 size={14} />
-                  </button>
-                </>
+                <div 
+                  onClick={(e) => { e.stopPropagation(); saveSettings(); }}
+                  className="ml-auto p-1.5 bg-green-500 text-white rounded-lg shadow-md hover:scale-110"
+                >
+                  <CheckCircle2 size={16} />
+                </div>
               )}
             </button>
           </div>
         </section>
 
         {/* Section Notifications */}
-        <section className={`p-6 rounded-3xl shadow-sm border ${tempDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
           <div className="flex justify-between items-center mb-4">
-            <h3 className={`text-lg font-bold ${tempDarkMode ? 'text-white' : 'text-gray-800'}`}>Notifications</h3>
-            {notifications !== !!user?.notificationsEnabled && (
-              <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
-                <CheckCircle2 size={16} />
-              </button>
-            )}
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Notifications</h3>
           </div>
           <div className="flex items-center gap-3">
             <label className="flex-1 flex flex-col justify-center cursor-pointer">
               <div className="flex items-center justify-between">
-                <span className={`text-sm font-semibold ${tempDarkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Activer les notifications</span>
+                <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Activer les notifications</span>
                 <div className="relative">
                   <input 
                     type="checkbox" 
@@ -1926,24 +1905,23 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
               </div>
               <p className="text-xs text-gray-500 mt-2">Reçois des alertes comme sur WhatsApp.</p>
             </label>
-            {notifications !== !!user?.notificationsEnabled && <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
+            {notifications !== !!user?.notificationsEnabled && (
+              <button onClick={saveSettings} className="p-2.5 bg-green-500 text-white rounded-xl shadow-md hover:scale-110 transition active:scale-95 flex-shrink-0" title="Sauvegarder">
+                <CheckCircle2 size={20} />
+              </button>
+            )}
           </div>
         </section>
 
         {/* Section Application */}
-        <section className={`p-6 rounded-3xl shadow-sm border ${tempDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
+        <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
           <div className="flex justify-between items-center mb-4">
-            <h3 className={`text-lg font-bold ${tempDarkMode ? 'text-white' : 'text-gray-800'}`}>Application</h3>
-            {autoHideSidebar !== (user?.autoHideSidebar ?? true) && (
-              <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-95" title="Appliquer">
-                <CheckCircle2 size={16} />
-              </button>
-            )}
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Application</h3>
           </div>
           <div className="mb-6 flex items-center gap-3">
             <label className="flex-1 flex flex-col justify-center cursor-pointer">
               <div className="flex items-center justify-between">
-                <span className={`text-sm font-semibold ${tempDarkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Masquer le menu automatiquement</span>
+                <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Masquer le menu automatiquement</span>
                 <div className="relative">
                   <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => setAutoHideSidebar(e.target.checked)} />
                   <div className={`block w-14 h-8 rounded-full transition-colors ${autoHideSidebar ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
@@ -1952,7 +1930,11 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
               </div>
               <p className="text-xs text-gray-500 mt-2">Ferme le menu après avoir cliqué sur un onglet.</p>
             </label>
-            {autoHideSidebar !== (user?.autoHideSidebar ?? true) && <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />}
+            {autoHideSidebar !== (user?.autoHideSidebar ?? true) && (
+              <button onClick={saveSettings} className="p-2.5 bg-green-500 text-white rounded-xl shadow-md hover:scale-110 transition active:scale-95 flex-shrink-0" title="Sauvegarder">
+                <CheckCircle2 size={20} />
+              </button>
+            )}
           </div>
           <div>
             <label className="flex items-center justify-between cursor-pointer">

@@ -106,8 +106,12 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const [threadParentId, setThreadParentId] = useState<string | null>(null);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
+  const [showCode, setShowCode] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTypingUpdate = useRef<number>(0);
 
   const stickers = [
     { id: 'cool', url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=cool' },
@@ -229,6 +233,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     const msgText = messageInput.trim();
     setMessageInput('');
     setDraftStatus(false);
+
+    // Typing Status Clearance
+    const roomRef = doc(db, isSMS ? 'private_messages' : 'groups', activeGroup);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    updateDoc(roomRef, { [`typingStatus.${state.currentUser}`]: 0 }).catch(() => {});
 
     // Optimistic UI update
     const optimisticMsg = {
@@ -701,10 +710,24 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       const tokens: { id: string, html: React.ReactNode }[] = [];
       let tokenIndex = 0;
 
-      // Bold: **Text** - Must be surrounded by non-asterisks or boundary
-      // Avoid matching if it's part of a longer sequence of asterisks
-      const boldRegex = /(?<!\*)\*\*([^*]+?)\*\*(?!\*)/g;
+      // Italic: **Text** 
+      // Must not be empty, must not start/end with space. 
+      const italicRegex = /\*\*([^\s*](?:[^*]*?[^\s*])?)\*\*/g;
+      processed = processed.replace(italicRegex, (match, content) => {
+        const id = `__ITALIC_TOKEN_${tokenIndex}__`;
+        tokens.push({
+          id,
+          html: <em key={id} className="italic text-[1.05em] px-0.5 opacity-90">{content}</em>
+        });
+        tokenIndex++;
+        return id;
+      });
+
+      // Bold: *Text*
+      // Must not start/end with space. Must contain at least one letter
+      const boldRegex = /\*([^\s*](?:[^*]*?[^\s*])?)\*/g;
       processed = processed.replace(boldRegex, (match, content) => {
+        if (!/[a-zA-ZÀ-ÿ]/.test(content)) return match;
         const id = `__BOLD_TOKEN_${tokenIndex}__`;
         tokens.push({
           id,
@@ -714,14 +737,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         return id;
       });
 
-      // Italic: *Text* - Safe check to avoid phone numbers or single asterisks
-      // Must have at least one character and not just spaces
-      const italicRegex = /(?<!\*)\*([^*]+?)\*(?!\*)/g;
-      processed = processed.replace(italicRegex, (match, content) => {
-        const id = `__ITALIC_TOKEN_${tokenIndex}__`;
+      // Underline: _Text_
+      const underlineRegex = /_([^\s_](?:[^_]*?[^\s_])?)_/g;
+      processed = processed.replace(underlineRegex, (match, content) => {
+        const id = `__UNDERLINE_TOKEN_${tokenIndex}__`;
         tokens.push({
           id,
-          html: <em key={id} className="italic text-[1.05em] px-0.5 opacity-90">{content}</em>
+          html: <span key={id} className="underline underline-offset-2 px-0.5">{content}</span>
         });
         tokenIndex++;
         return id;
@@ -1037,7 +1059,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 type="text" 
                 placeholder="Code secret" 
                 minLength={5}
-                maxLength={7} 
+                maxLength={8} 
                 value={newGroupCode} 
                 onChange={e => setNewGroupCode(e.target.value)} 
                 className="w-full px-6 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all text-2xl font-black text-center tracking-[0.5em] font-mono" 
@@ -1047,8 +1069,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <button onClick={() => setWizardStep(3)} className="flex-1 py-4 rounded-2xl bg-gray-100 text-gray-500 font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all">Retour</button>
               <button 
                 onClick={() => {
-                  if (newGroupCode.length < 5 || newGroupCode.length > 7) {
-                    return showToast("Le code doit faire entre 5 et 7 caractères.");
+                  if (newGroupCode.length < 5 || newGroupCode.length > 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(newGroupCode)) {
+                    return showToast("Code invalide. Respectez les consignes (5-8 min, min 1 maj, 1 min, 1 chiffre, 1 spécial).");
                   }
                   if (Object.values(state.groups).some(g => g.code === newGroupCode)) {
                     return showToast("Ce code est déjà utilisé.");
@@ -1089,8 +1111,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       setShowRestrictedPopup(true);
       return;
     }
-    if (joinCode.length < 5 || joinCode.length > 7) {
-      return showToast("Le code doit faire entre 5 et 7 caractères.");
+    if (joinCode.length < 5 || joinCode.length > 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(joinCode)) {
+      return showToast("Code invalide. Respectez les consignes.");
     }
     const group = Object.values(state.groups).find(g => g.type === 'private' && g.code === joinCode);
     if (!group) return showToast("Code invalide.");
@@ -1671,7 +1693,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
               <span className="text-[10px] font-black uppercase tracking-widest">Retour</span>
             </button>
-            <div className={`w-10 h-10 rounded-2xl ${isSMS ? 'bg-gray-100/10' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center font-bold shadow-md overflow-hidden ${state.darkMode ? 'text-white border border-white/10' : 'text-white'}`}>
+            <div 
+              className={`w-10 h-10 rounded-2xl ${isSMS ? 'bg-gray-100/10' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center font-bold shadow-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity ${state.darkMode ? 'text-white border border-white/10' : 'text-white'}`}
+              onClick={() => {
+                if (isSMS && otherUserData?.avatar) setSelectedImage(otherUserData.avatar);
+                else if (!isSMS && group.avatar) setSelectedImage(group.avatar);
+              }}
+            >
               {isSMS && otherUserData?.avatar ? (
                 <img src={otherUserData.avatar} className="w-full h-full object-cover" />
               ) : !isSMS && group.avatar ? (
@@ -1787,27 +1815,34 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-[10px] font-black uppercase text-gray-400 block">Code du groupe</span>
-                  {(isCreator || isSubAdmin) && (
-                    <button 
-                      onClick={async () => {
-                        const newCode = prompt("Nouveau code (5-7 caractères) :", group.code);
-                        if (newCode && newCode !== group.code) {
-                          if (newCode.length < 5 || newCode.length > 7) return showToast("Code invalide (5-7 caractères).");
-                          try {
-                            await setDoc(doc(db, 'groups', activeGroup), { code: newCode }, { merge: true });
-                            showToast("Code mis à jour !");
-                          } catch (e) {
-                            showToast("Erreur lors de la mise à jour du code.");
-                          }
-                        }
-                      }}
-                      className="text-[10px] font-black uppercase text-[#0D98BA] hover:underline"
-                    >
-                      Modifier
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setShowCode(!showCode)} className="text-gray-400 hover:text-gray-600 transition">
+                      {showCode ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
-                  )}
+                    {(isCreator || isSubAdmin) && (
+                      <button 
+                        onClick={async () => {
+                          const newCode = prompt("Nouveau code (5-8 min, min 1 maj, 1 min, 1 chiffre, 1 spécial) :", group.code);
+                          if (newCode && newCode !== group.code) {
+                            if (newCode.length < 5 || newCode.length > 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(newCode)) {
+                              return showToast("Code invalide. Respectez les consignes.");
+                            }
+                            try {
+                              await setDoc(doc(db, 'groups', activeGroup), { code: newCode }, { merge: true });
+                              showToast("Code mis à jour !");
+                            } catch (e) {
+                              showToast("Erreur lors de la mise à jour du code.");
+                            }
+                          }
+                        }}
+                        className="text-[10px] font-black uppercase text-[#0D98BA] hover:underline"
+                      >
+                        Modifier
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <code className="text-xl font-black tracking-[0.3em] text-[#0D98BA]">{group.code}</code>
+                <code className="text-xl font-black tracking-[0.3em] text-[#0D98BA]">{showCode ? group.code : '••••••••'}</code>
               </div>
             )}
 
@@ -2220,7 +2255,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             <img 
                               src={file.url} 
                               alt={file.name || 'Image'} 
-                              className={`max-w-full h-auto object-contain ${file.type === 'sticker' ? 'w-24 h-24' : 'max-h-60'}`}
+                              className={`max-w-full h-auto object-contain ${file.type === 'image' ? 'cursor-pointer hover:opacity-90 transition-opacity max-h-60' : 'w-24 h-24'}`}
+                              onClick={(e) => { 
+                                if (file.type === 'image') {
+                                  e.stopPropagation();
+                                  setSelectedImage(file.url); 
+                                }
+                              }}
                               referrerPolicy="no-referrer"
                             />
                           ) : file.type === 'video' ? (
@@ -2391,7 +2432,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       )}
                     </p>
                     {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
-                      <div className={`absolute ${isMine ? 'right-full mr-2' : 'left-full ml-10'} top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-2 z-10 lg:opacity-0 lg:group-hover/msg:opacity-100 opacity-100 transition-opacity duration-200 lg:pointer-events-none lg:group-hover/msg:pointer-events-auto shadow-sm whitespace-nowrap`}>
+                      <div className={`absolute ${isMine ? 'right-full mr-2 sm:mr-3' : 'right-full mr-10 sm:mr-11'} top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-1 z-10 lg:opacity-0 lg:group-hover/msg:opacity-100 opacity-100 transition-opacity duration-200 lg:pointer-events-none lg:group-hover/msg:pointer-events-auto bg-transparent shadow-none whitespace-nowrap`}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
                           className={`p-1.5 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}
@@ -2624,9 +2665,21 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   // Typing Status Update
                   if (!isTest && state.currentUser) {
                     const roomRef = doc(db, isSMS ? 'private_messages' : 'groups', activeGroup);
-                    updateDoc(roomRef, {
-                      [`typingStatus.${state.currentUser}`]: Date.now()
-                    }).catch(() => {}); // Ingore errors if room doesn't exist yet
+                    const now = Date.now();
+                    
+                    if (now - lastTypingUpdate.current > 2000) {
+                      lastTypingUpdate.current = now;
+                      if (!(group as any).typingStatus) {
+                        setDoc(roomRef, { typingStatus: { [state.currentUser]: now } }, { merge: true }).catch(() => {});
+                      } else {
+                        updateDoc(roomRef, { [`typingStatus.${state.currentUser}`]: now }).catch(() => {});
+                      }
+                    }
+
+                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                    typingTimeoutRef.current = setTimeout(() => {
+                      updateDoc(roomRef, { [`typingStatus.${state.currentUser}`]: 0 }).catch(() => {});
+                    }, 2500);
                   }
                 }} 
                 style={{ maxHeight: '150px' }}
@@ -2837,8 +2890,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             {state.users[u].avatar ? <img src={state.users[u].avatar!} className="w-full h-full object-cover" /> : (u || '?')[0].toUpperCase()}
                           </div>
                           <div className="text-left">
-                            <p className={`font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>@{state.users[u].name || u}</p>
-                            <p className="text-[10px] text-gray-400 uppercase font-black">Disponible pour SMS</p>
+                            <div className="flex items-center gap-2">
+                              <p className={`font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>@{state.users[u].name || u}</p>
+                              {state.users[u].isOnline && <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse"></span>}
+                            </div>
+                            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mt-0.5">
+                              {state.users[u].isOnline ? <span className="text-green-500">En ligne</span> : `Actif: ${state.users[u].lastSeen ? new Date(state.users[u].lastSeen).toLocaleDateString() : '?'}`} • Créé: {state.users[u].createdAt ? new Date(state.users[u].createdAt).toLocaleDateString() : '?'}
+                            </p>
                           </div>
                         </div>
                         <ChevronRight size={18} className="text-gray-300 group-hover:text-[#0D98BA] transition-colors" />
@@ -2868,7 +2926,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className={`font-bold truncate pr-2 ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>{otherName}</h3>
+                        <h3 className={`font-bold truncate pr-2 flex items-center gap-2 ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {otherName}
+                          {state.users[otherId || '']?.isOnline && <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse"></span>}
+                        </h3>
                         <span className="text-xs text-gray-400 whitespace-nowrap">{lastMsg?.time || ''}</span>
                       </div>
                       <p className="text-sm text-gray-500 truncate">
@@ -3131,6 +3192,25 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-[6000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95"
+          onClick={() => setSelectedImage(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-all active:scale-90 shadow-2xl"
+            onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+          >
+            <X size={24} />
+          </button>
+          <img 
+            src={selectedImage} 
+            alt="Plein écran" 
+            className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl pointer-events-none" 
+          />
         </div>
       )}
 

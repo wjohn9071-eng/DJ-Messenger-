@@ -28,10 +28,12 @@ interface TutorialStep {
 
 export function TutorialGame({ 
   state, 
-  onComplete 
+  onComplete,
+  onCancel
 }: { 
   state: AppState, 
-  onComplete: () => void 
+  onComplete: () => void,
+  onCancel?: () => void
 }) {
   const [gameState, setGameState] = useState<'intro' | 'playing' | 'outro'>('intro');
   const [stepIndex, setStepIndex] = useState(0);
@@ -343,7 +345,7 @@ export function TutorialGame({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               transition={{ delay: 0.8 }}
-              onClick={onComplete}
+              onClick={onCancel || onComplete}
               className="w-full py-4 rounded-[2rem] font-bold text-white/70 hover:text-white border border-white/20 transition-all"
             >
               ANNULER ET REVENIR
@@ -438,7 +440,7 @@ export function TutorialGame({
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   {currentStep.requiredAction && !actionCompleted && (
                     <button 
                       onClick={() => setIsExplanationsHidden(!isExplanationsHidden)}
@@ -447,12 +449,12 @@ export function TutorialGame({
                       {isExplanationsHidden ? 'Afficher' : 'Masquer'}
                     </button>
                   )}
-                  <button 
+                  <button
                     onClick={onComplete}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                    className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-500 hover:bg-red-200 transition-colors"
                     title="Quitter le tutoriel"
                   >
-                    <RefreshCw size={18} />
+                    <X size={16} />
                   </button>
                 </div>
               </div>
