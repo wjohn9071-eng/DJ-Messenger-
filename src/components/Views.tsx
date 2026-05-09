@@ -1702,16 +1702,22 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   };
 
   const colorNameToHex = (color: string) => {
-    const lowerColor = color.toLowerCase().trim();
+    let lowerColor = color.toLowerCase().trim();
     if (frenchColors[lowerColor]) return frenchColors[lowerColor];
-    if (color.startsWith('#')) return color;
+    if (lowerColor.startsWith('#')) return lowerColor;
+    
+    // Automatically prepend '#' if it's a valid 3 or 6 char hex sequence
+    if (/^([0-9a-f]{3}|[0-9a-f]{6})$/i.test(lowerColor)) {
+      lowerColor = '#' + lowerColor;
+      return lowerColor;
+    }
     
     // Check if it's a valid CSS color name
     const s = document.createElement('div').style;
     s.color = lowerColor;
     if (s.color !== '') {
       const ctx = document.createElement('canvas').getContext('2d');
-      if (!ctx) return color;
+      if (!ctx) return lowerColor;
       ctx.fillStyle = lowerColor;
       return ctx.fillStyle;
     }

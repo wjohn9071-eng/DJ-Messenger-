@@ -44,6 +44,52 @@ html:not(.dark) body {
     color: #111827;
 }
 
+html.dark {
+    font-weight: 900;
+}
+
+html.dark * {
+    font-weight: inherit;
+}
+
+/* Ensure background color transparency when custom bg is used so the background is visible */
+html[style*="--bg-color"] body * {
+    /* Exclude inputs/buttons from fully transparent */
+}
+
+html[style*="--text-color"] body {
+    color: var(--text-color) !important;
+}
+
+html[style*="--text-color"] body *:not(.bg-gray-100, .bg-blue-50, .bg-zinc-800, .bg-zinc-900, input, textarea, button, .dj-style-text) {
+    color: inherit;
+}
+
+/* Target elements specifically to make them translucent if a custom background is set */
+html[style*="--bg-color"] .bg-white,
+html[style*="--bg-color"] .bg-zinc-800,
+html[style*="--bg-color"] .bg-black {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(16px);
+}
+
+html.dark[style*="--bg-color"] .bg-white,
+html.dark[style*="--bg-color"] .bg-zinc-800,
+html.dark[style*="--bg-color"] .bg-black {
+    background-color: rgba(0, 0, 0, 0.3) !important;
+    backdrop-filter: blur(16px);
+}
+
+html.dark body, html.dark body * {
+    color: #ffffff !important;
+}
+
+/* Specific overrides for inputs if needed */
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
 html {
     /* Removed overscroll-behavior-y to allow default scrolling */
 }

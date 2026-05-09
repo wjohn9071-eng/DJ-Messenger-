@@ -367,8 +367,19 @@ export default function App() {
       const userData = state.users[state.currentUser];
       if (userData?.bgColor) {
         root.style.setProperty('--bg-color', userData.bgColor);
+        let hex = userData.bgColor;
+        if (hex.startsWith('#') && hex.length >= 7) {
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+          root.style.setProperty('--text-color', yiq >= 128 ? '#000000' : '#ffffff');
+        } else {
+          root.style.setProperty('--text-color', state.darkMode ? '#ffffff' : '#000000');
+        }
       } else {
         root.style.removeProperty('--bg-color');
+        root.style.removeProperty('--text-color');
       }
       if (userData?.btnColor) {
         root.style.setProperty('--btn-color', userData.btnColor);
@@ -378,6 +389,7 @@ export default function App() {
     } else {
       root.style.removeProperty('--bg-color');
       root.style.removeProperty('--btn-color');
+      root.style.removeProperty('--text-color');
     }
   }, [state.darkMode, state.currentUser, state.users]);
 
@@ -747,7 +759,7 @@ export default function App() {
       case 'staff': return <Staff state={state} updateState={updateState} />;
       case 'djsociety': return <DJSociety state={state} updateState={updateState} />;
       case 'updates': return <UpdatesView state={state} />;
-      case 'settings': return <Settings state={state} updateState={updateState} />;
+      case 'settings': return <Settings state={state} updateState={updateState} handleLogout={handleLogout} />;
       case 'profile': return <Profile state={state} updateState={updateState} handleLogout={handleLogout} />;
       case 'tutorial': return <TutorialGame state={state} onComplete={() => setView('home')} onCancel={() => setView('home')} />;
       default: return <Home state={state} setView={setViewAndCloseMenu} updateState={updateState} startSimulation={startSimulation} />;
