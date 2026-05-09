@@ -1,15 +1,14 @@
 importScripts('https://www.gstatic.com/firebasejs/12.11.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/12.11.0/firebase-messaging-compat.js');
 
-// Configuration Firebase
+// Configuration Firebase (Valeurs réelles du projet)
 const firebaseConfig = {
-  // Remplacer ces valeurs par celles du projet
-  apiKey: "VOTRE_API_KEY",
-  authDomain: "VOTRE_AUTH_DOMAIN",
-  projectId: "VOTRE_PROJECT_ID",
-  storageBucket: "VOTRE_STORAGE_BUCKET",
-  messagingSenderId: "VOTRE_SENDER_ID",
-  appId: "VOTRE_APP_ID"
+  apiKey: "AIzaSyCKITVldKjMdPY4PvJWORy-79TAxVeJagg",
+  authDomain: "gen-lang-client-0241237641.firebaseapp.com",
+  projectId: "gen-lang-client-0241237641",
+  storageBucket: "gen-lang-client-0241237641.firebasestorage.app",
+  messagingSenderId: "914168217742",
+  appId: "1:914168217742:web:d0f775dcbbdba4b9ac09df"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -18,14 +17,15 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  const notificationTitle = payload.notification?.title || 'Nouveau message';
+  const notificationTitle = payload.notification?.title || 'DJ Messenger';
   const notificationOptions = {
-    body: payload.notification?.body || 'Vous avez reçu un nouveau message.',
-    icon: '/icon-192x192.png',
-    badge: '/icon-192x192.png',
+    body: payload.notification?.body || payload.data?.message || 'Vous avez reçu un nouveau message.',
+    icon: '/icon.svg',
+    badge: '/icon.svg',
     data: payload.data,
-    tag: `group-${payload.data?.groupId || 'default'}`, // Grouping notifications
-    renotify: true
+    tag: `group-${payload.data?.groupId || 'default'}`, // Groupement par discussion
+    renotify: true,
+    vibrate: [200, 100, 200]
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
@@ -33,7 +33,7 @@ messaging.onBackgroundMessage((payload) => {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  // Manage click on notification
+  
   const urlToOpen = new URL('/', self.location.origin).href;
   const promiseChain = clients.matchAll({
     type: 'window',
@@ -47,7 +47,14 @@ self.addEventListener('notificationclick', function(event) {
         break;
       }
     }
+    
     if (matchingClient) {
+      if (event.notification.data?.groupId) {
+        matchingClient.postMessage({
+          type: 'NAVIGATE_TO_GROUP',
+          groupId: event.notification.data.groupId
+        });
+      }
       return matchingClient.focus();
     } else {
       return clients.openWindow(urlToOpen);

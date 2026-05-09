@@ -441,6 +441,15 @@ export function TutorialGame({
                   </div>
                 </div>
                 <div className="flex gap-2 items-center">
+                  {stepIndex > 0 && !isExplanationsHidden && (
+                    <button 
+                      onClick={() => setStepIndex(prev => prev - 1)}
+                      className="p-2 rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 transition-all font-black text-[10px] uppercase tracking-widest"
+                      title="Revenir en arrière"
+                    >
+                      Revenir
+                    </button>
+                  )}
                   {currentStep.requiredAction && !actionCompleted && (
                     <button 
                       onClick={() => setIsExplanationsHidden(!isExplanationsHidden)}
@@ -450,11 +459,11 @@ export function TutorialGame({
                     </button>
                   )}
                   <button
-                    onClick={onComplete}
-                    className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-500 hover:bg-red-200 transition-colors"
+                    onClick={onCancel}
+                    className="p-2 px-3 rounded-xl bg-red-100 text-red-500 hover:bg-red-200 transition-colors font-black text-[10px] uppercase tracking-widest"
                     title="Quitter le tutoriel"
                   >
-                    <X size={16} />
+                    Annuler
                   </button>
                 </div>
               </div>

@@ -55,8 +55,8 @@ export default function App() {
       const now = Date.now();
       if (!(window as any).lastActivityUpdate || now - (window as any).lastActivityUpdate > 60000) {
         (window as any).lastActivityUpdate = now;
-        setDoc(userRef, { lastActivity: new Date().toISOString() }, { merge: true });
-        setDoc(userPublicRef, { lastActivity: new Date().toISOString() }, { merge: true });
+        setDoc(userRef, { lastActivity: new Date().toISOString(), lastSeen: now }, { merge: true });
+        setDoc(userPublicRef, { lastActivity: new Date().toISOString(), lastSeen: now }, { merge: true });
       }
     };
 
@@ -111,11 +111,14 @@ export default function App() {
     // We listen to all private messages and groups the user is part of
     // This is a simplified version; in a large app, we'd use a server function or a more optimized approach
     
-    const handleNewMessage = (groupId: string, msg: Message, type: 'sms' | 'group') => {
+    const handleNewMessage = (groupId: string, msg: Message, type: 'sms' | 'group', groupNameOverride?: string) => {
       if (!initialLoadDone.current) return;
       if (msg.senderId === state.currentUser) return;
       if (state.activeGroup === groupId) return;
       if (notifiedMessages.current.has(msg.id)) return;
+      
+      const lastRead = state.currentUserData?.lastReadTimestamps?.[groupId] || '0';
+      if (msg.timestamp <= lastRead) return; // Ignore read messages
 
       notifiedMessages.current.add(msg.id);
       
@@ -124,35 +127,75 @@ export default function App() {
 
       setNotification({
         id: msg.id,
-        title: type === 'sms' ? `Message de ${senderName}` : `Nouveau message dans ${groupId}`,
+        title: type === 'sms' ? `Message de ${senderName}` : `Nouveau message dans ${groupNameOverride || groupId}`,
         message: msg.text,
         groupId: groupId,
         avatar: senderAvatar
       });
     };
 
+    const roomMsgUnsubs: Record<string, () => void> = {};
+
     // Listen to private messages
     const pmQuery = query(collection(db, 'private_messages'), where('members', 'array-contains', state.currentUser));
     const unsubPM = onSnapshot(pmQuery, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
-        const roomData = change.doc.data();
         const roomId = change.doc.id;
         
-        // Setup listener for messages in this room
-        const msgQuery = query(collection(db, 'private_messages', roomId, 'messages'), orderBy('timestamp', 'desc'), limit(1));
-        const unsubMsgs = onSnapshot(msgQuery, (msgSnap) => {
-          msgSnap.docs.forEach(doc => {
-            const msg = { id: doc.id, ...doc.data() } as Message;
-            handleNewMessage(roomId, msg, 'sms');
+        if (change.type === 'removed') {
+          if (roomMsgUnsubs[roomId]) {
+            roomMsgUnsubs[roomId]();
+            delete roomMsgUnsubs[roomId];
+          }
+          return;
+        }
+
+        if (!roomMsgUnsubs[roomId]) {
+          const msgQuery = query(collection(db, 'private_messages', roomId, 'messages'), orderBy('timestamp', 'desc'), limit(1));
+          roomMsgUnsubs[roomId] = onSnapshot(msgQuery, (msgSnap) => {
+            msgSnap.docs.forEach(doc => {
+              const msg = { id: doc.id, ...doc.data() } as Message;
+              handleNewMessage(roomId, msg, 'sms');
+            });
           });
-        });
-        unsubscribers.push(unsubMsgs);
+        }
       });
     });
     unsubscribers.push(unsubPM);
 
-    // Similar for public/private groups...
-    // (Omitted for brevity in this step, but same logic applies)
+    // Listen to public/private groups
+    const groupQuery = query(collection(db, 'groups'));
+    const unsubGroups = onSnapshot(groupQuery, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        const roomData = change.doc.data();
+        const roomId = change.doc.id;
+
+        if (change.type === 'removed') {
+          if (roomMsgUnsubs[roomId]) {
+            roomMsgUnsubs[roomId]();
+            delete roomMsgUnsubs[roomId];
+          }
+          return;
+        }
+
+        const shouldListen = roomData.type === 'public' || (roomData.members && roomData.members.includes(state.currentUser));
+
+        if (shouldListen && !roomMsgUnsubs[roomId]) {
+          const msgQuery = query(collection(db, 'groups', roomId, 'messages'), orderBy('timestamp', 'desc'), limit(1));
+          roomMsgUnsubs[roomId] = onSnapshot(msgQuery, (msgSnap) => {
+            msgSnap.docs.forEach(doc => {
+              const msg = { id: doc.id, ...doc.data() } as Message;
+              // Pass the group name along
+              handleNewMessage(roomId, msg, 'group', roomData.name);
+            });
+          });
+        } else if (!shouldListen && roomMsgUnsubs[roomId]) {
+          roomMsgUnsubs[roomId]();
+          delete roomMsgUnsubs[roomId];
+        }
+      });
+    });
+    unsubscribers.push(unsubGroups);
 
     // Set initial load flag after a delay to avoid noise on startup
     const timer = setTimeout(() => {
@@ -167,14 +210,21 @@ export default function App() {
           const newUsers = { ...prev.users };
           newUsers[state.currentUser as string] = {
             ...newUsers[state.currentUser as string],
-            ...data
+            ...data,
+            uid: snapshot.id
           };
-          return { ...prev, users: newUsers, currentUserData: data };
+          return { 
+            ...prev, 
+            users: newUsers, 
+            currentUserData: data as User,
+            darkMode: data.darkMode !== undefined ? data.darkMode : prev.darkMode
+          };
         });
       }
     });
 
     return () => {
+      Object.values(roomMsgUnsubs).forEach(unsub => unsub());
       unsubscribers.forEach(unsub => unsub());
       unsubUser();
       clearTimeout(timer);
@@ -448,7 +498,7 @@ export default function App() {
     const helpGroupId = `sms_${[state.currentUser as string, 'dj-bot'].sort().join('_')}`;
     
     // Check if any group has messages from 'Bot DJ' or 'DJ Help'
-    const hasBotMessages = (Object.values(state.groups) as Group[]).some(g => 
+    const hasBotMessages = (Object.values(state.groups || {}) as Group[]).some(g => 
       g.messages.some(m => m.user === 'Bot DJ' || m.user === 'DJ Help' || m.user === 'Simulateur DJ (Faux)')
     );
 
@@ -478,35 +528,38 @@ export default function App() {
 
     setupDJBot();
 
-    if (hasBotMessages) {
+    if (hasBotMessages || !state.users['dj-bot'] || state.users['dj-bot']?.isAdmin) {
       updateState((prev: AppState) => {
         const newGroups = { ...prev.groups };
         const newUsers = { ...prev.users };
       
-        // 0. Ensure DJ Bot user exists
-        if (!newUsers['dj-bot']) {
-          newUsers['dj-bot'] = {
-            id: 'dj-bot',
-            uid: 'dj-bot',
-            name: 'DJ Bot',
-            email: 'bot@djsociety.com',
-            isAdmin: true,
-            friends: [],
-            avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=dj-bot'
-          };
-        }
+        // 0. Ensure DJ Bot user exists correctly
+        newUsers['dj-bot'] = {
+          ...newUsers['dj-bot'],
+          id: 'dj-bot',
+          uid: 'dj-bot',
+          name: 'DJ Bot',
+          email: 'bot@djsociety.com',
+          isAdmin: false,
+          isGrandAdmin: false,
+          isSuperAdmin: false,
+          friends: [],
+          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=dj-bot'
+        };
 
         // 1. Remove old bot groups and simulation artifacts
-        delete newGroups[botGroupId];
-        delete newGroups[simulatedGroupId];
-        
-        // 2. Remove all messages from 'Bot DJ', 'DJ Help' or 'Simulateur DJ (Faux)' in all groups
-        Object.keys(newGroups).forEach(id => {
-          newGroups[id] = {
-            ...newGroups[id],
-            messages: newGroups[id].messages.filter(m => m.user !== 'Bot DJ' && m.user !== 'DJ Help' && m.user !== 'Simulateur DJ (Faux)')
-          };
-        });
+        if (hasBotMessages) {
+          delete newGroups[botGroupId];
+          delete newGroups[simulatedGroupId];
+          
+          // 2. Remove all messages from 'Bot DJ', 'DJ Help' or 'Simulateur DJ (Faux)' in all groups
+          Object.keys(newGroups).forEach(id => {
+            newGroups[id] = {
+              ...newGroups[id],
+              messages: newGroups[id].messages.filter(m => m.user !== 'Bot DJ' && m.user !== 'DJ Help' && m.user !== 'Simulateur DJ (Faux)')
+            };
+          });
+        }
 
         return { ...prev, groups: newGroups, users: newUsers };
       });
@@ -555,8 +608,8 @@ export default function App() {
       }
     };
 
-    // Send a tip every 20 minutes
-    const interval = setInterval(sendTip, 20 * 60 * 1000);
+    // Send a tip every 15 minutes
+    const interval = setInterval(sendTip, 15 * 60 * 1000);
     
     // Response logic: Check for new user messages in DJ Bot group
     const helpGroup = state.privateMessages?.[helpGroupId];
@@ -590,7 +643,7 @@ export default function App() {
           }
 
           let response = "Je suis désolé, mes capteurs ne captent pas bien cette fréquence ! Mais je peux vous guider sur les groupes, les SMS privés, le transfert de fichiers, la DJ Society ou vos réglages. Posez-moi une question précise !";
-          const text = lastMsg.text.toLowerCase();
+          const text = (lastMsg.text || "").toLowerCase();
           
           if (text.includes('bonjour') || text.includes('salut') || text.includes('coucou') || text.includes('hello')) {
             response = "Salut l'artiste ! 🎧 Je suis DJ Bot, ton assistant virtuel personnel. Je suis expert en DJ Messenger. Comment puis-je t'aider à propulser ton expérience aujourd'hui ?\n\nJe peux t'expliquer :\n- Comment créer des Groupes (Publics ou Privés)\n- Comment ajouter des Amis pour des SMS secrets\n- Comment utiliser la DJ Society pour changer l'app\n- Comment personnaliser ton style dans les Paramètres";
@@ -694,8 +747,9 @@ export default function App() {
       case 'staff': return <Staff state={state} updateState={updateState} />;
       case 'djsociety': return <DJSociety state={state} updateState={updateState} />;
       case 'updates': return <UpdatesView state={state} />;
-      case 'settings': return <Settings state={state} updateState={updateState} handleLogout={handleLogout} />;
-      case 'profile': return <Profile state={state} updateState={updateState} />;
+      case 'settings': return <Settings state={state} updateState={updateState} />;
+      case 'profile': return <Profile state={state} updateState={updateState} handleLogout={handleLogout} />;
+      case 'tutorial': return <TutorialGame state={state} onComplete={() => setView('home')} onCancel={() => setView('home')} />;
       default: return <Home state={state} setView={setViewAndCloseMenu} updateState={updateState} startSimulation={startSimulation} />;
     }
   };
@@ -714,7 +768,7 @@ export default function App() {
   }
 
   return (
-    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-300 dark:bg-gray-900 dark:text-white ${state.darkMode ? 'text-white' : ''}`} style={{ backgroundColor: state.darkMode && !state.users[state.currentUser]?.bgColor ? '#111827' : 'var(--bg-color, #f0f2f5)' }}>
+    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-300 ${state.darkMode ? 'bg-zinc-950 text-white font-bold drop-shadow-sm' : 'text-gray-900'}`} style={{ backgroundColor: state.currentUser && state.users?.[state.currentUser]?.bgColor ? state.users[state.currentUser].bgColor : (state.darkMode ? '#09090b' : '#f8fafc') }}>
       
       <NotificationToast 
         notification={notification} 

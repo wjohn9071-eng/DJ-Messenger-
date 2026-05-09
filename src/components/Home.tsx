@@ -2,7 +2,8 @@ import React from 'react';
 import { djStyleText, djStyleBg, DJ_LOGO_SVG } from '../lib/utils';
 import { AppState } from '../types';
 import { APP_UPDATES } from '../constants';
-import { Pin, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react';
+import { Pin, ChevronDown, ChevronUp, Lightbulb, Bell, Pencil, Users, Shield, Key, ImagePlus } from 'lucide-react';
+import Markdown from 'react-markdown';
 
 export default function Home({ state, setView, updateState, startSimulation }: { state: AppState, setView: (v: string, p?: boolean) => void, updateState: any, startSimulation: () => void }) {
   const currentVersion = APP_UPDATES[0]?.version || '3.0.0';
@@ -10,14 +11,26 @@ export default function Home({ state, setView, updateState, startSimulation }: {
   const currentUserData = !isTest && state.currentUser ? (state.currentUserData || state.users[state.currentUser as string]) : null;
   const isPrivileged = currentUserData?.isAdmin || currentUserData?.isGrandAdmin || currentUserData?.isSuperAdmin;
 
-  const [showUpdateNotice, setShowUpdateNotice] = React.useState(() => {
-    return localStorage.getItem(`update_notice_dismissed_${currentVersion}`) !== 'true';
-  });
+  const [showUpdateNotice, setShowUpdateNotice] = React.useState(false);
+  const [showHomeUpdateDetails, setShowHomeUpdateDetails] = React.useState(false);
+
+  React.useEffect(() => {
+    const dismissed = localStorage.getItem(`update_notice_dismissed_${currentVersion}`);
+    if (dismissed !== 'true') {
+      setShowUpdateNotice(true);
+    }
+  }, [currentVersion]);
   
+  const sensitiveRegex = /([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|Staff-Help|Dj2024in|DJ_MASTER_2026|DJ24026IN|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive|visualisation des mots de passe|Visualisation|modération|sécurité)[^.!?]*[.!?])/gi;
+
   // Filter description for Home Notice
   const filteredDesc = isPrivileged 
     ? (APP_UPDATES[0]?.desc || "")
-    : ((APP_UPDATES[0]?.desc || "").replace(/([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive)[^.!?]*[.!?])/gi, '').trim() || APP_UPDATES[0]?.desc || "");
+    : ((APP_UPDATES[0]?.desc || "").replace(sensitiveRegex, '').split('\n').filter(line => line.trim()).join('\n').trim() || APP_UPDATES[0]?.desc || "");
+
+  const filteredManual = isPrivileged
+    ? (APP_UPDATES[0]?.manual || "")
+    : ((APP_UPDATES[0]?.manual || "").replace(sensitiveRegex, '').split('\n').filter(line => line.trim()).join('\n').trim() || "");
 
   const username = isTest ? 'Anonyme' : (currentUserData?.name || state.currentUser);
   const isNewUser = !isTest && currentUserData && currentUserData.friends?.length === 0;
@@ -38,18 +51,24 @@ export default function Home({ state, setView, updateState, startSimulation }: {
       : `Content de te revoir, ${username}`;
 
   const tips = [
-    "Astuce : Tu peux épingler tes groupes préférés pour les retrouver plus vite !",
-    "Astuce : Active les notifications dans les paramètres pour ne rater aucun message.",
-    "Astuce : Propose tes idées dans la DJ Society, les admins t'écoutent !",
-    "Astuce : Personnalise la couleur de l'application dans tes paramètres.",
-    "Astuce : Ajoute des amis pour discuter avec eux plus facilement.",
-    "Astuce : Le mode test te permet de découvrir l'app sans créer de compte.",
-    "Astuce : Les groupes privés nécessitent un code d'invitation sécurisé.",
-    "Astuce : Tu peux changer ton avatar à tout moment dans ton profil."
+    { text: "Tu peux épingler tes groupes préférés pour les retrouver plus vite !", icon: <Pin size={14} className="text-[#0D98BA]" /> },
+    { text: "Active les notifications dans les paramètres pour ne rater aucun message.", icon: <Bell size={14} className="text-orange-500" /> },
+    { text: "Propose tes idées dans la DJ Society, les admins t'écoutent !", icon: <Lightbulb size={14} className="text-yellow-500" /> },
+    { text: "Personnalise la couleur de l'application dans tes paramètres.", icon: <Pencil size={14} className="text-purple-500" /> },
+    { text: "Ajoute des amis pour discuter avec eux plus facilement.", icon: <Users size={14} className="text-green-500" /> },
+    { text: "Le mode test te permet de découvrir l'app sans créer de compte.", icon: <Shield size={14} className="text-blue-500" /> },
+    { text: "Les groupes privés nécessitent un code d'invitation sécurisé.", icon: <Key size={14} className="text-red-500" /> },
+    { text: "Tu peux changer ton avatar à tout moment dans ton profil.", icon: <ImagePlus size={14} className="text-pink-500" /> }
   ];
   
-  // Change tip every 10 minutes
-  const tipIndex = Math.floor(Date.now() / (10 * 60 * 1000)) % tips.length;
+  const [tipIndex, setTipIndex] = React.useState(Math.floor(Date.now() / (15 * 60 * 1000)) % tips.length);
+  React.useEffect(() => {
+    const intv = setInterval(() => {
+      setTipIndex(Math.floor(Date.now() / (15 * 60 * 1000)) % tips.length);
+    }, 60 * 1000);
+    return () => clearInterval(intv);
+  }, [tips.length]);
+  
   const currentTip = tips[tipIndex];
 
   const handleNotificationClick = () => {
@@ -152,7 +171,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
   );
 
   return (
-    <div className={`min-h-full p-6 animate-in fade-in duration-500 overflow-y-auto backdrop-blur-sm ${state.darkMode ? 'bg-black/50 text-white' : 'bg-white/50 text-gray-800'}`}>
+    <div className={`min-h-full p-6 animate-in fade-in duration-500 overflow-y-auto ${state.darkMode ? 'bg-transparent text-white' : 'bg-transparent text-gray-800'}`}>
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-center w-full max-w-6xl mx-auto gap-8">
         
         {/* Main Center Content */}
@@ -162,9 +181,10 @@ export default function Home({ state, setView, updateState, startSimulation }: {
         {!isTest && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 opacity-20 pointer-events-none z-0">
              <div className="bg-[#0D98BA]/20 blur-[100px] w-full h-full rounded-full" />
-             <p className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-black uppercase tracking-[0.3em] text-center w-full whitespace-nowrap hidden lg:block">
-               {currentTip}
-             </p>
+             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-center w-full whitespace-nowrap hidden lg:flex justify-center">
+               {tips[tipIndex].icon}
+               <span>{tips[tipIndex].text}</span>
+             </div>
           </div>
         )}
 
@@ -172,34 +192,24 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
         </div>
 
-        {isTest && (
-          <div className="w-full mb-8 relative z-10" id="tutorial-launch-area">
-            <button 
-              onClick={startSimulation}
-              className={`w-full px-6 py-5 rounded-3xl font-black uppercase tracking-widest text-lg shadow-[0_0_20px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition-transform active:scale-95 text-white flex items-center justify-center gap-2 ${djStyleBg}`}
-            >
-              <span>Lancer le Tutoriel</span>
-            </button>
-            <p className="text-xs font-semibold text-gray-500 mt-3 px-4 leading-relaxed">
-              Clique ci-dessus pour un tour rapide et interactif des fonctionnalités !
-            </p>
-          </div>
-        )}
-
         <h1 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2 z-10 relative ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
           {getGreeting()} !
         </h1>
 
-        <p className={`text-2xl font-bold mb-6 w-full z-10 relative ${djStyleText}`}>
+        <p className={`text-2xl font-bold mb-12 w-full z-10 relative ${djStyleText}`}>
           {welcomeMessage}
         </p>
 
         {!isTest && (
-          <div className="w-full max-w-md mb-8 z-0 opacity-50 ml-auto mr-auto">
-            <p className="text-[10px] font-black tracking-widest text-gray-400 uppercase text-center flex items-center justify-center gap-2">
-              <Lightbulb size={12} className="text-yellow-500" />
-              {currentTip}
-            </p>
+          <div className="w-full max-w-md mb-8 z-0 opacity-80 transition-all duration-1000 animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex items-center justify-center gap-3 p-4 rounded-2xl bg-[#0D98BA]/5 border border-[#0D98BA]/10">
+              <div className="p-2 rounded-xl bg-white shadow-sm ring-4 ring-[#0D98BA]/5">
+                {currentTip.icon}
+              </div>
+              <p className="text-[10px] font-black tracking-widest text-zinc-500 uppercase text-center leading-relaxed">
+                {currentTip.text}
+              </p>
+            </div>
           </div>
         )}
 
@@ -220,25 +230,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           </button>
         )}
 
-        {showUpdateNotice && (
-          <div className="bg-blue-50/80 backdrop-blur-md p-6 rounded-3xl shadow-md border border-blue-100 w-full mb-8 text-left relative animate-in zoom-in-95 duration-300">
-            <h3 className="text-xs font-black uppercase tracking-widest text-[#0D98BA] mb-3">Mise à jour v{APP_UPDATES[0].version} - {APP_UPDATES[0].date}</h3>
-            <ul className="text-sm text-gray-700 space-y-2 list-disc pl-4 font-medium mb-6">
-              <li><b>Nouveautés :</b> {filteredDesc}</li>
-            </ul>
-            <button 
-              onClick={() => {
-                setShowUpdateNotice(false);
-                localStorage.setItem(`update_notice_dismissed_${currentVersion}`, 'true');
-              }}
-              className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs text-white shadow-lg hover:scale-[1.02] transition-all active:scale-95 ${djStyleBg}`}
-            >
-              C'est compris !
-            </button>
-          </div>
-        )}
-
-        {/* Pinned Discussions - Mobile moved here under updates */}
+        {/* Pinned Discussions - Mobile */}
         <div className="lg:hidden w-full mb-8 text-left">
           <button
             onClick={() => setShowMobilePinned(!showMobilePinned)}
@@ -295,7 +287,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             <span className="text-gray-300 font-light">|</span>
             <span className={djStyleText}>DJ MESSENGER</span>
             <span className="text-gray-300 font-light">|</span>
-            <span className={djStyleText}>v3.0 • 01/05/2026</span>
+            <span className={djStyleText}>v3.0 • 02/05/2026</span>
             <span className="text-gray-300 font-light">|</span>
             <span className={djStyleText}>DJ Society</span>
           </p>

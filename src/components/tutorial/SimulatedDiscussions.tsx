@@ -148,10 +148,10 @@ export function SimulatedDiscussions({ state, updateState }: { state: AppState, 
   const handleSimulatedVote = (messageId: string, optionId: string) => {
     updateState((prev: AppState) => {
       const group = prev.groups[activeGroup!];
-      const messages = group.messages.map(m => {
+      const messages = (group.messages || []).map(m => {
         if (m.id === messageId && m.poll) {
           const newPoll = { ...m.poll };
-          newPoll.options = newPoll.options.map(opt => {
+          newPoll.options = (newPoll.options || []).map(opt => {
             const newVotes = opt.votes.filter(v => v !== state.currentUser);
             if (opt.id === optionId) {
               newVotes.push(state.currentUser!);
@@ -358,7 +358,7 @@ export function SimulatedDiscussions({ state, updateState }: { state: AppState, 
                       <div className="mb-3 p-4 bg-black/5 rounded-2xl border border-black/5 space-y-3">
                         <h4 className="font-black text-sm uppercase tracking-tight text-gray-800">{msg.poll.question}</h4>
                         <div className="space-y-2">
-                          {msg.poll.options.map((opt: any) => {
+                          {(msg.poll.options || []).map((opt: any) => {
                             const totalVotes = msg.poll!.options.reduce((acc: number, o: any) => acc + (o.votes?.length || 0), 0);
                             const votes = opt.votes?.length || 0;
                             const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;

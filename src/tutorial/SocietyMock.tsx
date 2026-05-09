@@ -74,7 +74,7 @@ export function SocietyMock({
 
         <div className="space-y-6">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 px-4">Propositions de la communauté</h3>
-          {state.proposals.map((p) => {
+          {(state.proposals || []).map((p) => {
             const userName = state.users[p.user]?.name || 'Utilisateur';
             return (
               <div key={p.id} className="bg-white/80 backdrop-blur-md p-8 rounded-[2.5rem] border border-white shadow-xl flex items-start justify-between gap-6 group hover:scale-[1.01] transition-all">

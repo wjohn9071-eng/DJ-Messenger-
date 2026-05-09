@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AppState } from '../types';
 import { X, MessageSquare, Image as ImageIcon } from 'lucide-react';
-import { djStyleBg, djStyleText } from '../lib/utils';
+import { djStyleBg, djStyleText, checkIsOnline } from '../lib/utils';
 
 interface UserProfileModalProps {
   userId: string;
@@ -74,7 +74,7 @@ export function UserProfileModal({ userId, state, updateState, onClose, setView 
         <div className="pt-14 pb-8 px-6 text-center">
           <h2 className={`text-2xl font-black uppercase tracking-tighter ${djStyleText} mb-1 flex items-center justify-center gap-2`}>
             {user.name}
-            <div className={`w-3 h-3 rounded-full shadow-lg ${user.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} title={user.isOnline ? "En ligne" : "Hors ligne"} />
+            <div className={`w-3 h-3 rounded-full shadow-lg ${checkIsOnline(user) ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} title={checkIsOnline(user) ? "En ligne" : "Hors ligne"} />
           </h2>
           <p className="text-gray-500 text-sm font-medium mb-2">
             {user.role || (user.isAdmin ? 'Admin' : 'Membre')}
@@ -83,12 +83,12 @@ export function UserProfileModal({ userId, state, updateState, onClose, setView 
           <div className="flex justify-center gap-4 mb-6 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
             <div className="flex flex-col items-center">
               <span>Membre depuis</span>
-              <span className="text-gray-700">{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Ancien compte'}</span>
+              <span className="text-gray-700">{user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Ancien compte'}</span>
             </div>
             <div className="w-px bg-gray-200"></div>
             <div className="flex flex-col items-center">
-              <span>{user.isOnline ? 'Actuellement' : 'Dernière activité'}</span>
-              <span className={user.isOnline ? "text-green-500" : "text-gray-700"}>{user.isOnline ? 'En ligne' : (user.lastSeen ? new Date(user.lastSeen).toLocaleDateString() : 'Inconnue')}</span>
+              <span>{checkIsOnline(user) ? 'Actuellement' : 'Dernière activité'}</span>
+              <span className={checkIsOnline(user) ? "text-green-500" : "text-gray-700"}>{checkIsOnline(user) ? 'En ligne' : (user.lastSeen ? new Date(user.lastSeen).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Inconnue')}</span>
             </div>
           </div>
 

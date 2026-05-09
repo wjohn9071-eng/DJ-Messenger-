@@ -69,8 +69,7 @@ testConnection();
 export const storage = getStorage(app);
 export const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
 export const googleProvider = new GoogleAuthProvider();
-export const googleProviderWithPrompt = new GoogleAuthProvider();
-googleProviderWithPrompt.setCustomParameters({ prompt: 'select_account' });
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export {
   signInWithPopup,

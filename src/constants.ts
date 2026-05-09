@@ -2,9 +2,9 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   { 
-    version: '3.0',
-    date: '02/05/2026', 
-    desc: 'Mise à jour Finale v3.0 🚀 :\n- Notifications Push en arrière-plan via Firebase Cloud Messaging.\n- Présence en temps réel robuste (statut et indicateur de frappe améliorés).\n- Outils d\'administration sécurisés (seuls les Super Admins modifient les mots de passe).\n- Mode sombre et clarté des contrastes corrigés pour les textes.\n- Formatage de texte repensé (* pour gras, ** pour italique, _ pour souligné).\n- Boutons d\'actions des messages repositionnés de droite à gauche pour éviter les superpositions.\n- Sécurité renforcée pour la création et jonction des Groupes Privés.',
+    version: '3.0.0',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
+    desc: 'Refonte totale du système de bulles de messages, ajout du Markdown (Gras, Italique, Souligné), sécurité renforcée des groupes privés (Codes complexes), indicateurs de frappe en direct, et refonte du Mode Sombre personnalisé.',
     manual: '### Guide d\'utilisation v3.0\n\n1. **Formatage** : Utilisez *texte* pour le gras, **texte** pour l\'italique et _texte_ pour le souligné.\n2. **Tutoriel** : Le tutoriel dispose maintenant d\'un bouton Quitter pour y revenir plus tard du menu latéral.\n3. **Présence** : L\'état "En ligne" de vos interlocuteurs s\'affiche de façon fiable dans vos SMS et vos profils d\'utilisateurs rapides.\n4. **Typing** : Des points de suspension s\'affichent de façon animée lorsque un utilisateur est en train d\'écrire un message.\n5. **Actions Rapides** : Les boutons pour télécharger, citer ou supprimer un message ont été repositionnés proprement après le message, sans gêner l\'avatar.'
   },
   { version: '2.9.9', date: '21/04/2026', desc: 'Mise à jour v3.0 (Beta) Stabilité & Ergonomie : Mode Sombre implémenté...' },

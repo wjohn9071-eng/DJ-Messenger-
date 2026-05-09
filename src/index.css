@@ -31,11 +31,12 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #f0f2f5;
+    background-color: var(--bg-color, #f0f2f5);
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 html.dark body {
+    background-color: var(--bg-color, #0a0a0a);
     color: #ffffff;
 }
 

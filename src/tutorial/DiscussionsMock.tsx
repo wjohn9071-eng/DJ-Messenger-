@@ -67,14 +67,14 @@ export function DiscussionsMock({ state, updateState }: { state: AppState, updat
   };
 
   const renderGroupList = () => {
-    let groups = Object.values(state.groups).filter(g => g.id.startsWith('sim-')) as Group[];
+    let groups = Object.values(state.groups || {}).filter(g => g.id.startsWith('sim-')) as Group[];
     
     if (activeTab === 'public') groups = groups.filter((g: any) => g.type === 'public' && !g.isSMS);
     else if (activeTab === 'private') groups = groups.filter((g: any) => g.type === 'private' && !g.isSMS);
     else if (activeTab === 'sms') groups = groups.filter((g: any) => g.isSMS);
     
     if (search) {
-      groups = groups.filter(g => g.name.toLowerCase().includes(search.toLowerCase()));
+      groups = groups.filter(g => (g.name?.toLowerCase() || '').includes(search.toLowerCase()));
     }
 
     return (
@@ -167,7 +167,7 @@ export function DiscussionsMock({ state, updateState }: { state: AppState, updat
             </header>
 
             <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-zinc-50/50 custom-scrollbar relative">
-              {selectedGroup.messages.map((msg, i) => {
+              {(selectedGroup.messages || []).map((msg, i) => {
                 const isMe = msg.user === state.currentUser;
                 const isBot = msg.user === 'dj-bot';
                 

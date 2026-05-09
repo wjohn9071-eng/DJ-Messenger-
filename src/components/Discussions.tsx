@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { db, collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, getDocs, setDoc, arrayUnion, arrayRemove, storage, ref, uploadBytesResumable, getDownloadURL } from '../lib/firebase';
-import { djStyleBg, djStyleText, setDraftStatus } from '../lib/utils';
-import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, CheckSquare, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search, FileText, FileAudio, File as FileIcon, Globe as GlobeIcon, MessagesSquare, CornerUpLeft, RotateCcw } from 'lucide-react';
+import { djStyleBg, djStyleText, setDraftStatus, compressImage, checkIsOnline } from '../lib/utils';
+import { Send, Trash2, Shield, UserX, Plus, Hash, Lock, MessageSquare, UserPlus, VolumeX, Ban, Pin, Info, ChevronRight, Globe, CheckCircle2, CheckSquare, AlertCircle, MoreVertical, Image as ImageIcon, Paperclip, Smile, Play, X, BarChart2, Download, Menu, ChevronLeft, Settings as SettingsIcon, Users, Bot, Search, FileText, FileAudio, File as FileIcon, Globe as GlobeIcon, MessagesSquare, CornerUpLeft, RotateCcw, ImagePlus, Eye, EyeOff } from 'lucide-react';
 import { DJ_FRAME_STYLE, STAFF_BADGE, ADMIN_BADGE, SUPER_ADMIN_BADGE } from './Views';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 import { AppState, Group } from '../types';
@@ -10,11 +10,43 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const [activeTab, setActiveTab] = useState<'public' | 'private' | 'sms' | 'recent'>(state.discussionTab || 'public');
   const activeGroup = state.activeGroup;
   const setActiveGroup = (id: string | null) => updateState({ activeGroup: id });
+  const isTest = state.currentUser === 'test';
+  const isSMS = state.activeGroup?.startsWith('sms-') || state.activeGroup?.startsWith('sms_');
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
   const [sessionLastRead, setSessionLastRead] = useState<Record<string, string>>({});
   const [sessionEnterTime, setSessionEnterTime] = useState<Record<string, string>>({});
 
-  const isTest = state.currentUser === 'test';
+  const [typingUserIds, setTypingUserIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!state.activeGroup) return;
+    const roomPath = isSMS ? 'private_messages' : 'groups';
+    const unsub = onSnapshot(doc(db, roomPath, state.activeGroup), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        const typingIds = Array.isArray(data.isTyping) ? data.isTyping : [];
+        setTypingUserIds(typingIds.filter((uid: string) => uid !== state.currentUser && uid !== 'DJ_Bot' && uid !== 'dj-bot'));
+      }
+    });
+    return () => unsub();
+  }, [state.activeGroup, isSMS, state.currentUser]);
+
+  const typingNames = typingUserIds.map((uid: string) => state.users[uid]?.name || 'Quelqu\'un');
+
+  const handleTyping = async () => {
+    if (!state.activeGroup || isTest) return;
+    const roomPath = isSMS ? 'private_messages' : 'groups';
+    const roomRef = doc(db, roomPath, state.activeGroup);
+    
+    // Set typing status using arrayUnion
+    await updateDoc(roomRef, { isTyping: arrayUnion(state.currentUser as string) }).catch(() => {});
+    
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(async () => {
+      await updateDoc(roomRef, { isTyping: arrayRemove(state.currentUser as string) }).catch(() => {});
+    }, 3000);
+  };
   const currentUser = (isTest || !state.currentUser) ? null : (state.currentUserData || state.users[state.currentUser as string]);
 
   const allRecentMessages = [
@@ -86,6 +118,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [wizardStep, setWizardStep] = useState(1);
   const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupAvatar, setNewGroupAvatar] = useState<string | null>(null);
   const [newGroupReason, setNewGroupReason] = useState('informer');
   const [newGroupReasonDetail, setNewGroupReasonDetail] = useState('');
   const [newGroupInvite, setNewGroupInvite] = useState<string[]>([]);
@@ -100,6 +133,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [showStickers, setShowStickers] = useState(false);
   const [showPollCreator, setShowPollCreator] = useState(false);
+  const [inputPrompt, setInputPrompt] = useState<{message: string, value: string, placeholder: string, onSubmit: (val: string) => void} | null>(null);
+  const [pendingSettings, setPendingSettings] = useState<{allowOthersToSpeak?: boolean, allowOthersToInvite?: boolean}>({});
+
+  useEffect(() => {
+    setPendingSettings({});
+  }, [state.activeGroup]);
+
   const [showThreadNaming, setShowThreadNaming] = useState(false);
   const [threadNameInput, setThreadNameInput] = useState('');
   const [threadSelectionMode, setThreadSelectionMode] = useState(false);
@@ -110,7 +150,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTypingUpdate = useRef<number>(0);
 
   const stickers = [
@@ -325,8 +364,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         
         const isAdmin = group?.admins?.includes(state.currentUser as string) || group?.subAdmins?.includes(state.currentUser as string) || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
         const isCreator = group?.creator === state.currentUser;
-        if (!(group?.allowOthersToSpeak ?? true) && !isAdmin && !isCreator) {
-          return showToast("Seuls les admins peuvent parler ici.");
+        const isSubAdmin = group?.subAdmins?.includes(state.currentUser as string);
+        const isExemptFromGroupLimits = isCreator || isSubAdmin || currentUser?.isSuperAdmin;
+        
+        if (!(group?.allowOthersToSpeak ?? true) && !isExemptFromGroupLimits) {
+          return showToast("Seuls les admins du groupe ou les super admins peuvent parler ici.");
         }
 
         const msgRef = collection(db, 'groups', activeGroup, 'messages');
@@ -651,7 +693,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       if (!message.poll || message.poll.closed) return;
 
       const newPoll = { ...message.poll };
-      newPoll.options = newPoll.options.map((opt: any) => {
+      newPoll.options = (newPoll.options || []).map((opt: any) => {
         const newVotes = (opt.votes || []).filter((v: string) => v !== state.currentUser);
         if (opt.id === optionId) {
           newVotes.push(state.currentUser!);
@@ -704,73 +746,17 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         );
       }
       
-      // Strict Bold/Italic formatting
-      // We use a temporary placeholder system to avoid double-processing and overlapping
-      let processed = part;
-      const tokens: { id: string, html: React.ReactNode }[] = [];
-      let tokenIndex = 0;
-
-      // Italic: **Text** 
-      // Must not be empty, must not start/end with space. 
-      const italicRegex = /\*\*([^\s*](?:[^*]*?[^\s*])?)\*\*/g;
-      processed = processed.replace(italicRegex, (match, content) => {
-        const id = `__ITALIC_TOKEN_${tokenIndex}__`;
-        tokens.push({
-          id,
-          html: <em key={id} className="italic text-[1.05em] px-0.5 opacity-90">{content}</em>
-        });
-        tokenIndex++;
-        return id;
-      });
-
-      // Bold: *Text*
-      // Must not start/end with space. Must contain at least one letter
-      const boldRegex = /\*([^\s*](?:[^*]*?[^\s*])?)\*/g;
-      processed = processed.replace(boldRegex, (match, content) => {
-        if (!/[a-zA-ZÀ-ÿ]/.test(content)) return match;
-        const id = `__BOLD_TOKEN_${tokenIndex}__`;
-        tokens.push({
-          id,
-          html: <strong key={id} className="font-black text-[1.05em] px-0.5">{content}</strong>
-        });
-        tokenIndex++;
-        return id;
-      });
-
-      // Underline: _Text_
-      const underlineRegex = /_([^\s_](?:[^_]*?[^\s_])?)_/g;
-      processed = processed.replace(underlineRegex, (match, content) => {
-        const id = `__UNDERLINE_TOKEN_${tokenIndex}__`;
-        tokens.push({
-          id,
-          html: <span key={id} className="underline underline-offset-2 px-0.5">{content}</span>
-        });
-        tokenIndex++;
-        return id;
-      });
-
-      // Split by tokens and recompose with React elements
-      const finalParts: (string | React.ReactNode)[] = [processed];
+      // Strict Bold/Italic/Underline formatting supporting combinations
+      let safeText = part.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       
-      tokens.forEach(token => {
-        for (let j = 0; j < finalParts.length; j++) {
-          const p = finalParts[j];
-          if (typeof p === 'string' && p.includes(token.id)) {
-            const splitted = p.split(token.id);
-            const newSegments: (string | React.ReactNode)[] = [];
-            splitted.forEach((seg, idx) => {
-              newSegments.push(seg);
-              if (idx < splitted.length - 1) {
-                newSegments.push(token.html);
-              }
-            });
-            finalParts.splice(j, 1, ...newSegments);
-            j += newSegments.length - 1;
-          }
-        }
-      });
+      // Italic: **Text**
+      safeText = safeText.replace(/\*\*(.*?)\*\*/g, "<i>$1</i>");
+      // Bold: *Text*
+      safeText = safeText.replace(/\*(.*?)\*/g, "<b>$1</b>");
+      // Underline: _Text_
+      safeText = safeText.replace(/_(.*?)_/g, "<u>$1</u>");
 
-      return <span key={`text-${i}`} className="whitespace-pre-wrap leading-relaxed">{finalParts}</span>;
+      return <span key={`text-${i}`} className="whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: safeText }} />;
     });
   };
 
@@ -892,6 +878,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       creator: state.currentUser as string,
       admins: [state.currentUser as string],
       members: [state.currentUser as string, ...newGroupInvite],
+      avatar: newGroupAvatar || '',
       banned: [],
       muted: [],
       code: activeTab === 'private' ? newGroupCode : null,
@@ -920,6 +907,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       setShowCreateGroup(false);
       setWizardStep(1);
       setNewGroupName('');
+      setNewGroupAvatar(null);
       setNewGroupReason('informer');
       setNewGroupReasonDetail('');
       setNewGroupInvite([]);
@@ -963,6 +951,37 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
         {wizardStep === 1 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+            <div className="flex flex-col items-center mb-4">
+              <label className="relative group cursor-pointer">
+                <div className="w-24 h-24 rounded-[1.5rem] bg-gray-50 border-4 border-white shadow-xl flex items-center justify-center overflow-hidden hover:ring-4 ring-[#0D98BA]/20 transition-all">
+                  {newGroupAvatar ? (
+                    <img src={newGroupAvatar} alt="Logo" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center text-gray-300">
+                      <ImagePlus size={32} />
+                      <span className="text-[8px] font-black uppercase mt-1">Logo</span>
+                    </div>
+                  )}
+                </div>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      try {
+                        const compressed = await compressImage(file);
+                        setNewGroupAvatar(compressed);
+                      } catch (err) {
+                        showToast("Erreur d'image");
+                      }
+                    }
+                  }} 
+                />
+              </label>
+              <p className="text-[9px] font-bold text-gray-400 mt-2 uppercase tracking-widest">Logo du groupe (Optionnel)</p>
+            </div>
             <div>
               <label className="block text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Nom du groupe</label>
               <input 
@@ -1023,7 +1042,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             <div>
               <label className="block text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Inviter des membres (Optionnel)</label>
               <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                {Object.keys(state.users).filter(u => u !== state.currentUser && u !== 'DJ_Bot').map(u => (
+                {Object.keys(state.users || {}).filter(u => u !== state.currentUser && u !== 'DJ_Bot').map(u => (
                   <label key={u} className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer ${newGroupInvite.includes(u) ? 'border-[#0D98BA] bg-blue-50' : 'border-gray-50 hover:border-gray-100'}`}>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-500 text-xs">
@@ -1053,7 +1072,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
         {wizardStep === 4 && activeTab === 'private' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
             <div>
-              <label className="block text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Code d'entrée (5-7 caractères)</label>
+              <label className="block text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Code d'entrée (5-8 caractères)</label>
               <p className="text-[10px] text-gray-400 mb-3 italic">Mélangez majuscules, minuscules, chiffres et symboles.</p>
               <input 
                 type="text" 
@@ -1069,10 +1088,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <button onClick={() => setWizardStep(3)} className="flex-1 py-4 rounded-2xl bg-gray-100 text-gray-500 font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all">Retour</button>
               <button 
                 onClick={() => {
-                  if (newGroupCode.length < 5 || newGroupCode.length > 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(newGroupCode)) {
-                    return showToast("Code invalide. Respectez les consignes (5-8 min, min 1 maj, 1 min, 1 chiffre, 1 spécial).");
+                  if (newGroupCode.length < 5 || newGroupCode.length > 8) {
+                    return showToast("Le code doit faire entre 5 et 8 caractères.");
                   }
-                  if (Object.values(state.groups).some(g => g.code === newGroupCode)) {
+                  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{5,8}$/.test(newGroupCode)) {
+                    return showToast("Mélangez obligatoirement majuscules, minuscules, chiffres et caractères spéciaux.");
+                  }
+                  if (Object.values(state.groups || {}).some(g => g.code === newGroupCode)) {
                     return showToast("Ce code est déjà utilisé.");
                   }
                   handleCreateGroup();
@@ -1111,11 +1133,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       setShowRestrictedPopup(true);
       return;
     }
-    if (joinCode.length < 5 || joinCode.length > 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(joinCode)) {
-      return showToast("Code invalide. Respectez les consignes.");
-    }
-    const group = Object.values(state.groups).find(g => g.type === 'private' && g.code === joinCode);
-    if (!group) return showToast("Code invalide.");
+    const cleanJoinCode = joinCode.trim();
+    const group = Object.values(state.groups || {}).find(g => g.type === 'private' && g.code === cleanJoinCode);
+    if (!group) return showToast("Code introuvable.");
     if ((group.members || []).includes(state.currentUser as string)) return showToast("Déjà membre.");
     
     // Check ban
@@ -1300,22 +1320,27 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
     try {
       for (const msgId of msgIds) {
-        const msg = group.messages?.find(m => m.id === msgId);
-        if (!msg) continue;
-
+        let msg = group.messages?.find(m => m.id === msgId);
         const msgRef = doc(db, path, activeGroup, 'messages', msgId);
         
+        if (!msg && option === 'everyone') {
+           const msgSnap = await getDoc(msgRef);
+           if (msgSnap.exists()) {
+              msg = { id: msgSnap.id, ...msgSnap.data() } as any;
+           }
+        }
+        
         if (option === 'me') {
-          await updateDoc(msgRef, {
+          await setDoc(msgRef, {
             deletedForUsers: arrayUnion(state.currentUser)
-          });
+          }, { merge: true });
         } else if (option === 'everyone') {
-          await updateDoc(msgRef, {
+          await setDoc(msgRef, {
             deletedForEveryone: true,
-            originalText: msg.text,
+            originalText: (msg && msg.text) ? msg.text : 'Message supprimé',
             text: 'Message supprimé',
             deletedAt: new Date().toISOString()
-          });
+          }, { merge: true });
         } else if (option === 'bubble') {
           await deleteDoc(msgRef);
         }
@@ -1329,13 +1354,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       } else if (option === 'bubble') {
         showToast(count > 1 ? `${count} bulles supprimées.` : "Bulle supprimée.");
       }
-      
-      setDeleteOptionsPrompt(null);
-      setSelectionMode(false);
-      setSelectedMessages(new Set());
     } catch (error) {
       console.error("Error deleting message:", error);
       showToast("Erreur lors de la suppression.");
+    } finally {
+      setDeleteOptionsPrompt(null);
+      setSelectionMode(false);
+      setSelectedMessages(new Set());
     }
   };
 
@@ -1385,7 +1410,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     try {
       const messagesRef = collection(db, isSMS ? 'private_messages' : 'groups', activeGroup, 'messages');
       const group = state.groups[activeGroup] || state.privateMessages[activeGroup];
-      const messagesToDelete = group.messages.filter(m => m.user === deletePrompt.user);
+      const messagesToDelete = (group.messages || []).filter(m => m.user === deletePrompt.user);
       
       for (const m of messagesToDelete) {
         await deleteDoc(doc(messagesRef, m.id));
@@ -1628,10 +1653,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
     if (!group) return null;
 
-    const typingUsers = (group as any).typingStatus ? Object.keys((group as any).typingStatus).filter(uid => 
-      uid !== state.currentUser && 
-      (Date.now() - ((group as any).typingStatus[uid] || 0)) < 3000
-    ) : [];
+    // Array.isArray setup handled globally
+
 
     const isSMS = activeGroup.startsWith('sms_');
     const otherUid = isSMS ? (group as any).members?.find((m: string) => m !== state.currentUser) : null;
@@ -1644,6 +1667,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     const isMember = group.type === 'public' || (group.members || []).includes(state.currentUser as string);
     const isPinned = currentUser?.pinnedGroups?.includes(activeGroup);
     const lastRead = currentUser?.lastReadTimestamps?.[activeGroup] || '0';
+
+    const isExemptFromGroupLimits = !isSMS && (isCreator || isSubAdmin || currentUser?.isSuperAdmin);
+    const currentAllowSpeak = pendingSettings.allowOthersToSpeak !== undefined ? pendingSettings.allowOthersToSpeak : (group?.allowOthersToSpeak ?? true);
+    const currentAllowInvite = pendingSettings.allowOthersToInvite !== undefined ? pendingSettings.allowOthersToInvite : (group?.allowOthersToInvite ?? true);
+    const hasSpeakChanged = pendingSettings.allowOthersToSpeak !== undefined;
+    const hasInviteChanged = pendingSettings.allowOthersToInvite !== undefined;
+    const canSpeak = isSMS || currentAllowSpeak || isExemptFromGroupLimits;
+    const canInvite = isSMS || (group?.type === 'private' && (currentAllowInvite || isExemptFromGroupLimits));
 
     const handleDeleteSMS = async (idToDelete: string) => {
       try {
@@ -1667,7 +1698,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
     };
 
     return (
-      <div className={`flex-1 flex flex-col h-full relative z-[2000] animate-in fade-in duration-300 ${state.darkMode ? 'text-white' : 'text-gray-900'}`} style={{ backgroundColor: 'var(--bg-color, transparent)' }}>
+      <div className={`flex-1 flex flex-col h-full relative z-[2000] animate-in fade-in duration-300 bg-transparent ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>
         {selectionMode ? (
           <div className="p-4 bg-blue-50 border-b border-blue-100 flex items-center justify-between shadow-sm z-[2001] sticky top-0">
             <div className="flex items-center gap-3">
@@ -1694,10 +1725,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <span className="text-[10px] font-black uppercase tracking-widest">Retour</span>
             </button>
             <div 
-              className={`w-10 h-10 rounded-2xl ${isSMS ? 'bg-gray-100/10' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center font-bold shadow-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity ${state.darkMode ? 'text-white border border-white/10' : 'text-white'}`}
+              className={`w-10 h-10 rounded-2xl ${isSMS ? 'bg-gray-100/10' : 'bg-gradient-to-br from-[#007FFF] to-[#32CD32]'} flex items-center justify-center font-bold shadow-md overflow-hidden cursor-pointer hover:scale-110 active:scale-95 transition-all ${state.darkMode ? 'text-white border border-white/10' : 'text-white'}`}
               onClick={() => {
-                if (isSMS && otherUserData?.avatar) setSelectedImage(otherUserData.avatar);
-                else if (!isSMS && group.avatar) setSelectedImage(group.avatar);
+                if (!isSMS) {
+                  setShowGroupSettings(true); // Open settings on logo click for group
+                } else {
+                  const avatar = otherUserData?.avatar;
+                  if (avatar) setSelectedImage(avatar);
+                }
               }}
             >
               {isSMS && otherUserData?.avatar ? (
@@ -1733,12 +1768,24 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
               </button>
             )}
+            {((isSMS) || (!isSMS)) && (
+              <button onClick={() => {
+                const avatar = isSMS ? otherUserData?.avatar : group?.avatar;
+                if (avatar) {
+                  setSelectedImage(avatar);
+                } else {
+                  showToast("Ce groupe/contact n'a pas d'icône.");
+                }
+              }} className={`p-2.5 ml-1 rounded-2xl transition-all ${state.darkMode ? 'bg-zinc-800/80 text-white hover:bg-zinc-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`} title="Voir l'icône">
+                <ImageIcon size={20} />
+              </button>
+            )}
             {(isMember || isSMS) && (
-              <button onClick={() => setShowGroupSettings(!showGroupSettings)} className={`p-2.5 rounded-2xl transition-all ${showGroupSettings ? djStyleBg + ' text-white shadow-lg' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`} title={isSMS ? "Paramètres de la discussion" : "Paramètres du groupe"}>
+              <button onClick={() => setShowGroupSettings(!showGroupSettings)} className={`p-2.5 ml-1 rounded-2xl transition-all ${showGroupSettings ? djStyleBg + ' text-white shadow-lg' : state.darkMode ? 'bg-zinc-800/80 text-white hover:bg-zinc-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`} title={isSMS ? "Paramètres de la discussion" : "Paramètres du groupe"}>
                 <SettingsIcon size={20} />
               </button>
             )}
-            <button onClick={() => setSelectionMode(true)} className="p-2.5 ml-1 rounded-2xl transition-all bg-gray-100 text-gray-500 hover:bg-gray-200" title="Mode Sélection multiple">
+            <button onClick={() => setSelectionMode(true)} className={`p-2.5 ml-1 rounded-2xl transition-all ${state.darkMode ? 'bg-zinc-800/80 text-white hover:bg-zinc-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`} title="Mode Sélection multiple">
               <CheckSquare size={20} />
             </button>
           </div>
@@ -1790,16 +1837,22 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       Icône
                     </button>
                     <button 
-                      onClick={async () => {
-                        const newName = prompt("Nouveau nom du groupe :", group.name);
-                        if (newName && newName !== group.name) {
-                          try {
-                            await setDoc(doc(db, 'groups', activeGroup), { name: newName }, { merge: true });
-                            showToast("Groupe renommé !");
-                          } catch (err) {
-                            showToast("Erreur lors du renommage.");
+                      onClick={() => {
+                        setInputPrompt({
+                          message: "Nouveau nom du groupe :",
+                          value: group.name,
+                          placeholder: "Nom du groupe",
+                          onSubmit: async (newName) => {
+                            if (newName && newName !== group.name) {
+                              try {
+                                await setDoc(doc(db, 'groups', activeGroup), { name: newName }, { merge: true });
+                                showToast("Groupe renommé !");
+                              } catch (err) {
+                                showToast("Erreur lors du renommage.");
+                              }
+                            }
                           }
-                        }
+                        });
                       }}
                       className="text-[10px] font-black uppercase text-[#0D98BA] hover:underline"
                     >
@@ -1811,7 +1864,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             </div>
             
-            {group.type === 'private' && (
+            {!isSMS && group.type === 'private' && canInvite && (
               <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-[10px] font-black uppercase text-gray-400 block">Code du groupe</span>
@@ -1821,19 +1874,25 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     </button>
                     {(isCreator || isSubAdmin) && (
                       <button 
-                        onClick={async () => {
-                          const newCode = prompt("Nouveau code (5-8 min, min 1 maj, 1 min, 1 chiffre, 1 spécial) :", group.code);
-                          if (newCode && newCode !== group.code) {
-                            if (newCode.length < 5 || newCode.length > 8 || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(newCode)) {
-                              return showToast("Code invalide. Respectez les consignes.");
+                        onClick={() => {
+                          setInputPrompt({
+                            message: "Nouveau code :",
+                            value: group.code || '',
+                            placeholder: "Nouveau code",
+                            onSubmit: async (newCode) => {
+                              if (newCode) {
+                                const trimmedCode = newCode.trim();
+                                if (trimmedCode !== group.code && trimmedCode.length > 0) {
+                                  try {
+                                    await updateDoc(doc(db, 'groups', activeGroup), { code: trimmedCode });
+                                    showToast("Code mis à jour !");
+                                  } catch (e) {
+                                    showToast("Erreur lors de la mise à jour du code.");
+                                  }
+                                }
+                              }
                             }
-                            try {
-                              await setDoc(doc(db, 'groups', activeGroup), { code: newCode }, { merge: true });
-                              showToast("Code mis à jour !");
-                            } catch (e) {
-                              showToast("Erreur lors de la mise à jour du code.");
-                            }
-                          }
+                          });
                         }}
                         className="text-[10px] font-black uppercase text-[#0D98BA] hover:underline"
                       >
@@ -1846,7 +1905,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               </div>
             )}
 
-            {!isSMS && group.type === 'private' && (isCreator || isSubAdmin || (group.allowOthersToInvite ?? true)) && (
+            {!isSMS && group.type === 'private' && canInvite && (
               <div className="space-y-4">
                 <h5 className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Ajouter un membre</h5>
                 <div className="flex gap-2">
@@ -1858,19 +1917,21 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   />
                 </div>
                 <div className="max-h-40 overflow-y-auto space-y-2 custom-scrollbar">
-                  {Object.values(state.users)
-                    .filter(u => u.uid !== state.currentUser && u.uid !== 'dj-bot' && !group.members.includes(u.uid) && (u.name.toLowerCase().includes(smsSearch.toLowerCase()) || smsSearch === ''))
-                    .map(u => (
-                      <div key={u.uid} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition">
+                  {Object.keys(state.users || {})
+                    .filter(uid => uid !== state.currentUser && uid !== 'dj-bot' && !group.members.includes(uid) && ((state.users[uid].name?.toLowerCase() || '').includes(smsSearch.toLowerCase()) || smsSearch === ''))
+                    .map(uid => {
+                      const u = state.users[uid];
+                      return (
+                      <div key={uid} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition">
                         <div className="flex items-center gap-2">
                           <button 
-                            onClick={() => updateState({ selectedUserModal: u.uid })}
+                            onClick={() => updateState({ selectedUserModal: uid })}
                             className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#0D98BA] transition-all cursor-pointer"
                           >
                             {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span>{(u.name || '?')[0]}</span>}
                           </button>
                           <button 
-                            onClick={() => updateState({ selectedUserModal: u.uid })}
+                            onClick={() => updateState({ selectedUserModal: uid })}
                             className="text-sm font-bold text-gray-700 hover:text-[#0D98BA] transition-colors"
                           >
                             {u.name}
@@ -1880,8 +1941,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           onClick={async () => {
                             try {
                               await updateDoc(doc(db, 'groups', activeGroup), {
-                                members: arrayUnion(u.uid),
-                                banned: arrayRemove(u.uid) // Admin can re-invite even if banned
+                                members: arrayUnion(uid),
+                                banned: arrayRemove(uid) // Admin can re-invite even if banned
                               });
                               showToast(`${u.name} ajouté !`);
                             } catch (e) {
@@ -1893,7 +1954,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           Ajouter
                         </button>
                       </div>
-                    ))}
+                    )})}
                 </div>
               </div>
             )}
@@ -1910,32 +1971,34 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   />
                 </div>
                 <div className="max-h-40 overflow-y-auto space-y-2 custom-scrollbar">
-                  {Object.values(state.users)
-                    .filter(u => u.uid !== state.currentUser && u.uid !== 'dj-bot' && !(group.subAdmins || []).includes(u.uid) && (u.name.toLowerCase().includes(smsSearch.toLowerCase()) || smsSearch === ''))
-                    .map(u => (
-                      <div key={u.uid} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition">
+                  {(group.type === 'public' ? Object.keys(state.users || {}) : (group.members || []))
+                    .filter(uid => uid !== state.currentUser && uid !== 'dj-bot' && !(group.subAdmins || []).includes(uid) && ((state.users[uid]?.name?.toLowerCase() || '').includes(smsSearch.toLowerCase()) || smsSearch === ''))
+                    .map(uid => {
+                      const u = state.users[uid];
+                      return (
+                      <div key={uid} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition">
                         <div className="flex items-center gap-2">
                           <button 
-                            onClick={() => updateState({ selectedUserModal: u.uid })}
+                            onClick={() => updateState({ selectedUserModal: uid })}
                             className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#0D98BA] transition-all cursor-pointer"
                           >
                             {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <span>{(u.name || '?')[0]}</span>}
                           </button>
                           <button 
-                            onClick={() => updateState({ selectedUserModal: u.uid })}
+                            onClick={() => updateState({ selectedUserModal: uid })}
                             className="text-sm font-bold text-gray-700 hover:text-[#0D98BA] transition-colors"
                           >
                             {u.name}
                           </button>
                         </div>
                         <button 
-                          onClick={() => handleToggleSubAdmin(u.uid)}
+                          onClick={() => handleToggleSubAdmin(uid)}
                           className="px-3 py-1 bg-blue-50 text-blue-500 hover:bg-blue-100 text-[10px] font-black uppercase rounded-lg shadow-sm transition-colors"
                         >
                           Nommer
                         </button>
                       </div>
-                    ))}
+                    )})}
                 </div>
               </div>
             )}
@@ -2026,52 +2089,102 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     })}
                 </div>
                 <label className="flex items-center justify-between cursor-pointer group">
-                  <span className="text-sm font-bold text-gray-700">Autoriser les autres à parler</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-gray-700">Autoriser les autres à parler</span>
+                    {hasSpeakChanged && (
+                      <button 
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          try {
+                            const val = currentAllowSpeak;
+                            updateState((prev: AppState) => ({
+                              groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToSpeak: val } }
+                            }));
+                            await updateDoc(doc(db, 'groups', activeGroup), { allowOthersToSpeak: val });
+                            const newPending = { ...pendingSettings };
+                            delete newPending.allowOthersToSpeak;
+                            setPendingSettings(newPending);
+                            showToast("Paramètre sauvegardé");
+                          } catch (err) {
+                            console.error("Error updating group setting:", err);
+                          }
+                        }}
+                        className="px-2 py-0.5 bg-[#0D98BA] text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:opacity-90 transition shadow-sm"
+                      >
+                        Sauvegarder
+                      </button>
+                    )}
+                  </div>
                   <div className="relative">
                     <input 
                       type="checkbox" 
                       className="sr-only" 
                       disabled={!isCreator && !isSubAdmin}
-                      checked={group.allowOthersToSpeak ?? true} 
-                      onChange={async e => {
+                      checked={currentAllowSpeak} 
+                      onChange={e => {
                         const val = e.target.checked;
-                        updateState((prev: AppState) => ({
-                          groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToSpeak: val } }
-                        }));
-                        try {
-                          await updateDoc(doc(db, 'groups', activeGroup), { allowOthersToSpeak: val });
-                        } catch (err) {
-                          console.error("Error updating group setting:", err);
+                        if (val === (group.allowOthersToSpeak ?? true)) {
+                          const newPending = { ...pendingSettings };
+                          delete newPending.allowOthersToSpeak;
+                          setPendingSettings(newPending);
+                        } else {
+                          setPendingSettings({ ...pendingSettings, allowOthersToSpeak: val });
                         }
                       }} 
                     />
-                    <div className={`block w-12 h-7 rounded-full transition-colors ${group.allowOthersToSpeak ?? true ? 'bg-[#32CD32]' : 'bg-gray-300'} ${(!isCreator && !isSubAdmin) ? 'opacity-50' : ''}`}></div>
-                    <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${group.allowOthersToSpeak ?? true ? 'transform translate-x-5' : ''}`}></div>
+                    <div className={`block w-12 h-7 rounded-full transition-colors ${currentAllowSpeak ? 'bg-[#32CD32]' : 'bg-gray-300'} ${(!isCreator && !isSubAdmin) ? 'opacity-50' : ''}`}></div>
+                    <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${currentAllowSpeak ? 'transform translate-x-5' : ''}`}></div>
                   </div>
                 </label>
 
-                <label className="flex items-center justify-between cursor-pointer group">
-                  <span className="text-sm font-bold text-gray-700">Autoriser les autres à ajouter des membres</span>
+                <label className="flex items-center justify-between cursor-pointer group mt-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-gray-700">Autoriser les autres à ajouter des membres</span>
+                    {hasInviteChanged && (
+                      <button 
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          try {
+                            const val = currentAllowInvite;
+                            updateState((prev: AppState) => ({
+                              groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToInvite: val } }
+                            }));
+                            await updateDoc(doc(db, 'groups', activeGroup), { allowOthersToInvite: val });
+                            const newPending = { ...pendingSettings };
+                            delete newPending.allowOthersToInvite;
+                            setPendingSettings(newPending);
+                            showToast("Paramètre sauvegardé");
+                          } catch (err) {
+                            console.error("Error updating group setting:", err);
+                          }
+                        }}
+                        className="px-2 py-0.5 bg-[#0D98BA] text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:opacity-90 transition shadow-sm"
+                      >
+                        Sauvegarder
+                      </button>
+                    )}
+                  </div>
                   <div className="relative">
                     <input 
                       type="checkbox" 
                       className="sr-only" 
                       disabled={!isCreator && !isSubAdmin}
-                      checked={group.allowOthersToInvite ?? true} 
-                      onChange={async e => {
+                      checked={currentAllowInvite} 
+                      onChange={e => {
                         const val = e.target.checked;
-                        updateState((prev: AppState) => ({
-                          groups: { ...prev.groups, [activeGroup]: { ...prev.groups[activeGroup], allowOthersToInvite: val } }
-                        }));
-                        try {
-                          await updateDoc(doc(db, 'groups', activeGroup), { allowOthersToInvite: val });
-                        } catch (err) {
-                          console.error("Error updating group setting:", err);
+                        if (val === (group.allowOthersToInvite ?? true)) {
+                          const newPending = { ...pendingSettings };
+                          delete newPending.allowOthersToInvite;
+                          setPendingSettings(newPending);
+                        } else {
+                          setPendingSettings({ ...pendingSettings, allowOthersToInvite: val });
                         }
                       }} 
                     />
-                    <div className={`block w-12 h-7 rounded-full transition-colors ${group.allowOthersToInvite ?? true ? 'bg-[#32CD32]' : 'bg-gray-300'} ${(!isCreator && !isSubAdmin) ? 'opacity-50' : ''}`}></div>
-                    <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${group.allowOthersToInvite ?? true ? 'transform translate-x-5' : ''}`}></div>
+                    <div className={`block w-12 h-7 rounded-full transition-colors ${currentAllowInvite ? 'bg-[#32CD32]' : 'bg-gray-300'} ${(!isCreator && !isSubAdmin) ? 'opacity-50' : ''}`}></div>
+                    <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform ${currentAllowInvite ? 'transform translate-x-5' : ''}`}></div>
                   </div>
                 </label>
               </div>
@@ -2217,40 +2330,29 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                     {isDeletedAccount && <span className="text-[8px] font-black uppercase text-red-500">Compte supprimé</span>}
                   </div>
                 )}
-                <div className={`relative px-2.5 py-1.5 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : (state.darkMode ? 'rounded-tl-none bg-zinc-800 border-white/10 text-white' : 'rounded-tl-none bg-white text-gray-800')} 
-                  ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} 
-                  ${isStaff ? 'outline outline-[4px] outline-offset-2 outline-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.4)]' : ''}
-                  ${isGroupAdmin ? 'border-[3px] border-green-500' : (state.darkMode ? 'border border-white/10' : 'border border-gray-100')}
-                `}>
+                <div className={`flex items-center gap-1.5 ${isMine ? 'flex-row-reverse' : 'flex-row'} max-w-full`}>
+                  <div className={`relative px-2.5 py-1.5 rounded-2xl shadow-sm ${isMine ? `rounded-tr-none text-white ${djStyleBg}` : (state.darkMode ? 'rounded-tl-none bg-zinc-800 border-white/10 text-white' : 'rounded-tl-none bg-white text-gray-800')} 
+                    ${isUnread ? 'ring-2 ring-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.1)]' : ''} 
+                    ${isStaff ? 'outline outline-[4px] outline-offset-2 outline-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.4)]' : ''}
+                    ${isGroupAdmin ? 'border-[3px] border-green-500' : (state.darkMode ? 'border border-white/10' : 'border border-gray-100')}
+                  `}>
                   {(isStaff || isGroupAdmin) && (
                     <div className={`flex gap-1 mb-1.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
                       {isStaff && <span className="text-[7.5px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-sm">Staff App</span>}
                       {isGroupAdmin && <span className="text-[7.5px] font-black uppercase tracking-widest text-green-600 bg-green-50 px-1.5 py-0.5 rounded-sm shrink-0">Admin Groupe</span>}
-                    {msg.isThreadRoot && !state.activeThreadId && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleEnterThread(msg.threadId!, msg.threadName!); }}
-                        className="text-[7.5px] font-black uppercase tracking-widest text-[#0D98BA] bg-[#0D98BA]/5 px-1.5 py-0.5 rounded-sm flex items-center gap-1 hover:bg-[#0D98BA]/10 transition-colors"
-                      >
-                        <MessagesSquare size={10} /> Fil: {msg.threadName}
-                      </button>
-                    )}
+
                     </div>
                   )}
-                  {(msg.files && msg.files.length > 0) ? (
+                  {(msg.files && msg.files.length > 0 && !(isDeletedForEveryone && !isRevealed)) ? (
                     <div className="mb-2 space-y-2 min-w-[200px]">
                       {msg.files.length >= 1 && (
                         <div className="flex justify-between items-center px-1">
                           <span className="text-[10px] font-black uppercase opacity-60 tracking-widest">{msg.files.length} {msg.files.length > 1 ? 'fichiers' : 'fichier'}</span>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleDownloadAll(msg.files!); }}
-                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all shadow-sm ${isMine ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
-                          >
-                            <Download size={10} /> {msg.files.length > 1 ? 'Tout télécharger' : 'Télécharger'}
-                          </button>
+
                         </div>
                       )}
-                      {msg.files.map((file, idx) => (
-                        <div key={idx} className="rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
+                      {(msg.files || []).map((file, idx) => (
+                        <div key={idx} className={`rounded-xl overflow-hidden shadow-inner relative group/file ${state.darkMode ? 'bg-zinc-800/50' : 'bg-gray-50'}`}>
                           {file.type === 'image' || file.type === 'sticker' ? (
                             <img 
                               src={file.url} 
@@ -2271,7 +2373,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                               className="max-w-full max-h-60 rounded-xl"
                             />
                           ) : file.type === 'audio' ? (
-                            <div className="p-4 flex flex-col gap-2 bg-gray-100 rounded-xl">
+                            <div className={`p-4 flex flex-col gap-2 rounded-xl transition-colors ${state.darkMode ? 'bg-zinc-800/80 text-white' : 'bg-gray-100 text-gray-900'}`}>
                               <div className="flex items-center gap-3">
                                 <div className="p-2 bg-[#0D98BA] text-white rounded-lg shadow-md">
                                   <FileAudio size={20} />
@@ -2281,7 +2383,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                               <audio src={file.url} controls className="w-full h-8" />
                             </div>
                           ) : (
-                            <div className="p-4 flex items-center gap-4 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors cursor-pointer" onClick={() => handleDownload(file.url, file.name || 'file')}>
+                            <div className={`p-4 flex items-center gap-4 rounded-xl transition-colors cursor-pointer ${state.darkMode ? 'bg-zinc-800/80 hover:bg-zinc-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`} onClick={() => handleDownload(file.url, file.name || 'file')}>
                               <div className={`p-3 rounded-2xl shadow-lg text-white ${
                                 file.type === 'pdf' ? 'bg-red-500' : 
                                 file.type === 'docx' ? 'bg-blue-600' : 
@@ -2299,18 +2401,12 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                               </div>
                             </div>
                           )}
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleDownload(file.url, file.name || 'file'); }}
-                            className={`absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full transition shadow-lg backdrop-blur-sm lg:opacity-0 lg:group-hover/file:opacity-100 opacity-100`}
-                            title="Télécharger"
-                          >
-                            <Download size={16} />
-                          </button>
+
                         </div>
                       ))}
                     </div>
                   ) : msg.fileUrl && (
-                      <div className="mb-2 rounded-xl overflow-hidden shadow-inner bg-gray-50 relative group/file">
+                      <div className={`mb-2 rounded-xl overflow-hidden shadow-inner relative group/file ${state.darkMode ? 'bg-zinc-800/50' : 'bg-gray-50'}`}>
                         {msg.fileType === 'image' || msg.fileType === 'sticker' ? (
                           <img 
                             src={msg.fileUrl} 
@@ -2325,7 +2421,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             className="max-w-full max-h-60 rounded-xl"
                           />
                         ) : msg.fileType === 'audio' ? (
-                          <div className="p-4 flex flex-col gap-2 bg-gray-100 rounded-xl">
+                          <div className={`p-4 flex flex-col gap-2 rounded-xl transition-colors ${state.darkMode ? 'bg-zinc-800/80 text-white' : 'bg-gray-100 text-gray-900'}`}>
                             <div className="flex items-center gap-3">
                               <div className="p-2 bg-[#0D98BA] text-white rounded-lg shadow-md">
                                 <FileAudio size={20} />
@@ -2335,7 +2431,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             <audio src={msg.fileUrl} controls className="w-full h-8" />
                           </div>
                         ) : (
-                          <div className="p-4 flex items-center gap-4 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors cursor-pointer" onClick={() => handleDownload(msg.fileUrl!, msg.fileName || 'file')}>
+                          <div className={`p-4 flex items-center gap-4 rounded-xl transition-colors cursor-pointer ${state.darkMode ? 'bg-zinc-800/80 hover:bg-zinc-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'}`} onClick={() => handleDownload(msg.fileUrl!, msg.fileName || 'file')}>
                             <div className={`p-3 rounded-2xl shadow-lg text-white ${
                               msg.fileType === 'pdf' ? 'bg-red-500' : 
                               msg.fileType === 'docx' ? 'bg-blue-600' : 
@@ -2353,16 +2449,10 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                             </div>
                           </div>
                         )}
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleDownload(msg.fileUrl!, msg.fileName || 'file'); }}
-                          className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full transition shadow-lg backdrop-blur-sm lg:opacity-0 lg:group-hover/file:opacity-100 opacity-100"
-                          title="Télécharger"
-                        >
-                          <Download size={16} />
-                        </button>
+
                       </div>
                     )}
-                    {msg.poll && (
+                    {(msg.poll && !(isDeletedForEveryone && !isRevealed)) && (
                       <div className="mb-3 p-5 bg-[#0a0a0a] rounded-[2rem] border border-white/5 space-y-4 shadow-2xl overflow-hidden relative">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#32CD32] to-transparent opacity-50" />
                         <div className="flex justify-between items-start gap-2">
@@ -2372,7 +2462,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           )}
                         </div>
                         <div className="space-y-2.5">
-                          {msg.poll.options.map((opt: any) => {
+                          {(msg.poll.options || []).map((opt: any) => {
                             const totalVotes = msg.poll!.options.reduce((acc: number, o: any) => acc + (o.votes?.length || 0), 0);
                             const votes = opt.votes?.length || 0;
                             const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
@@ -2408,18 +2498,11 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                           <p className="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em]">
                             {msg.poll.options.reduce((acc: number, o: any) => acc + (o.votes?.length || 0), 0)} votes • DJ POLL
                           </p>
-                          {(isMine || isAdmin) && !msg.poll.closed && (
-                            <button 
-                              onClick={() => handleClosePoll(msg.id)}
-                              className="text-[9px] font-black uppercase text-red-500 hover:text-red-400 tracking-widest transition-colors bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20"
-                            >
-                              Clôturer
-                            </button>
-                          )}
+
                         </div>
                       </div>
                     )}
-                    <p className={`text-sm break-words whitespace-pre-wrap leading-relaxed ${isDeletedForEveryone && !isRevealed ? 'italic text-gray-400' : ''}`}>
+                    <p className={`text-sm break-words whitespace-pre-wrap leading-relaxed ${isDeletedForEveryone && !isRevealed ? 'italic text-gray-400' : ''} ${state.darkMode ? 'text-zinc-100' : 'text-gray-800'}`}>
                       {isDeletedForEveryone && !isRevealed ? (
                         <span 
                           className={currentUser?.isSuperAdmin ? 'cursor-pointer hover:underline' : ''}
@@ -2431,63 +2514,91 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                         renderMessageText(isRevealed ? msg.originalText || msg.text : msg.text)
                       )}
                     </p>
-                    {(isMine || isAdmin || isCreator || isSubAdmin || isDeletedForEveryone) && !isDeletedAccount && !selectionMode && (
-                      <div className={`absolute ${isMine ? 'right-full mr-2 sm:mr-3' : 'right-full mr-10 sm:mr-11'} top-1/2 -translate-y-1/2 flex flex-row-reverse items-center gap-1 z-10 lg:opacity-0 lg:group-hover/msg:opacity-100 opacity-100 transition-opacity duration-200 lg:pointer-events-none lg:group-hover/msg:pointer-events-auto bg-transparent shadow-none whitespace-nowrap`}>
+                  </div> {/* END BUBBLE */}
+                  
+                  {!isDeletedAccount && !selectionMode && (
+                    <div className={`flex items-center gap-1 z-10 opacity-100 transition-opacity duration-200 bg-transparent shadow-none whitespace-nowrap self-center ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+                      {(isAdmin || isCreator || isSubAdmin || isMine) && (
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
+                           className={`p-1.5 shadow-sm border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}
+                           title="Supprimer"
+                         >
+                           <Trash2 size={14} />
+                           <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-sm z-50">Supprimer</div>
+                         </button>
+                      )}
+                      {((msg.files && msg.files.length > 0) || msg.fileType === 'image' || msg.fileType === 'file' || msg.fileType === 'video') && (
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setDeleteOptionsPrompt({ msgIds: [msg.id], isMine, isCreator, isSubAdmin, isDeletedForEveryone }); }} 
-                          className={`p-1.5 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-red-400' : 'bg-white border-gray-100 text-gray-600 hover:text-red-500'}`}
-                          title="Supprimer"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            if (msg.files && msg.files.length > 0) {
+                              handleDownloadAll(msg.files);
+                            } else if (msg.fileUrl) {
+                              handleDownload(msg.fileUrl, msg.fileName || 'file');
+                            }
+                          }}
+                          className={`p-1.5 shadow-sm border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-blue-400' : 'bg-white border-gray-100 text-blue-500'}`}
+                          title="Télécharger"
                         >
-                          <Trash2 size={14} />
-                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Supprimer</div>
+                          <Download size={14} />
+                          <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-sm z-50">Télécharger</div>
                         </button>
+                      )}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setSelectionMode(true); setSelectedMessages(new Set([msg.id])); }}
+                        className={`p-1.5 shadow-sm border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-[#0D98BA]' : 'bg-white border-gray-100 text-gray-600 hover:text-[#0D98BA]'}`}
+                        title="Sélectionner"
+                      >
+                        <CheckCircle2 size={14} />
+                        <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-sm z-50">Sélectionner</div>
+                      </button>
+                      {msg.poll && (isMine || isAdmin) && !msg.poll.closed && (
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setSelectionMode(true); setSelectedMessages(new Set([msg.id])); }}
-                          className={`p-1.5 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-[#0D98BA]' : 'bg-white border-gray-100 text-gray-600 hover:text-[#0D98BA]'}`}
-                          title="Sélectionner"
+                          onClick={(e) => { e.stopPropagation(); handleClosePoll(msg.id); }}
+                          className={`p-1.5 shadow-sm border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-red-400' : 'bg-white border-gray-100 text-red-500'}`}
+                          title="Clôturer le sondage"
                         >
-                          <CheckCircle2 size={14} />
-                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Sélectionner</div>
+                          <Lock size={14} />
+                          <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-sm z-50">Clôturer sondage</div>
                         </button>
-                        {!isSMS && !state.activeThreadId && !msg.threadId && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleSelectThreadParent(msg.id); }}
-                            className={`p-1.5 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:text-[#0D98BA]' : 'bg-white border-gray-100 text-gray-600 hover:text-[#0D98BA]'}`}
-                            title="Créer un fil"
-                          >
-                            <RotateCcw size={14} />
-                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Créer un fil</div>
-                          </button>
-                        )}
-                        {isAdmin && !isMine && msg.user !== group.creator && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleToggleMute(msg.user); }} 
-                            className={`p-1.5 shadow-lg border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-orange-400' : 'bg-white border-gray-100 text-orange-500'}`}
-                            title="Muter"
-                          >
-                            <VolumeX size={12} />
-                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Muter</div>
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-[9px] text-gray-400 mx-1 font-medium">{msg.time}</span>
+                      )}
+                      {msg.isThreadRoot && !state.activeThreadId ? (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleEnterThread(msg.threadId!, msg.threadName!); }}
+                          className={`p-1.5 shadow-sm border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-[#0D98BA]' : 'bg-white border-gray-100 text-[#0D98BA]'}`}
+                          title="Voir le fil"
+                        >
+                          <MessagesSquare size={14} />
+                          <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-sm z-50">Voir le fil</div>
+                        </button>
+                      ) : !isSMS && !state.activeThreadId && !msg.threadId && canSpeak && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleSelectThreadParent(msg.id); }}
+                          className={`p-1.5 shadow-sm border rounded-full transition-all active:scale-90 relative group/btn ${state.darkMode ? 'bg-zinc-800 border-white/10 text-[#0D98BA]' : 'bg-white border-gray-100 text-[#0D98BA]'}`}
+                          title="Créer un fil"
+                        >
+                          <RotateCcw size={14} />
+                          <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-800 text-white text-[8px] font-black uppercase rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-sm z-50">Créer un fil</div>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
+                <span className="text-[9px] text-gray-400 mx-1 font-medium mt-0.5">{msg.timestamp ? new Date(msg.timestamp).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'}) : msg.time}</span>
+              </div>
               </div>
             );
           })}
-            <div className={`transition-opacity duration-300 px-6 py-2 ${typingUsers.length > 0 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50/80 rounded-2xl w-fit border border-gray-100 shadow-sm">
+            <div className={`transition-opacity duration-300 px-6 py-2 ${typingNames.length > 0 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0D98BA]/10 rounded-2xl w-fit border border-[#0D98BA]/20 shadow-sm">
                 <div className="flex gap-1">
-                  <div className="w-1.5 h-1.5 bg-[#0D98BA] rounded-full animate-bounce [animation-duration:0.8s]"></div>
-                  <div className="w-1.5 h-1.5 bg-[#0D98BA] rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.1s]"></div>
-                  <div className="w-1.5 h-1.5 bg-[#0D98BA] rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.2s]"></div>
+                  <div className="w-1.5 h-1.5 bg-[#0D98BA] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-1.5 h-1.5 bg-[#0D98BA] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-1.5 h-1.5 bg-[#0D98BA] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
                 <span className="text-[10px] font-black uppercase text-[#0D98BA] tracking-widest ml-1">
-                  {typingUsers.length === 1 
-                    ? `@${state.users[typingUsers[0]]?.name || typingUsers[0]} écrit...` 
-                    : `${typingUsers.length} personnes écrivent...`}
+                  {typingNames.join(', ')} {typingNames.length > 1 ? 'sont en train d\'écrire...' : 'est en train d\'écrire...'}
                 </span>
               </div>
             </div>
@@ -2525,7 +2636,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <button 
                 type="button"
                 onClick={handleFileClick}
-                className="p-2 text-gray-400 hover:text-[#0D98BA] transition"
+                disabled={!canSpeak}
+                className="p-2 text-gray-400 hover:text-[#0D98BA] transition disabled:opacity-50 disabled:hover:text-gray-400"
                 title="Envoyer un fichier"
               >
                 <Paperclip size={20} />
@@ -2534,7 +2646,8 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 <button 
                   type="button"
                   onClick={handleStartThreadSelection}
-                  className={`p-2 transition ${threadSelectionMode ? 'text-[#0D98BA] animate-pulse' : 'text-gray-400 hover:text-[#0D98BA]'}`}
+                  disabled={!canSpeak}
+                  className={`p-2 transition ${threadSelectionMode ? 'text-[#0D98BA] animate-pulse' : 'text-gray-400 hover:text-[#0D98BA]'} disabled:opacity-50 disabled:hover:text-gray-400`}
                   title="Créer un fil de discussion"
                 >
                   <RotateCcw size={20} className={threadSelectionMode ? "rotate-180 transition-transform duration-500" : ""} />
@@ -2544,12 +2657,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 <button 
                   type="button"
                   onClick={() => setShowStickers(!showStickers)}
-                  className={`p-2 transition ${showStickers ? 'text-[#0D98BA]' : 'text-gray-400 hover:text-[#0D98BA]'}`}
+                  disabled={!canSpeak}
+                  className={`p-2 transition ${showStickers ? 'text-[#0D98BA]' : 'text-gray-400 hover:text-[#0D98BA]'} disabled:opacity-50 disabled:hover:text-gray-400`}
                   title="Stickers"
                 >
                   <Smile size={20} />
                 </button>
-                {showStickers && (
+                {showStickers && canSpeak && (
                   <div className="absolute bottom-full left-0 mb-4 bg-white p-4 rounded-3xl shadow-2xl border border-gray-100 grid grid-cols-4 gap-3 w-64 animate-in zoom-in-95 duration-200 origin-bottom-left z-50">
                     <div className="col-span-4 flex justify-between items-center mb-1">
                       <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Stickers</span>
@@ -2572,12 +2686,13 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 <button 
                   type="button"
                   onClick={() => setShowPollCreator(!showPollCreator)}
-                  className={`p-2 transition ${showPollCreator ? 'text-[#0D98BA]' : 'text-gray-400 hover:text-[#0D98BA]'}`}
+                  disabled={!canSpeak}
+                  className={`p-2 transition ${showPollCreator ? 'text-[#0D98BA]' : 'text-gray-400 hover:text-[#0D98BA]'} disabled:opacity-50 disabled:hover:text-gray-400`}
                   title="Sondage"
                 >
                   <BarChart2 size={20} />
                 </button>
-                {showPollCreator && (
+                {showPollCreator && canSpeak && (
                   <div className="absolute bottom-full left-0 mb-4 bg-white p-6 rounded-3xl shadow-2xl border border-gray-100 w-72 animate-in zoom-in-95 duration-200 origin-bottom-left z-50 space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Créer un sondage</span>
@@ -2631,18 +2746,26 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   </div>
                 )}
               </div>
-              <textarea 
-                rows={1}
-                value={messageInput} 
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (!(!messageInput.trim() && !isTest) && !(!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator)) {
-                      handleSendMessage(e as any);
-                      e.currentTarget.style.height = 'auto'; // Reset height on send
-                    }
-                  }
-                }}
+
+                  <textarea 
+                    rows={1}
+                    value={messageInput} 
+                    onChange={e => {
+                      setMessageInput(e.target.value);
+                      handleTyping();
+                      setDraftStatus(e.target.value.trim().length > 0);
+                      e.target.style.height = 'auto'; // Reset height to recalculate
+                      e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (!(!messageInput.trim() && !isTest) && canSpeak) {
+                          handleSendMessage(e as any);
+                          e.currentTarget.style.height = 'auto'; // Reset height on send
+                        }
+                      }
+                    }}
                 onClick={() => {
                   if (isTest) setShowRestrictedPopup(true);
                 }}
@@ -2651,42 +2774,16 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   isTest ? "Connectez-vous pour écrire..." : 
                   state.activeThreadId ? `Écrire dans le fil "${state.activeThreadName}"...` :
                   (!isMember && group.type === 'private' && !isSMS) ? "Mode Secret - Lecture seule" :
-                  (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator) ? "Seuls les admins peuvent parler ici." :
+                  !canSpeak ? "Seuls les admins peuvent parler ici." :
                   "Écris un message... (MAJ+Entrée pour passer à la ligne)"
                 } 
-                className="flex-1 px-5 py-3 rounded-[1.5rem] bg-gray-100 dark:bg-zinc-800/50 dark:text-white dark:placeholder:text-zinc-500 border-none focus:ring-2 focus:ring-[#0D98BA] outline-none transition-all disabled:opacity-50 resize-none overflow-y-auto custom-scrollbar min-h-[48px]" 
-                readOnly={isTest || (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator)}
-                onChange={e => {
-                  setMessageInput(e.target.value);
-                  setDraftStatus(e.target.value.trim().length > 0);
-                  e.target.style.height = 'auto'; // Reset height to recalculate
-                  e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
-
-                  // Typing Status Update
-                  if (!isTest && state.currentUser) {
-                    const roomRef = doc(db, isSMS ? 'private_messages' : 'groups', activeGroup);
-                    const now = Date.now();
-                    
-                    if (now - lastTypingUpdate.current > 2000) {
-                      lastTypingUpdate.current = now;
-                      if (!(group as any).typingStatus) {
-                        setDoc(roomRef, { typingStatus: { [state.currentUser]: now } }, { merge: true }).catch(() => {});
-                      } else {
-                        updateDoc(roomRef, { [`typingStatus.${state.currentUser}`]: now }).catch(() => {});
-                      }
-                    }
-
-                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                    typingTimeoutRef.current = setTimeout(() => {
-                      updateDoc(roomRef, { [`typingStatus.${state.currentUser}`]: 0 }).catch(() => {});
-                    }, 2500);
-                  }
-                }} 
+                className={`flex-1 px-5 py-3 rounded-[1.5rem] border-none focus:ring-2 focus:ring-[#0D98BA] outline-none transition-all disabled:opacity-50 resize-none overflow-y-auto custom-scrollbar min-h-[48px] ${state.darkMode ? 'bg-zinc-800/50 text-white placeholder:text-zinc-500' : 'bg-gray-100 text-gray-900 placeholder:text-gray-500'}`} 
+                readOnly={isTest || !canSpeak}
                 style={{ maxHeight: '150px' }}
               />
               <button 
                 type="submit" 
-                disabled={(!messageInput.trim() && !isTest) || (!(group.allowOthersToSpeak ?? true) && !isAdmin && !isCreator)} 
+                disabled={(!messageInput.trim() && !isTest) || !canSpeak} 
                 className={`p-3.5 rounded-full text-white shadow-md hover:scale-105 transition active:scale-95 disabled:opacity-50 disabled:hover:scale-100 flex-shrink-0 self-end ${djStyleBg}`}
               >
                 <Send size={20} className="ml-0.5" />
@@ -2799,12 +2896,99 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </div>
           </div>
         )}
+        {inputPrompt && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+              <h3 className="text-xl font-black uppercase tracking-tighter text-gray-800 mb-4">{inputPrompt.message}</h3>
+              <input 
+                type="text" 
+                value={inputPrompt.value} 
+                onChange={(e) => setInputPrompt({...inputPrompt, value: e.target.value})} 
+                placeholder={inputPrompt.placeholder}
+                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:ring-2 focus:ring-[#0D98BA] transition-all mb-4"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    inputPrompt.onSubmit(inputPrompt.value);
+                    setInputPrompt(null);
+                  }
+                }}
+              />
+              <div className="flex gap-2">
+                <button onClick={() => setInputPrompt(null)} className="flex-1 py-3 rounded-xl font-bold bg-gray-100 hover:bg-gray-200 transition">Annuler</button>
+                <button onClick={() => { inputPrompt.onSubmit(inputPrompt.value); setInputPrompt(null); }} className="flex-1 py-3 rounded-xl font-bold text-white bg-[#0D98BA] hover:opacity-90 transition">Valider</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showThreadNaming && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
+              <div className={`p-8 ${djStyleBg}`}>
+                <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center mb-4 backdrop-blur-xl">
+                  <MessagesSquare size={32} className="text-white" />
+                </div>
+                <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-1">Nom du fil</h3>
+                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Donnez un titre à cette discussion</p>
+              </div>
+              <div className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-1">Titre du fil</label>
+                  <input 
+                    type="text" 
+                    value={threadNameInput}
+                    onChange={e => setThreadNameInput(e.target.value)}
+                    placeholder="Ex: Organisation soirée, Feedback important..." 
+                    className="w-full px-6 py-4 rounded-3xl bg-gray-50 border-none outline-none ring-2 ring-transparent focus:ring-[#0D98BA] transition-all text-sm font-bold h-14"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={() => { setShowThreadNaming(false); setThreadParentId(null); setThreadNameInput(''); }}
+                    className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition h-14"
+                  >
+                    Annuler
+                  </button>
+                  <button 
+                    onClick={handleConfirmThreadCreation}
+                    disabled={!threadNameInput.trim()}
+                    className={`flex-1 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-[#0D98BA]/20 transition-all active:scale-95 disabled:opacity-50 h-14 ${djStyleBg}`}
+                  >
+                    Créer le fil
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-[100000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95"
+          onClick={() => setSelectedImage(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-all active:scale-90 shadow-2xl"
+            onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+          >
+            <X size={24} />
+          </button>
+          <img 
+            src={selectedImage} 
+            alt="Plein écran" 
+            className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl pointer-events-none" 
+          />
+        </div>
+      )}
+
       </div>
     );
   }
 
   return (
-    <div className={`flex flex-col h-full animate-in fade-in duration-300 ${state.darkMode ? 'text-white' : 'text-gray-900'}`} style={{ backgroundColor: 'var(--bg-color, transparent)' }}>
+    <div className={`flex flex-col h-full animate-in fade-in duration-300 bg-transparent ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>
       <div className="p-6 pb-0">
         <div className="flex justify-between items-center mb-6">
           <h2 className={`text-2xl font-bold ${djStyleText}`}>Discussions</h2>
@@ -2852,60 +3036,15 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <MessageSquare size={14} className="text-gray-400" />
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">SMS</h3>
             </div>
-            <div className="bg-white p-6 rounded-3xl shadow-xl border border-gray-50 mb-4">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-xs font-black uppercase tracking-widest text-gray-400">Rechercher un utilisateur</h4>
-                <button 
-                  onClick={() => handleStartSMS('dj-bot')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-white font-black uppercase tracking-tighter text-[10px] shadow-lg hover:scale-105 active:scale-95 transition-all ${djStyleBg}`}
-                >
-                  <Bot size={14} />
-                  Parler à DJ Bot
-                </button>
-              </div>
-              <div className="relative">
-                <input 
-                  type="text" 
-                  placeholder="Pseudo de l'utilisateur..." 
-                  value={smsSearch} 
-                  onChange={e => setSmsSearch(e.target.value)} 
-                  className="w-full px-6 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:bg-white focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold" 
-                />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300">
-                  <UserPlus size={20} />
-                </div>
-              </div>
-              
-              <div className="mt-4 space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                {Object.keys(state.users)
-                  .filter(u => u !== state.currentUser && state.users[u]?.uid !== state.currentUser && u !== 'dj-bot' && (state.users[u]?.name?.toLowerCase().includes(smsSearch.toLowerCase()) || u.toLowerCase().includes(smsSearch.toLowerCase())))
-                  .map(u => (
-                      <button 
-                        key={u} 
-                        onClick={() => handleStartSMS(u)}
-                        className="w-full flex items-center justify-between p-4 rounded-2xl border border-gray-50 bg-white hover:border-[#0D98BA] hover:bg-blue-50 transition-all group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-sm overflow-hidden">
-                            {state.users[u].avatar ? <img src={state.users[u].avatar!} className="w-full h-full object-cover" /> : (u || '?')[0].toUpperCase()}
-                          </div>
-                          <div className="text-left">
-                            <div className="flex items-center gap-2">
-                              <p className={`font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>@{state.users[u].name || u}</p>
-                              {state.users[u].isOnline && <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse"></span>}
-                            </div>
-                            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mt-0.5">
-                              {state.users[u].isOnline ? <span className="text-green-500">En ligne</span> : `Actif: ${state.users[u].lastSeen ? new Date(state.users[u].lastSeen).toLocaleDateString() : '?'}`} • Créé: {state.users[u].createdAt ? new Date(state.users[u].createdAt).toLocaleDateString() : '?'}
-                            </p>
-                          </div>
-                        </div>
-                        <ChevronRight size={18} className="text-gray-300 group-hover:text-[#0D98BA] transition-colors" />
-                      </button>
-                    ))}
-                  {Object.keys(state.users).filter(u => u !== state.currentUser && u !== 'dj-bot' && (state.users[u].name?.toLowerCase().includes(smsSearch.toLowerCase()) || u.toLowerCase().includes(smsSearch.toLowerCase()))).length === 0 && (
-                    <p className="text-center text-xs text-gray-400 py-4 italic">Aucun utilisateur trouvé.</p>
-                  )}
-                </div>
+            <div className="bg-white p-4 rounded-3xl shadow-xl border border-gray-50 mb-4 flex justify-between items-center">
+              <h4 className="text-xs font-black uppercase tracking-widest text-gray-400">Assistant virtuel</h4>
+              <button 
+                onClick={() => handleStartSMS('dj-bot')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-white font-black uppercase tracking-tighter text-[10px] shadow-lg hover:scale-105 active:scale-95 transition-all ${djStyleBg}`}
+              >
+                <Bot size={14} />
+                Parler à DJ Bot
+              </button>
             </div>
 
             <div className="space-y-4">
@@ -2928,7 +3067,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       <div className="flex items-center justify-between mb-1">
                         <h3 className={`font-bold truncate pr-2 flex items-center gap-2 ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>
                           {otherName}
-                          {state.users[otherId || '']?.isOnline && <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse"></span>}
+                          {checkIsOnline(state.users[otherId || '']) && <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse"></span>}
                         </h3>
                         <span className="text-xs text-gray-400 whitespace-nowrap">{lastMsg?.time || ''}</span>
                       </div>
@@ -2997,7 +3136,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <p className={`text-xs font-bold ${state.darkMode ? 'text-zinc-300' : 'text-gray-700'}`}>@{item.lastMessage.user === 'test' ? 'Anonyme' : (state.users[item.lastMessage.user]?.name || item.lastMessage.user)}</p>
-                      {item.type === 'sms' && state.users[item.lastMessage.user]?.isOnline && (
+                      {item.type === 'sms' && checkIsOnline(state.users[item.lastMessage.user]) && (
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
                       )}
                     </div>
@@ -3060,7 +3199,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   </button>
                 </div>
                 
-                <div className="bg-white p-6 rounded-3xl shadow-xl border border-gray-50 mb-4">
+                <div className={`p-6 rounded-3xl shadow-xl border mb-4 ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-50'}`}>
                   <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Intégrer un groupe via le code</h4>
                   <div className="flex gap-2">
                     <input 
@@ -3069,7 +3208,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                       maxLength={7}
                       value={joinCode} 
                       onChange={e => setJoinCode(e.target.value)} 
-                      className="flex-1 px-4 py-3 rounded-xl border border-gray-100 focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all bg-gray-50 font-mono text-center tracking-widest" 
+                      className={`flex-1 px-4 py-3 rounded-xl border outline-none transition-all font-mono text-center tracking-widest ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-4 focus:ring-[#0D98BA]/20' : 'bg-gray-50 border-gray-100 text-gray-900 focus:ring-4 focus:ring-[#0D98BA]/20'}`} 
                     />
                     <button onClick={handleJoinPrivateGroup} className={`px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg hover:opacity-90 transition active:scale-95 text-white ${djStyleBg}`}>Rejoindre</button>
                   </div>
@@ -3119,47 +3258,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
           </div>
         )}
       </div>
-
-      {deleteOptionsPrompt && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[5000] flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
-            <div className={`p-6 ${djStyleBg} text-white text-center`}>
-              <Trash2 size={32} className="mx-auto mb-2" />
-              <h3 className="text-lg font-black uppercase tracking-tighter">Supprimer le message</h3>
-            </div>
-            <div className="p-6 space-y-3">
-              <button 
-                onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgIds, 'me')}
-                className="w-full py-4 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition"
-              >
-                {deleteOptionsPrompt.isDeletedForEveryone ? "Supprimer la bulle pour moi" : "Supprimer pour moi uniquement"}
-              </button>
-              {!deleteOptionsPrompt.isDeletedForEveryone && (deleteOptionsPrompt.isMine || currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin || deleteOptionsPrompt.isCreator || deleteOptionsPrompt.isSubAdmin) && (
-                <button 
-                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgIds, 'everyone')}
-                  className="w-full py-4 rounded-2xl bg-red-50 text-red-500 font-bold hover:bg-red-100 transition"
-                >
-                  Supprimer pour tout le monde
-                </button>
-              )}
-              {(currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin) && (
-                <button 
-                  onClick={() => handleDeleteMessage(deleteOptionsPrompt.msgIds, 'bubble')}
-                  className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition"
-                >
-                  Supprimer la bulle (Staff)
-                </button>
-              )}
-              <button 
-                onClick={() => setDeleteOptionsPrompt(null)}
-                className="w-full py-4 rounded-2xl text-gray-400 font-bold hover:text-gray-600 transition"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showCreateGroup && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in">

@@ -27,7 +27,7 @@ export function HomeMock({ state, setView, updateState, onComplete }: { state: A
   const tipIndex = Math.floor(Date.now() / (10 * 60 * 1000)) % tips.length;
   const currentTip = tips[tipIndex];
 
-  const pinnedDiscussions = Object.values(state.groups).slice(0, 2).map((g: any) => ({
+  const pinnedDiscussions = Object.values(state.groups || {}).slice(0, 2).map((g: any) => ({
     id: g.id,
     name: g.name,
     avatar: g.avatar || '',

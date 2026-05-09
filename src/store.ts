@@ -43,7 +43,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
       tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
         providerId: provider.providerId,
         displayName: provider.displayName,
         email: provider.email,
@@ -213,7 +213,7 @@ export function useAppStore() {
     const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
       const users: Record<string, User> = {};
       snapshot.forEach(doc => {
-        users[doc.id] = doc.data() as User;
+        users[doc.id] = { ...doc.data(), uid: doc.id } as User;
       });
       setState(prev => {
         // Preserve DJ Bot if it exists
@@ -276,7 +276,7 @@ export function useAppStore() {
               if (prevLastId && prevLastId !== lastMsg.id) {
                 const prevIndex = messages.findIndex(m => m.id === prevLastId);
                 const newMessages = prevIndex >= 0 ? messages.slice(prevIndex + 1) : [lastMsg];
-                const unreadForMe = newMessages.filter(m => m.user !== stateRef.current.currentUser);
+                const unreadForMe = newMessages.filter(m => m.user !== stateRef.current.currentUser && m.timestamp > (stateRef.current.currentUserData?.lastReadTimestamps?.[groupDoc.id] || '0'));
                 
                 if (unreadForMe.length > 0) {
                   const groupName = groupData.name || 'Groupe';
@@ -390,7 +390,7 @@ export function useAppStore() {
               if (prevLastId && prevLastId !== lastMsg.id) {
                 const prevIndex = messages.findIndex(m => m.id === prevLastId);
                 const newMessages = prevIndex >= 0 ? messages.slice(prevIndex + 1) : [lastMsg];
-                const unreadForMe = newMessages.filter(m => m.user !== stateRef.current.currentUser);
+                const unreadForMe = newMessages.filter(m => m.user !== stateRef.current.currentUser && m.timestamp > (stateRef.current.currentUserData?.lastReadTimestamps?.[chatDoc.id] || '0'));
                 
                 if (unreadForMe.length > 0) {
                   const lastSenderId = unreadForMe[unreadForMe.length - 1].user;

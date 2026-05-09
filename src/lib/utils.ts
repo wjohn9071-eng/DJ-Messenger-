@@ -8,6 +8,17 @@ export function cn(...inputs: ClassValue[]) {
 export const djStyleText = "dj-style-text font-black";
 export const djStyleBg = "dj-style-bg text-white";
 
+export const checkIsOnline = (user: { lastSeen?: number | string; isOnline?: boolean } | null | undefined): boolean => {
+  if (!user) return false;
+  if (!user.lastSeen) return !!user.isOnline; // Fallback
+  
+  let lastSeenNum = typeof user.lastSeen === 'string' ? new Date(user.lastSeen).getTime() : user.lastSeen;
+  if (isNaN(lastSeenNum)) return !!user.isOnline; // Fallback for invalid date string
+  
+  // Consider online if seen within the last 3 minutes (180000 ms) and isOnline is true
+  return !!user.isOnline && (Date.now() - lastSeenNum < 3 * 60 * 1000);
+};
+
 export const DJ_LOGO_SVG = `
 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
   <path d="M12 2C6.477 2 2 6.145 2 11.258C2 14.17 3.43 16.738 5.664 18.475V22L9.043 20.145C9.993 20.41 10.982 20.516 12 20.516C17.523 20.516 22 16.371 22 11.258C22 6.145 17.523 2 12 2Z" fill="url(#dj-gradient)"/>

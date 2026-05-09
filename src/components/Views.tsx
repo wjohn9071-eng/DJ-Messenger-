@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppState } from '../types';
 import { APP_UPDATES } from '../constants';
-import { djStyleBg, djStyleText, compressImage, setDraftStatus } from '../lib/utils';
-import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight, Bell, Lightbulb, Settings as SettingsIcon, HelpCircle, CheckCircle2, Eye, EyeOff, Globe, Pin } from 'lucide-react';
+import { djStyleBg, djStyleText, compressImage, setDraftStatus, checkIsOnline } from '../lib/utils';
+import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Download, Shield, Send, ChevronLeft, ChevronRight, Bell, Lightbulb, Settings as SettingsIcon, HelpCircle, CheckCircle2, Eye, EyeOff, Globe, Pin, Edit3, Pencil } from 'lucide-react';
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
 import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs, reauthenticateWithPopup, googleProvider } from '../lib/firebase';
@@ -49,7 +49,7 @@ const ConfirmModal = ({ isOpen, message, onConfirm, onCancel }: { isOpen: boolea
   );
 };
 
-export function Profile({ state, updateState }: { state: AppState, updateState: any }) {
+export function Profile({ state, updateState, handleLogout }: { state: AppState, updateState: any, handleLogout?: () => void }) {
   const isTest = state.currentUser === 'test';
   const user = isTest ? null : state.users[state.currentUser as string];
   const [username, setUsername] = useState(user?.name || '');
@@ -59,6 +59,8 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
   const [toast, setToast] = useState<string | null>(null);
   const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{message: string, action: () => void} | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -104,9 +106,23 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           } catch (pwdError: any) {
             console.error("Erreur mot de passe:", pwdError);
             if (pwdError.code === 'auth/requires-recent-login') {
-              return showToast("Erreur: Vous devez vous reconnecter pour changer de mot de passe.");
+              showToast("Sécurité : Re-vérification nécessaire pour changer le mot de passe...");
+              try {
+                await reauthenticateWithPopup(auth.currentUser, googleProvider);
+                await updatePassword(auth.currentUser, password);
+                showToast("Mot de passe mis à jour !");
+              } catch (reauthError: any) {
+                console.error("Re-authentification échouée:", reauthError);
+                if (reauthError.code === 'auth/cancelled-popup-request') {
+                  return showToast("Modification annulée.");
+                } else if (reauthError.code === 'auth/user-mismatch') {
+                  return showToast("Erreur : Veuillez sélectionner le même compte Google.");
+                }
+                return showToast("Erreur: Vous devez vous reconnecter manuellement pour changer de mot de passe.");
+              }
+            } else {
+              return showToast("Erreur lors de la modification du mot de passe.");
             }
-            return showToast("Erreur lors de la modification du mot de passe.");
           }
         }
 
@@ -167,27 +183,66 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
     setAvatar(null);
   };
 
+  const confirmDeleteAccount = async () => {
+    if (!auth.currentUser || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      // Nettoyage des données avant la suppression du compte : messages privés
+      const pmQuery = query(collection(db, 'private_messages'));
+      const pmSnap = await getDocs(pmQuery);
+      for (const docSnap of pmSnap.docs) {
+        if (docSnap.id.includes(auth.currentUser.uid)) {
+          const msgsQuery = query(collection(db, 'private_messages', docSnap.id, 'messages'));
+          const msgsSnap = await getDocs(msgsQuery);
+          for (const m of msgsSnap.docs) {
+            await deleteDoc(doc(db, 'private_messages', docSnap.id, 'messages', m.id));
+          }
+          await deleteDoc(doc(db, 'private_messages', docSnap.id));
+        }
+      }
+
+      // Nettoyage User
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await deleteDoc(userRef);
+
+      await deleteUser(auth.currentUser);
+      if (handleLogout) handleLogout();
+    } catch (e: any) {
+      console.error(e);
+      if (e.code === 'auth/requires-recent-login') {
+        showToast("Sécurité : Veuillez vous déconnecter et vous reconnecter pour supprimer votre compte.");
+      } else {
+        showToast("Erreur lors de la suppression du compte.");
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const hasChanged = hasUsernameChanged || hasPasswordChanged || hasAvatarChanged;
 
   return (
     <div className="p-4 md:p-8 max-w-xl mx-auto animate-in fade-in duration-300 pb-24">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg`}>
-            <User className="text-white" size={24} />
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-2xl ${djStyleBg} shadow-lg ring-4 ring-[#0D98BA]/10`}>
+              <User className="text-white" size={24} />
+            </div>
+            <div>
+              <h2 className={`text-3xl font-black uppercase tracking-tighter ${state.darkMode ? 'text-white' : djStyleText}`}>Mon Profil</h2>
+              <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Identité numérique</p>
+            </div>
           </div>
-          <h2 className={`text-3xl font-black uppercase tracking-tighter ${djStyleText}`}>Mon Profil</h2>
+          {hasChanged && (
+            <button 
+              type="button"
+              onClick={handleSave}
+              className="px-8 py-3 bg-[#0D98BA] text-white text-[10px] font-black uppercase tracking-widest rounded-[1.8rem] shadow-xl shadow-[#0D98BA]/30 hover:scale-[1.05] active:scale-95 transition-all animate-in zoom-in ring-4 ring-white"
+            >
+              Sauvegarder tout
+            </button>
+          )}
         </div>
-        {hasChanged && (
-          <button 
-            type="button"
-            onClick={handleSave}
-            className="px-6 py-3 bg-[#0D98BA] text-white text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] shadow-lg shadow-[#0D98BA]/30 hover:scale-[1.05] active:scale-95 transition-all animate-in zoom-in"
-          >
-            Sauvegarder
-          </button>
-        )}
-      </div>
       
       <div className="flex flex-col items-center mb-10">
         <div className="relative group">
@@ -212,9 +267,33 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
             </button>
           )}
         </div>
+        {user && (
+          <div className="mt-6 w-full max-w-xs grid grid-cols-2 gap-x-4 gap-y-2 text-xs bg-white/80 p-4 rounded-3xl shadow-md border border-white/50 backdrop-blur-xl dark:bg-zinc-900/80 dark:border-white/5">
+            <div className="flex flex-col">
+              <span className="text-gray-400 font-black uppercase tracking-widest text-[8px] mb-0.5">Création</span>
+              <span className={state.darkMode ? 'text-gray-200 font-bold' : 'text-gray-700 font-bold'}>
+                {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Ancien compte'}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-gray-400 font-black uppercase tracking-widest text-[8px] mb-0.5">Dernière co.</span>
+              <span className={state.darkMode ? 'text-gray-200 font-bold' : 'text-gray-700 font-bold'}>
+                {user.lastLogin ? new Date(user.lastLogin).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : (user.lastSeen ? new Date(user.lastSeen).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Inconnue')}
+              </span>
+            </div>
+            <div className="col-span-2 flex items-center justify-between border-t border-gray-100 dark:border-white/5 mt-1 pt-2">
+              <span className="text-gray-400 font-black uppercase tracking-widest text-[8px]">Statut</span>
+              <span className={`flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded-lg ${checkIsOnline(user) ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'} dark:bg-opacity-10`}>
+                <span className={`w-2 h-2 rounded-full ${checkIsOnline(user) ? 'bg-green-500 animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-gray-400'}`}></span>
+                {checkIsOnline(user) ? 'En ligne' : 'Hors ligne'}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-8 bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/50 mb-8">
+
         <div className="space-y-4">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Nom d'utilisateur</label>
           <div className="flex items-center gap-3">
@@ -227,17 +306,19 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
                 className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-14 ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
                 placeholder="Ton nom..."
               />
-              {hasUsernameChanged ? (
-                <button 
-                  type="button"
-                  onClick={handleSave}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95 z-10"
-                  title="Enregistrer le nom"
-                >
-                  <CheckCircle2 size={20} />
-                </button>
-              ) : <User className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300" size={20} />}
+              <User className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300" size={20} />
             </div>
+            {hasUsernameChanged ? (
+              <button 
+                type="button"
+                onClick={handleSave}
+                className="px-4 py-3 bg-[#0D98BA] text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg hover:scale-[1.05] active:scale-95 transition-all"
+              >
+                Sauvegarder
+              </button>
+            ) : (
+               <div className="w-[110px]" />
+            )}
           </div>
         </div>
 
@@ -250,29 +331,28 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
                 autoComplete="new-password"
                 value={password} 
                 onChange={e => setPassword(e.target.value)} 
-                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-24 ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
+                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-14 ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
                 placeholder="Nouveau mot de passe..."
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 transition-all"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-                {hasPasswordChanged && (
-                  <button 
-                    type="button"
-                    onClick={handleSave}
-                    className="p-2 bg-green-500 text-white rounded-xl shadow-lg hover:scale-110 transition active:scale-95"
-                    title="Enregistrer le mot de passe"
-                  >
-                    <CheckCircle2 size={20} />
-                  </button>
-                )}
-              </div>
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl text-zinc-400 hover:text-zinc-600 transition-all"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
+            {hasPasswordChanged ? (
+              <button 
+                type="button"
+                onClick={handleSave}
+                className="px-4 py-3 bg-[#0D98BA] text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg hover:scale-[1.05] active:scale-95 transition-all"
+              >
+                Sauvegarder
+              </button>
+            ) : (
+               <div className="w-[110px]" />
+            )}
           </div>
         </div>
         
@@ -287,7 +367,7 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Dernière activité</span>
               <span className={`text-sm font-black ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
-                {user?.isOnline ? <span className="text-green-500">En ligne</span> : (user?.lastSeen ? new Date(user.lastSeen).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) : 'Inconnue')}
+                {checkIsOnline(user) ? <span className="text-green-500">En ligne</span> : (user?.lastSeen ? new Date(user.lastSeen).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) : 'Inconnue')}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -357,10 +437,10 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Statut de connexion</span>
             <div className="flex items-center gap-2.5">
-              <span className={`text-[10px] font-black uppercase tracking-widest ${user?.isOnline ? 'text-green-500' : 'text-zinc-500'}`}>
-                {user?.isOnline ? 'Connecté' : 'Déconnecté'}
+              <span className={`text-[10px] font-black uppercase tracking-widest ${checkIsOnline(user) ? 'text-green-500' : 'text-zinc-500'}`}>
+                {checkIsOnline(user) ? 'Connecté' : 'Déconnecté'}
               </span>
-              <div className={`w-3 h-3 rounded-full ${user?.isOnline ? 'bg-green-500 animate-pulse ring-4 ring-green-500/20 shadow-[0_0_12px_rgba(34,197,94,0.4)]' : 'bg-gray-300'}`}></div>
+              <div className={`w-3 h-3 rounded-full ${checkIsOnline(user) ? 'bg-green-500 animate-pulse ring-4 ring-green-500/20 shadow-[0_0_12px_rgba(34,197,94,0.4)]' : 'bg-gray-300'}`}></div>
             </div>
           </div>
           
@@ -380,6 +460,37 @@ export function Profile({ state, updateState }: { state: AppState, updateState: 
           </div>
         </div>
       </div>
+
+      <div className="pt-8 w-full max-w-sm mx-auto">
+        <button onClick={async () => { if (isDeleting) return; try { await signOut(auth); if (handleLogout) handleLogout(); } catch(e) { console.error(e); } }} className={`w-full py-3 rounded-xl font-bold bg-gray-100 hover:bg-gray-200 transition active:scale-95 mb-4 ${isDeleting ? 'opacity-50 cursor-not-allowed' : 'text-gray-700'}`}>
+          Se déconnecter
+        </button>
+        <button onClick={() => setShowDeleteConfirm(true)} disabled={isDeleting} className={`w-full py-3 rounded-xl font-bold bg-red-50 hover:bg-red-100 transition active:scale-95 flex items-center justify-center gap-2 ${isDeleting ? 'opacity-50 cursor-not-allowed' : 'text-red-600'}`}>
+          <Trash2 size={18} /> {isDeleting ? "Suppression..." : "Supprimer le compte"}
+        </button>
+      </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Supprimer le compte</h3>
+            <p className="text-gray-600 mb-6">Es-tu sûr de vouloir supprimer ton compte ? Cette action est irréversible.</p>
+            <div className="flex gap-3">
+              <button onClick={() => { if (!isDeleting) setShowDeleteConfirm(false); }} className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition disabled:opacity-50" disabled={isDeleting}>
+                Annuler
+              </button>
+              <button 
+                onClick={confirmDeleteAccount} 
+                disabled={isDeleting}
+                className="flex-1 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                {isDeleting ? "Suppression..." : "Supprimer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal 
         isOpen={!!confirmDialog} 
@@ -475,9 +586,9 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
     }
   };
 
-  const searchResults = Object.values(state.users).filter(u => 
+  const searchResults = Object.values(state.users || {}).filter(u => 
     u && u.uid !== state.currentUser &&
-    (search === '' || (u.name && u.name.toLowerCase().includes(search.toLowerCase()))) &&
+    (search === '' || ((u.name || '').toLowerCase().includes(search.toLowerCase()))) &&
     !(currentUser.friends || []).includes(u.uid) &&
     u.uid !== 'dj-bot' && u.uid !== 'DJ_Bot'
   );
@@ -500,48 +611,46 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
           </div>
         </div>
         
-        <div className={`mt-4 rounded-3xl shadow-2xl border overflow-hidden animate-in slide-in-from-top-4 ${state.darkMode ? 'bg-zinc-800 border-white/10' : 'bg-white border-gray-50'}`}>
-          <div className={`p-4 border-b text-[10px] font-black uppercase tracking-widest ${state.darkMode ? 'bg-zinc-900 border-white/5 text-gray-500' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
-            {search ? 'Résultats de la recherche' : 'Tous les utilisateurs'}
-          </div>
-          {searchResults.length > 0 ? searchResults.map((u, i) => (
-            <div key={u.id || `user-${i}`} className={`flex items-center justify-between p-5 border-b last:border-0 transition-colors ${state.darkMode ? 'border-white/5 hover:bg-zinc-700/50' : 'border-gray-50 hover:bg-gray-50'}`}>
-              <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => updateState({ selectedUserModal: u.uid })}
-                  className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden hover:ring-2 hover:ring-[#0D98BA] transition-all cursor-pointer"
-                >
-                  {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name || '?')[0].toUpperCase()}
-                </button>
-                <div>
+        {search && searchResults.length > 0 && (
+          <div className={`mt-4 rounded-3xl shadow-2xl border overflow-hidden animate-in slide-in-from-top-4 ${state.darkMode ? 'bg-zinc-800 border-white/10' : 'bg-white border-gray-50'}`}>
+            <div className={`p-4 border-b text-[10px] font-black uppercase tracking-widest ${state.darkMode ? 'bg-zinc-900 border-white/5 text-gray-500' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
+              Résultats de la recherche
+            </div>
+            {searchResults.map((u, i) => (
+              <div key={u.id || `user-${i}`} className={`flex items-center justify-between p-5 border-b last:border-0 transition-colors ${state.darkMode ? 'border-white/5 hover:bg-zinc-700/50' : 'border-gray-50 hover:bg-gray-50'}`}>
+                <div className="flex items-center gap-4">
                   <button 
                     onClick={() => updateState({ selectedUserModal: u.uid })}
-                    className={`font-bold text-lg hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
+                    className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden hover:ring-2 hover:ring-[#0D98BA] transition-all cursor-pointer"
                   >
-                    @{u.name}
+                    {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name || '?')[0].toUpperCase()}
                   </button>
-                  <p className="text-xs text-gray-400">Utilisateur DJ Messenger</p>
+                  <div>
+                    <button 
+                      onClick={() => updateState({ selectedUserModal: u.uid })}
+                      className={`font-bold text-lg hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
+                    >
+                      @{u.name}
+                    </button>
+                    <p className="text-xs text-gray-400">Utilisateur DJ Messenger</p>
+                  </div>
                 </div>
+                <button 
+                  onClick={() => handleAddFriend(u.uid)} 
+                  className={`px-6 py-2.5 rounded-full text-sm font-black uppercase tracking-widest shadow-lg hover:scale-105 transition active:scale-95 text-white ${djStyleBg}`}
+                >
+                  Ajouter
+                </button>
               </div>
-              <button 
-                onClick={() => handleAddFriend(u.uid)} 
-                className={`px-6 py-2.5 rounded-full text-sm font-black uppercase tracking-widest shadow-lg hover:scale-105 transition active:scale-95 text-white ${djStyleBg}`}
-              >
-                Ajouter
-              </button>
-            </div>
-          )) : (
-            <div className="p-8 text-center">
-              <p className="text-gray-400 font-bold italic">Aucun utilisateur trouvé.</p>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Mes amis ({(currentUser.friends || []).filter(f => f !== 'dj-bot' && f !== 'DJ_Bot' && state.users[f]).length})</h3>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-6">Mes amis ({(currentUser.friends || []).filter(f => f !== 'dj-bot' && f !== 'DJ_Bot' && state.users?.[f]).length})</h3>
         <div className="grid gap-4">
-          {(currentUser.friends || []).filter(f => f !== 'dj-bot' && f !== 'DJ_Bot' && state.users[f]).map((f, i) => {
+          {(currentUser.friends || []).filter(f => f !== 'dj-bot' && f !== 'DJ_Bot' && state.users?.[f]).map((f, i) => {
             const friendData = state.users[f];
             const friendName = friendData?.name || f;
             return (
@@ -631,10 +740,10 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
   
   const currentUser = state.users[state.currentUser as string];
   const isStaffMember = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
-  const staffMembers = Object.values(state.users).filter(u => u.isAdmin || u.isGrandAdmin || u.isSuperAdmin);
+  const staffMembers = Object.values(state.users || {}).filter(u => u.isAdmin || u.isGrandAdmin || u.isSuperAdmin);
   const staffGroupId = `staff-help-${state.currentUser}`;
   
-  const helpRequests = Object.values(state.groups).filter(g => g.id.startsWith('staff-help-'));
+  const helpRequests = Object.values(state.groups || {}).filter(g => g.id.startsWith('staff-help-'));
   const staffGroup = activeHelpRequest ? state.groups[activeHelpRequest] : state.groups[staffGroupId];
 
   useEffect(() => {
@@ -868,7 +977,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   };
 
   const handleToggleAdmin = async (uid: string, currentStatus: boolean) => {
-    if (!isAdmin && !isGrandAdmin && !isSuperAdmin) return showToast("Seul le Staff, Grand Admin ou Super Admin peut modifier les droits.");
+    if (!isSuperAdmin) return showToast("Seul le Super Admin peut modifier les droits.");
     try {
       await setDoc(doc(db, 'users', uid), { isAdmin: !currentStatus }, { merge: true });
       await setDoc(doc(db, 'users_public', uid), { isAdmin: !currentStatus }, { merge: true });
@@ -880,9 +989,9 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   };
 
   const handleDeleteUser = async (uid: string) => {
-    if (!isSuperAdmin && !isGrandAdmin && !isAdmin) return showToast("Réservé au Staff, Grand Admin et Super Admin.");
+    if (!isSuperAdmin) return showToast("Réservé au Super Admin.");
     setConfirmDialog({
-      message: "⚠️ SUPER ADMIN: Voulez-vous vraiment supprimer définitivement cet utilisateur ET tous ses messages de la base de données ?",
+      message: "⚠️ ACTION CRITIQUE : Voulez-vous vraiment supprimer définitivement cet utilisateur ET tous ses messages de la base de données ?",
       action: async () => {
         try {
           // 1. Delete user documents
@@ -914,9 +1023,9 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
     });
   };
 
-  const searchResults = Object.values(state.users).filter(u => 
+  const searchResults = Object.values(state.users || {}).filter(u => 
     u && u.uid !== state.currentUser &&
-    (search === '' || (u.name && u.name.toLowerCase().includes(search.toLowerCase()))) &&
+    (search === '' || ((u.name || '').toLowerCase().includes(search.toLowerCase()))) &&
     u.uid !== 'dj-bot' && u.uid !== 'DJ_Bot'
   );
 
@@ -971,33 +1080,58 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                     {u.isGrandAdmin && !u.isSuperAdmin && ADMIN_BADGE}
                     {u.isAdmin && !u.isGrandAdmin && !u.isSuperAdmin && STAFF_BADGE}
                   </div>
-                  <p className="text-[9px] text-gray-400 font-medium mt-2 italic px-1">
-                    Créé le: {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Ancien compte'} • Actif: {u.lastSeen ? new Date(u.lastSeen).toLocaleDateString() : 'Inconnue'}
-                    {u.isOnline && <span className="ml-2 inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" title="En ligne"></span>}
-                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] bg-gray-50/50 p-2 rounded-xl border border-gray-100 dark:bg-zinc-900/50 dark:border-white/5">
+                    <div className="flex flex-col">
+                      <span className="text-gray-400 font-bold uppercase tracking-widest text-[8px]">Création</span>
+                      <span className={state.darkMode ? 'text-gray-300' : 'text-gray-600'}>
+                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Ancien compte'}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-gray-400 font-bold uppercase tracking-widest text-[8px]">Dernière co.</span>
+                      <span className={state.darkMode ? 'text-gray-300' : 'text-gray-600'}>
+                        {u.lastLogin ? new Date(u.lastLogin).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : (u.lastSeen ? new Date(u.lastSeen).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Inconnue')}
+                      </span>
+                    </div>
+                    <div className="col-span-2 flex items-center gap-1.5 mt-1">
+                      <span className="text-gray-400 font-bold uppercase tracking-widest text-[8px]">Statut:</span>
+                      <span className={`flex items-center gap-1.5 text-[10px] font-bold ${checkIsOnline(u) ? 'text-green-500' : 'text-gray-400'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${checkIsOnline(u) ? 'bg-green-500 animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-gray-300'}`}></span>
+                        {checkIsOnline(u) ? 'En ligne' : 'Hors ligne'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-end">
-                {isSuperAdmin && u.password && (
-                  <div className="bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-gray-100">
-                    MDP: {u.password}
-                  </div>
+                {isSuperAdmin ? (
+                  <>
+                    {u.password && (
+                      <div className="bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-gray-100 flex items-center gap-2">
+                        <span>MDP: {u.password}</span>
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => {
+                        const root = document.getElementById('root');
+                        if (root) {
+                            const newPwd = window.prompt("Nouveau mot de passe pour cet utilisateur :", u.password || '');
+                            if (newPwd) {
+                              setDoc(doc(db, 'users', u.uid || u.id), { password: newPwd }, { merge: true });
+                              updateState({ users: { ...state.users, [u.uid || u.id]: { ...u, password: newPwd } } });
+                              showToast("Mot de passe modifié.");
+                            }
+                        }
+                      }}
+                      className="px-3 py-2 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-100 transition-colors"
+                    >
+                      <span className="flex items-center gap-1"><Edit3 size={12} /> Modifier</span>
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-[8px] font-black uppercase text-gray-400 italic px-2">Lecture seule</div>
                 )}
                 {isSuperAdmin && (
-                  <button 
-                    onClick={() => {
-                      const newPwd = window.prompt("Nouveau mot de passe pour cet utilisateur :", u.password || '');
-                      if (newPwd) {
-                        setDoc(doc(db, 'users', u.uid || u.id), { password: newPwd }, { merge: true });
-                        updateState({ users: { ...state.users, [u.uid || u.id]: { ...u, password: newPwd } } });
-                      }
-                    }}
-                    className="px-3 py-2 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-100 transition-colors"
-                  >
-                    Modifier MDP
-                  </button>
-                )}
-                {(isSuperAdmin || isGrandAdmin) && (
                   <button 
                     onClick={() => handleToggleAdmin(u.uid || u.id, !!u.isAdmin)}
                     className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${u.isAdmin ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-green-50 text-green-500 hover:bg-green-100'}`}
@@ -1137,7 +1271,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
       if (!proposal.poll || proposal.poll.closed) return;
 
       const newPoll = { ...proposal.poll };
-      newPoll.options = newPoll.options.map((opt: any) => {
+      newPoll.options = (newPoll.options || []).map((opt: any) => {
         const newVotes = (opt.votes || []).filter((v: string) => v !== state.currentUser);
         if (opt.id === optionId) {
           newVotes.push(state.currentUser!);
@@ -1261,7 +1395,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
 
       <div className="space-y-4">
         <h3 className={`font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Propositions et Annonces</h3>
-        {state.proposals.filter(p => p.user === 'test' || state.users[p.user]).slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(p => (
+        {state.proposals.filter(p => p.user === 'test' || state.users?.[p.user]).slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(p => (
           <div key={p.id} className={`p-5 rounded-3xl shadow-sm border ${p.isAdminAnnouncement ? 'bg-gradient-to-r from-blue-50 to-green-50 border-blue-100' : 'bg-white border-gray-100'}`}>
             <div className="flex justify-between items-start mb-2">
               <button 
@@ -1298,7 +1432,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
                   )}
                 </div>
                 <div className="space-y-2">
-                  {p.poll.options.map((opt: any) => {
+                  {(p.poll.options || []).map((opt: any) => {
                     const totalVotes = p.poll!.options.reduce((acc: number, o: any) => acc + (o.votes?.length || 0), 0);
                     const votes = opt.votes?.length || 0;
                     const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
@@ -1407,59 +1541,60 @@ export function Updates({ state }: { state: AppState }) {
     };
   });
 
-  return (
-    <div className="p-6 max-w-2xl mx-auto animate-in fade-in duration-300">
-      <h2 className={`text-2xl font-bold mb-8 ${djStyleText}`}>Mises à jour</h2>
-      
-      {/* Modal Détail "Comment l'utiliser ?" */}
-      {selectedUpdate !== null && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className={`w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-300 ${state.darkMode ? 'bg-zinc-900 border border-white/10' : 'bg-white'}`}>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className={`text-xl font-black uppercase tracking-tighter ${djStyleText}`}>Comment l'utiliser ?</h3>
-              <button onClick={() => setSelectedUpdate(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={24} className="text-gray-400" />
-              </button>
-            </div>
-            <div className={`prose prose-sm max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 ${state.darkMode ? 'text-zinc-300' : 'text-gray-600'}`}>
-              <h4 className="text-2xl font-black mb-2">Version {displayUpdates[selectedUpdate].version}</h4>
-              <p className="text-xs font-bold uppercase tracking-widest text-[#0D98BA] mb-4">{displayUpdates[selectedUpdate].date}</p>
-              
-              {displayUpdates[selectedUpdate].manual ? (
-                <div className={`markdown-body ${state.darkMode ? 'text-zinc-300' : 'text-zinc-800'}`}>
-                  <Markdown>{displayUpdates[selectedUpdate].manual}</Markdown>
-                </div>
-              ) : (
-                <div className="whitespace-pre-wrap leading-relaxed font-medium">
-                  {displayUpdates[selectedUpdate].desc}
-                </div>
-              )}
-            </div>
-            <button 
-              onClick={() => setSelectedUpdate(null)}
-              className={`w-full mt-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg active:scale-95 transition-all ${djStyleBg}`}
-            >
-              J'ai compris
+  if (selectedUpdate !== null) {
+    const u = displayUpdates[selectedUpdate];
+    return (
+      <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className={`w-full max-w-2xl max-h-[85vh] flex flex-col rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 ${state.darkMode ? 'bg-zinc-950 border border-white/10' : 'bg-white'}`}>
+          <div className={`p-4 backdrop-blur-md border-b flex justify-between items-center shadow-sm sticky top-0 z-[10] ${state.darkMode ? 'bg-zinc-900/80 border-white/10' : 'bg-white/80 border-gray-200'}`}>
+            <h2 className={`font-black uppercase tracking-tighter text-lg ${djStyleText}`}>Comment l'utiliser ?</h2>
+            <button onClick={() => setSelectedUpdate(null)} className={`p-2 rounded-xl transition ${state.darkMode ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}>
+              <X size={20} />
             </button>
           </div>
+          <div className="flex-1 overflow-y-auto w-full custom-scrollbar p-6 md:p-8">
+            <div className="mb-6">
+              <h1 className={`text-3xl font-black tracking-tighter uppercase ${djStyleText} mb-2`}>
+                Version {u.version}
+              </h1>
+              <div className="flex items-center gap-2 text-[#0D98BA] font-bold">
+                <span className={`px-2 py-0.5 rounded-full text-[10px] border uppercase tracking-widest ${state.darkMode ? 'bg-blue-900/30 border-blue-500/30 text-blue-400' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>Date de sortie</span>
+                <time className={`text-xs ${state.darkMode ? 'text-blue-400' : ''}`}>{u.date}</time>
+              </div>
+            </div>
+            {u.manual ? (
+              <div className="mt-2">
+                <div className={`markdown-body text-sm ${state.darkMode ? 'markdown-dark' : ''}`}>
+                  <Markdown>{u.manual}</Markdown>
+                </div>
+              </div>
+            ) : (
+              <p className={`text-sm italic mt-4 ${state.darkMode ? 'text-gray-500' : 'text-gray-400'}`}>Aucun guide détaillé disponible pour cette version.</p>
+            )}
+          </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      <div className={`space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent ${state.darkMode ? 'before:via-white/20' : 'before:via-gray-300'} before:to-transparent`}>
+  return (
+    <div className={`p-6 max-w-2xl mx-auto animate-in fade-in duration-300 pb-24 ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>
+      <h2 className={`text-2xl font-bold mb-8 ${state.darkMode ? 'text-white' : djStyleText}`}>Mises à jour</h2>
+      <div className={`space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent ${state.darkMode ? 'before:via-white/10' : 'before:via-gray-300'} before:to-transparent`}>
         {displayUpdates.map((u, i) => (
           <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 ${state.darkMode ? 'border-[#111827]' : 'border-white'} bg-[#0D98BA] text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10`}>
+            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 ${state.darkMode ? 'border-zinc-950' : 'border-white'} bg-[#0D98BA] text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10`}>
               <div className="w-2 h-2 bg-white rounded-full"></div>
             </div>
-            <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-2xl shadow-sm border flex flex-col ${state.darkMode ? 'bg-zinc-800/80 border-white/10' : 'bg-white border-gray-100'}`}>
+            <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-2xl shadow-sm border flex flex-col ${state.darkMode ? 'bg-zinc-800 border-white/10' : 'bg-white border-gray-100'}`}>
               <div className="flex items-center justify-between mb-1">
                 <h3 className={`font-bold text-lg ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>v{u.version}</h3>
-                <time className="text-xs font-medium text-gray-400">{u.date}</time>
+                <time className={`text-xs font-medium ${state.darkMode ? 'text-gray-400' : 'text-gray-400'}`}>{u.date}</time>
               </div>
-              <p className={`text-sm leading-relaxed mb-3 ${state.darkMode ? 'text-zinc-400' : 'text-gray-600'}`}>{u.desc}</p>
+              <p className={`text-sm leading-relaxed mb-3 ${state.darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{u.desc}</p>
               <button 
                 onClick={() => setSelectedUpdate(i)}
-                className={`self-end px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[#0D98BA] hover:text-white transition-colors ${state.darkMode ? 'bg-zinc-700 text-zinc-300' : 'bg-gray-50 text-gray-600'}`}
+                className={`self-end px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[#0D98BA] hover:text-white transition-colors ${state.darkMode ? 'bg-zinc-700 text-gray-300' : 'bg-gray-50 text-gray-600'}`}
               >
                 Détail
               </button>
@@ -1726,6 +1861,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   };
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
@@ -1759,12 +1895,13 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   };
 
   const confirmDeleteAccount = async () => {
-    if (!auth.currentUser) return;
+    if (!auth.currentUser || isDeleting) return;
     const uid = auth.currentUser.uid;
+    setIsDeleting(true);
     showToast("Suppression en cours...");
     
     try {
-      // 1. Nettoyage des "Amis Fantômes" : Retirer l'UID de toutes les listes d'amis (Recherche globale)
+      // 1. Nettoyage des "Amis Fantômes"
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('friends', 'array-contains', uid));
       const querySnapshot = await getDocs(q);
@@ -1776,7 +1913,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       );
       await Promise.all(friendUpdatePromises);
 
-      // 2. Retirer l'utilisateur de tous les groupes (membres et admins)
+      // 2. Retirer de tous les groupes
       const groupsRef = collection(db, 'groups');
       const qGroups = query(groupsRef, where('members', 'array-contains', uid));
       const groupsSnapshot = await getDocs(qGroups);
@@ -1789,13 +1926,15 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       );
       await Promise.all(groupUpdatePromises);
 
-      // 3. Supprimer les documents de l'utilisateur
+      // 3. Supprimer les documents
       await deleteDoc(doc(db, 'users', uid));
       await deleteDoc(doc(db, 'users_public', uid));
       
       // 4. Supprimer de Firebase Auth
       await auth.currentUser.delete();
       
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
       handleLogout();
       showToast("Compte supprimé avec succès.");
     } catch (error: any) {
@@ -1806,16 +1945,24 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
           if (auth.currentUser) {
             await reauthenticateWithPopup(auth.currentUser, googleProvider);
             await auth.currentUser.delete();
+            setIsDeleting(false);
+            setShowDeleteConfirm(false);
             handleLogout();
             showToast("Compte supprimé avec succès.");
           }
-        } catch (reauthError) {
+        } catch (reauthError: any) {
           console.error("Re-authentification échouée:", reauthError);
-          showToast("Échec de la vérification. Reconnecte-toi manuellement.");
-          await signOut(auth);
-          handleLogout();
+          setIsDeleting(false);
+          if (reauthError.code === 'auth/cancelled-popup-request') {
+            showToast("Suppression annulée.");
+          } else if (reauthError.code === 'auth/user-mismatch') {
+            showToast("Erreur : Utilisez le même compte Google.");
+          } else {
+            showToast("Échec de la vérification. Reconnecte-toi.");
+          }
         }
       } else {
+        setIsDeleting(false);
         showToast("Erreur lors de la suppression: " + (error.message || "Inconnue"));
       }
     }
@@ -1854,32 +2001,36 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
               <input type="color" value={colorNameToHex(bgColor).startsWith('#') ? colorNameToHex(bgColor) : '#f0f2f5'} onChange={e => setBgColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
               <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: rouge) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 text-gray-900 focus:ring-[#0D98BA]'}`} />
               {bgColor !== (user?.bgColor || '#f0f2f5') && (
-                <button onClick={saveSettings} className="p-2.5 bg-green-500 text-white rounded-xl shadow-md hover:scale-110 transition active:scale-95 flex-shrink-0" title="Sauvegarder">
-                  <CheckCircle2 size={20} />
+                <button onClick={() => setShowSaveConfirm(true)} className="p-2.5 bg-[#0D98BA] text-white rounded-xl shadow-md hover:opacity-90 font-black uppercase text-[10px] tracking-widest transition active:scale-95 flex-shrink-0" title="Sauvegarder">
+                  Sauvegarder
                 </button>
               )}
             </div>
           </div>
           <div className="pt-2">
             <button 
-              onClick={() => setTempDarkMode(!tempDarkMode)}
-              className={`w-full py-3 rounded-xl font-bold shadow-sm transition active:scale-95 text-sm flex items-center justify-center gap-3 ${state.darkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-gray-50 text-gray-800 border border-gray-100'}`}
+              onClick={async () => {
+                if (isTest) return setShowRestrictedPopup(true);
+                const newVal = !tempDarkMode;
+                setTempDarkMode(newVal);
+              }}
+              className={`w-full py-3 rounded-xl font-bold shadow-sm transition active:scale-95 text-sm flex items-center justify-center gap-3 ${tempDarkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-gray-50 text-gray-800 border border-gray-100'}`}
             >
               {tempDarkMode ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
               ) : (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
               )}
-              {tempDarkMode ? 'Désactiver Mode Sombre (En attente de sauvegarde)' : 'Activer Mode Sombre (En attente de sauvegarde)'}
-              {tempDarkMode !== state.darkMode && (
-                <div 
-                  onClick={(e) => { e.stopPropagation(); saveSettings(); }}
-                  className="ml-auto p-1.5 bg-green-500 text-white rounded-lg shadow-md hover:scale-110"
-                >
-                  <CheckCircle2 size={16} />
-                </div>
-              )}
+              {tempDarkMode ? 'Désactiver Mode Sombre' : 'Activer Mode Sombre'}
             </button>
+            {tempDarkMode !== state.darkMode && (
+              <button 
+                onClick={() => setShowSaveConfirm(true)}
+                className="mt-3 w-full py-2 bg-[#0D98BA] text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg transition active:scale-95"
+              >
+                Sauvegarder ce paramètre
+              </button>
+            )}
           </div>
         </section>
 
@@ -1893,11 +2044,14 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
               <div className="flex items-center justify-between">
                 <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Activer les notifications</span>
                 <div className="relative">
-                  <input 
+                   <input 
                     type="checkbox" 
                     className="sr-only" 
                     checked={notifications} 
-                    onChange={e => setNotifications(e.target.checked)} 
+                    onChange={async (e) => {
+                      if (isTest) return setShowRestrictedPopup(true);
+                      setNotifications(e.target.checked);
+                    }} 
                   />
                   <div className={`block w-14 h-8 rounded-full transition-colors ${notifications ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${notifications ? 'transform translate-x-6' : ''}`}></div>
@@ -1905,12 +2059,15 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
               </div>
               <p className="text-xs text-gray-500 mt-2">Reçois des alertes comme sur WhatsApp.</p>
             </label>
-            {notifications !== !!user?.notificationsEnabled && (
-              <button onClick={saveSettings} className="p-2.5 bg-green-500 text-white rounded-xl shadow-md hover:scale-110 transition active:scale-95 flex-shrink-0" title="Sauvegarder">
-                <CheckCircle2 size={20} />
-              </button>
-            )}
           </div>
+          {notifications !== (user?.notificationsEnabled || false) && (
+            <button 
+              onClick={() => setShowSaveConfirm(true)}
+              className="mt-3 w-full py-2 bg-[#0D98BA] text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg transition active:scale-95"
+            >
+              Sauvegarder ce paramètre
+            </button>
+          )}
         </section>
 
         {/* Section Application */}
@@ -1923,19 +2080,27 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
               <div className="flex items-center justify-between">
                 <span className={`text-sm font-semibold ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Masquer le menu automatiquement</span>
                 <div className="relative">
-                  <input type="checkbox" className="sr-only" checked={autoHideSidebar} onChange={e => setAutoHideSidebar(e.target.checked)} />
+                  <input type="checkbox" className="sr-only" checked={autoHideSidebar} 
+                    onChange={async (e) => {
+                      if (isTest) return setShowRestrictedPopup(true);
+                      setAutoHideSidebar(e.target.checked);
+                    }} 
+                  />
                   <div className={`block w-14 h-8 rounded-full transition-colors ${autoHideSidebar ? 'bg-[#32CD32]' : 'bg-gray-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${autoHideSidebar ? 'transform translate-x-6' : ''}`}></div>
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">Ferme le menu après avoir cliqué sur un onglet.</p>
             </label>
-            {autoHideSidebar !== (user?.autoHideSidebar ?? true) && (
-              <button onClick={saveSettings} className="p-2.5 bg-green-500 text-white rounded-xl shadow-md hover:scale-110 transition active:scale-95 flex-shrink-0" title="Sauvegarder">
-                <CheckCircle2 size={20} />
-              </button>
-            )}
           </div>
+          {autoHideSidebar !== (user?.autoHideSidebar ?? true) && (
+            <button 
+              onClick={() => setShowSaveConfirm(true)}
+              className="mt-3 w-full py-2 bg-[#0D98BA] text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg transition active:scale-95"
+            >
+              Sauvegarder ce paramètre
+            </button>
+          )}
           <div>
             <label className="flex items-center justify-between cursor-pointer">
               <span className="text-sm font-semibold text-gray-700">Installer l'application (PWA)</span>
@@ -1957,12 +2122,12 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
           </div>
         </section>
 
-        {/* Section Compte */}
+        {/* Section Droits Administrateur */}
         <section className={`p-6 rounded-3xl shadow-sm border ${state.darkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-gray-100'}`}>
           <div className="flex justify-between items-center mb-4">
-            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Compte</h3>
-            <button onClick={saveSettings} className="p-2 bg-green-500 text-white rounded-full shadow-lg hover:scale-110 transition active:scale-90" title="Appliquer">
-              <CheckCircle2 size={16} />
+            <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Droits Administrateur</h3>
+            <button onClick={() => setShowSaveConfirm(true)} className="px-3 py-1.5 bg-[#0D98BA] text-white rounded-xl shadow-lg hover:opacity-90 font-black uppercase text-[10px] tracking-widest transition active:scale-95" title="Sauvegarder">
+              Sauvegarder
             </button>
           </div>
           
@@ -2023,14 +2188,8 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
             </button>
           )}
 
-          <button onClick={saveSettings} className={`w-full py-3 rounded-xl font-bold text-white shadow-lg hover:opacity-90 transition active:scale-95 mb-4 ${djStyleBg}`}>
+          <button onClick={() => setShowSaveConfirm(true)} className={`w-full py-3 rounded-xl font-bold text-white shadow-lg hover:opacity-90 transition active:scale-95 mb-4 ${djStyleBg}`}>
             Sauvegarder les paramètres
-          </button>
-          <button onClick={async () => { try { await signOut(auth); handleLogout(); } catch(e) { console.error(e); } }} className="w-full py-3 rounded-xl text-gray-700 font-bold bg-gray-100 hover:bg-gray-200 transition active:scale-95 mb-4">
-            Se déconnecter
-          </button>
-          <button onClick={deleteAccount} className="w-full py-3 rounded-xl text-red-600 font-bold bg-red-50 hover:bg-red-100 transition active:scale-95 flex items-center justify-center gap-2">
-            <Trash2 size={18} /> Supprimer le compte
           </button>
         </section>
       </div>
@@ -2050,11 +2209,16 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
             <h3 className="text-xl font-bold text-gray-800 mb-2">Supprimer le compte</h3>
             <p className="text-gray-600 mb-6">Es-tu sûr de vouloir supprimer ton compte ? Cette action est irréversible.</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition">
+              <button onClick={() => { if (!isDeleting) setShowDeleteConfirm(false); }} className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition disabled:opacity-50" disabled={isDeleting}>
                 Annuler
               </button>
-              <button onClick={confirmDeleteAccount} className="flex-1 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition">
-                Supprimer
+              <button 
+                onClick={confirmDeleteAccount} 
+                disabled={isDeleting}
+                className="flex-1 py-3 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                {isDeleting ? "Suppression..." : "Supprimer"}
               </button>
             </div>
           </div>
