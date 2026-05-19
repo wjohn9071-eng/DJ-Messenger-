@@ -2,6 +2,12 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   { 
+    version: '3.1.0',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
+    desc: 'Nouveau système de thèmes globaux, correction des droits administrateur (Super Admin) rendant l\'accès parfait, adaptation des textes sur les fonds personnalisés comme l\'Azur ou le Lime, et optimisation de l\'écran d\'accueil/mon compte.',
+    manual: '### Guide d\'utilisation v3.1\n\n1. **Thèmes** : Dans vos Paramètres > Apparence, choisissez parmi 5 ambiances globales : Clair, Sombre, Azur, Lime et Dégradé.\n2. **Super Admin** : Les Super Admins peuvent désormais changer les mots de passe et supprimer les utilisateurs avec leurs messages sans erreurs bloquantes.\n3. **Lisibilité** : Les écritures et les contours s\'adaptent automatiquement aux fonds colorés sur toute l\'application.'
+  },
+  { 
     version: '3.0.0',
     date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
     desc: 'Refonte totale du système de bulles de messages, ajout du Markdown (Gras, Italique, Souligné), sécurité renforcée des groupes privés (Codes complexes), indicateurs de frappe en direct, et refonte du Mode Sombre personnalisé.',

@@ -52,34 +52,33 @@ html.dark * {
     font-weight: inherit;
 }
 
-/* Ensure background color transparency when custom bg is used so the background is visible */
-html[style*="--bg-color"] body * {
-    /* Exclude inputs/buttons from fully transparent */
+/* Generic transparent elements when a custom theme is active */
+html[data-theme="azur"] body,
+html[data-theme="lime"] body,
+html[data-theme="degrade"] body {
+    color: white !important;
 }
 
-html[style*="--text-color"] body {
-    color: var(--text-color) !important;
-}
-
-html[style*="--text-color"] body *:not(.bg-gray-100, .bg-blue-50, .bg-zinc-800, .bg-zinc-900, input, textarea, button, .dj-style-text) {
+html[data-theme="azur"] body *:not(input):not(textarea):not(button):not(.dj-style-text),
+html[data-theme="lime"] body *:not(input):not(textarea):not(button):not(.dj-style-text),
+html[data-theme="degrade"] body *:not(input):not(textarea):not(button):not(.dj-style-text) {
     color: inherit;
 }
 
-/* Target elements specifically to make them translucent if a custom background is set */
-html[style*="--bg-color"] .bg-white,
-html[style*="--bg-color"] .bg-zinc-800,
-html[style*="--bg-color"] .bg-black {
-    background-color: rgba(255, 255, 255, 0.15) !important;
-    backdrop-filter: blur(16px);
+/* Translucent backgrounds for themed modes to let the background shine through */
+html[data-theme="azur"] .bg-white, html[data-theme="azur"] .bg-gray-50, html[data-theme="azur"] .bg-gray-100, html[data-theme="azur"] .bg-zinc-800, html[data-theme="azur"] .bg-zinc-900, html[data-theme="azur"] .bg-black,
+html[data-theme="azur"] .bg-white\/80, html[data-theme="azur"] .bg-white\/90,
+html[data-theme="lime"] .bg-white, html[data-theme="lime"] .bg-gray-50, html[data-theme="lime"] .bg-gray-100, html[data-theme="lime"] .bg-zinc-800, html[data-theme="lime"] .bg-zinc-900, html[data-theme="lime"] .bg-black,
+html[data-theme="lime"] .bg-white\/80, html[data-theme="lime"] .bg-white\/90,
+html[data-theme="degrade"] .bg-white, html[data-theme="degrade"] .bg-gray-50, html[data-theme="degrade"] .bg-gray-100, html[data-theme="degrade"] .bg-zinc-800, html[data-theme="degrade"] .bg-zinc-900, html[data-theme="degrade"] .bg-black,
+html[data-theme="degrade"] .bg-white\/80, html[data-theme="degrade"] .bg-white\/90 {
+    background-color: rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(24px) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
 }
 
-html.dark[style*="--bg-color"] .bg-white,
-html.dark[style*="--bg-color"] .bg-zinc-800,
-html.dark[style*="--bg-color"] .bg-black {
-    background-color: rgba(0, 0, 0, 0.3) !important;
-    backdrop-filter: blur(16px);
-}
-
+/* For dark mode */
 html.dark body, html.dark body * {
     color: #ffffff !important;
 }

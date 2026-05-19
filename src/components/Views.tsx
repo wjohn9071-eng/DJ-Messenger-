@@ -37,12 +37,38 @@ const renderMessageText = (text: string) => {
 const ConfirmModal = ({ isOpen, message, onConfirm, onCancel }: { isOpen: boolean, message: string, onConfirm: () => void, onCancel: () => void }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">{message}</h3>
-        <div className="flex gap-3 justify-end">
-          <button onClick={onCancel} className="px-4 py-2 rounded-xl text-gray-500 hover:bg-gray-100 font-bold transition">Annuler</button>
-          <button onClick={() => { onConfirm(); onCancel(); }} className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 font-bold transition shadow-lg">Confirmer</button>
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+        <h3 className="text-xl font-bold text-gray-900 mb-6">{message}</h3>
+        <div className="flex gap-3 justify-end mt-4">
+          <button onClick={onCancel} className="px-5 py-3 rounded-xl text-gray-500 hover:bg-gray-100 font-bold transition-all w-full">Annuler</button>
+          <button onClick={() => { onConfirm(); onCancel(); }} className="px-5 py-3 rounded-xl bg-red-500 text-white hover:bg-red-600 font-black tracking-widest uppercase text-sm transition-all shadow-lg shadow-red-500/30 w-full">Confirmer</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PromptModal = ({ isOpen, message, defaultValue, onConfirm, onCancel }: { isOpen: boolean, message: string, defaultValue?: string, onConfirm: (val: string) => void, onCancel: () => void }) => {
+  const [val, setVal] = useState(defaultValue || '');
+  useEffect(() => { setVal(defaultValue || ''); }, [defaultValue, isOpen]);
+  
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+        <h3 className="text-xl font-bold text-gray-900 mb-6">{message}</h3>
+        <input 
+          type="text" 
+          value={val} 
+          onChange={e => setVal(e.target.value)} 
+          className="w-full px-5 py-4 border border-gray-200 rounded-2xl mb-6 font-bold text-gray-900 focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all shadow-inner bg-gray-50 bg-opacity-50"
+          autoFocus 
+          onKeyDown={e => e.key === 'Enter' && (onConfirm(val), onCancel())}
+        />
+        <div className="flex gap-3 justify-end mt-2">
+          <button onClick={onCancel} className="px-5 py-3 rounded-xl text-gray-500 hover:bg-gray-100 font-bold transition-all w-full">Annuler</button>
+          <button onClick={() => { onConfirm(val); onCancel(); }} className="px-5 py-3 rounded-xl bg-[#0D98BA] text-white hover:bg-blue-600 font-black tracking-widest uppercase text-sm transition-all shadow-lg shadow-[#0D98BA]/30 w-full">Valider</button>
         </div>
       </div>
     </div>
@@ -964,6 +990,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{message: string, action: () => void} | null>(null);
+  const [promptDialog, setPromptDialog] = useState<{message: string, defaultValue: string, action: (val: string) => void} | null>(null);
   
     const currentUser = state.currentUser ? state.users[state.currentUser] : null;
     const isStaff = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
@@ -998,20 +1025,22 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
           await deleteDoc(doc(db, 'users', uid));
           await deleteDoc(doc(db, 'users_public', uid));
 
-          // 2. Delete messages in public/private groups
+        // 2. Delete messages in public/private groups
           const groupsSnap = await getDocs(collection(db, 'groups'));
           for (const d of groupsSnap.docs) {
-            const msgsQuery = query(collection(db, 'groups', d.id, 'messages'), where('user', '==', uid));
-            const msgs = await getDocs(msgsQuery);
-            msgs.forEach(async (m) => await deleteDoc(doc(db, 'groups', d.id, 'messages', m.id)));
+            const msgs = await getDocs(collection(db, 'groups', d.id, 'messages'));
+            for (const m of msgs.docs) {
+              if (m.data().user === uid) await deleteDoc(m.ref);
+            }
           }
 
           // 3. Delete messages in SMS (private_messages)
           const pmSnap = await getDocs(collection(db, 'private_messages'));
           for (const d of pmSnap.docs) {
-            const msgsQuery = query(collection(db, 'private_messages', d.id, 'messages'), where('user', '==', uid));
-            const msgs = await getDocs(msgsQuery);
-            msgs.forEach(async (m) => await deleteDoc(doc(db, 'private_messages', d.id, 'messages', m.id)));
+            const msgs = await getDocs(collection(db, 'private_messages', d.id, 'messages'));
+            for (const m of msgs.docs) {
+              if (m.data().user === uid) await deleteDoc(m.ref);
+            }
           }
 
           showToast("Utilisateur et ses messages supprimés.");
@@ -1113,15 +1142,17 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                     )}
                     <button 
                       onClick={() => {
-                        const root = document.getElementById('root');
-                        if (root) {
-                            const newPwd = window.prompt("Nouveau mot de passe pour cet utilisateur :", u.password || '');
+                        setPromptDialog({
+                          message: "Nouveau mot de passe pour cet utilisateur :",
+                          defaultValue: u.password || '',
+                          action: (newPwd: string) => {
                             if (newPwd) {
                               setDoc(doc(db, 'users', u.uid || u.id), { password: newPwd }, { merge: true });
                               updateState({ users: { ...state.users, [u.uid || u.id]: { ...u, password: newPwd } } });
                               showToast("Mot de passe modifié.");
                             }
-                        }
+                          }
+                        });
                       }}
                       className="px-3 py-2 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-100 transition-colors"
                     >
@@ -1165,6 +1196,14 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
         message={confirmDialog?.message || ''} 
         onConfirm={() => confirmDialog?.action()} 
         onCancel={() => setConfirmDialog(null)} 
+      />
+
+      <PromptModal
+        isOpen={!!promptDialog}
+        message={promptDialog?.message || ''}
+        defaultValue={promptDialog?.defaultValue || ''}
+        onConfirm={(val) => { if(promptDialog) promptDialog.action(val); }}
+        onCancel={() => setPromptDialog(null)}
       />
 
       {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full text-sm shadow-xl z-50 animate-in slide-in-from-bottom-5">{toast}</div>}
@@ -1609,7 +1648,7 @@ export function Updates({ state }: { state: AppState }) {
 export function Settings({ state, updateState, handleLogout }: { state: AppState, updateState: any, handleLogout: () => void }) {
   const isTest = state.currentUser === 'test';
   const user = isTest ? null : state.users[state.currentUser as string];
-  const [bgColor, setBgColor] = useState(user?.bgColor || '#f0f2f5');
+  const [bgColor, setBgColor] = useState(user?.bgColor || 'clair');
   const [notifications, setNotifications] = useState(user?.notificationsEnabled || false);
   const [autoHideSidebar, setAutoHideSidebar] = useState(user?.autoHideSidebar ?? true);
   const [tempDarkMode, setTempDarkMode] = useState(state.darkMode);
@@ -1624,7 +1663,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   // Sync state with user data when it changes externally
   useEffect(() => {
     if (user && !showSaveConfirm) {
-      setBgColor(user.bgColor || '#f0f2f5');
+      setBgColor(user.bgColor || 'clair');
       setNotifications(user.notificationsEnabled || false);
       setAutoHideSidebar(user.autoHideSidebar ?? true);
       setTempDarkMode(user.darkMode ?? state.darkMode);
@@ -1632,7 +1671,7 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
   }, [user, showSaveConfirm]);
 
   const hasChanges = user && (
-    bgColor !== (user.bgColor || '#f0f2f5') ||
+    bgColor !== (user.bgColor || 'clair') ||
     notifications !== (user.notificationsEnabled || false) ||
     autoHideSidebar !== (user.autoHideSidebar ?? true) ||
     tempDarkMode !== state.darkMode
@@ -1733,12 +1772,11 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
       setShowSaveConfirm(false);
       return;
     }
-    const hexColor = colorNameToHex(bgColor);
     
     try {
       const userRef = doc(db, 'users', state.currentUser as string);
       const updates = {
-        bgColor: hexColor,
+        bgColor: bgColor,
         notificationsEnabled: notifications,
         autoHideSidebar: autoHideSidebar,
         darkMode: tempDarkMode
@@ -1756,9 +1794,27 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
         }
         return { users: newUsers, darkMode: tempDarkMode };
       });
-
-      document.documentElement.style.setProperty('--bg-color', hexColor);
-      setBgColor(hexColor);
+      
+      const root = document.documentElement;
+      root.setAttribute('data-theme', bgColor);
+      if (bgColor.includes('gradient') || bgColor === 'degrade') {
+          root.style.setProperty('--bg-color', 'linear-gradient(135deg, #0D98BA 0%, #32CD32 100%)');
+      } else if (bgColor === 'azur') {
+          root.style.setProperty('--bg-color', '#0D98BA');
+      } else if (bgColor === 'lime') {
+          root.style.setProperty('--bg-color', '#32CD32');
+      } else if (bgColor === 'clair') {
+          root.style.setProperty('--bg-color', '#f8fafc');
+          root.classList.remove('dark');
+      } else if (bgColor === 'sombre') {
+          root.style.setProperty('--bg-color', '#09090b');
+          root.classList.add('dark');
+      } else {
+          root.style.setProperty('--bg-color', bgColor);
+      }
+      
+      setBgColor(bgColor);
+      setShowSaveConfirm(false);
       
       if (notifications && 'Notification' in window) {
         if (Notification.permission === 'default') {
@@ -2002,39 +2058,51 @@ export function Settings({ state, updateState, handleLogout }: { state: AppState
             <h3 className={`text-lg font-bold ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>Apparence</h3>
           </div>
           <div className="mb-4">
-            <label className={`block text-sm font-semibold mb-2 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Couleur d'arrière-plan</label>
-            <div className="flex items-center gap-3">
-              <input type="color" value={colorNameToHex(bgColor).startsWith('#') ? colorNameToHex(bgColor) : '#f0f2f5'} onChange={e => setBgColor(e.target.value)} className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0" />
-              <input type="text" value={bgColor} onChange={e => setBgColor(e.target.value)} placeholder="Nom (ex: rouge) ou #HEX" className={`flex-1 px-4 py-3 rounded-xl border outline-none font-bold ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white focus:ring-zinc-600' : 'bg-gray-50 border-gray-200 text-gray-900 focus:ring-[#0D98BA]'}`} />
-              {bgColor !== (user?.bgColor || '#f0f2f5') && (
-                <button onClick={() => setShowSaveConfirm(true)} className="p-2.5 bg-[#0D98BA] text-white rounded-xl shadow-md hover:opacity-90 font-black uppercase text-[10px] tracking-widest transition active:scale-95 flex-shrink-0" title="Sauvegarder">
-                  Sauvegarder
-                </button>
-              )}
+            <label className={`block text-sm font-semibold mb-4 ${state.darkMode ? 'text-zinc-400' : 'text-gray-700'}`}>Thème global</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <button 
+                onClick={() => { setBgColor('clair'); setTempDarkMode(false); }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all border-2 ${bgColor === 'clair' || (!['sombre', 'azur', 'lime', 'degrade'].includes(bgColor) && !tempDarkMode) ? 'border-gray-900 bg-gray-100' : 'border-transparent bg-gray-50 hover:bg-gray-100 text-gray-700'}`}
+              >
+                <div className="w-6 h-6 rounded-full bg-[#f8fafc] border shadow-inner"></div>
+                Clair
+              </button>
+              <button 
+                onClick={() => { setBgColor('sombre'); setTempDarkMode(true); }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all border-2 ${bgColor === 'sombre' || (!['azur', 'lime', 'degrade'].includes(bgColor) && tempDarkMode) ? 'border-white bg-zinc-800 text-white' : 'border-transparent bg-zinc-900 hover:bg-zinc-800 text-gray-300'}`}
+              >
+                <div className="w-6 h-6 rounded-full bg-[#09090b] border border-white/20 shadow-inner"></div>
+                Sombre
+              </button>
+              <button 
+                onClick={() => setBgColor('azur')}
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all border-2 ${bgColor === 'azur' ? 'border-[#0D98BA] bg-blue-50/10' : 'border-transparent bg-gray-50 hover:bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-gray-300'}`}
+              >
+                <div className="w-6 h-6 rounded-full bg-[#0D98BA] shadow-inner"></div>
+                Azur
+              </button>
+              <button 
+                onClick={() => setBgColor('lime')}
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all border-2 ${bgColor === 'lime' ? 'border-[#32CD32] bg-green-50/10' : 'border-transparent bg-gray-50 hover:bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-gray-300'}`}
+              >
+                <div className="w-6 h-6 rounded-full bg-[#32CD32] shadow-inner"></div>
+                Lime
+              </button>
+              <button 
+                onClick={() => setBgColor('degrade')}
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all border-2 ${bgColor === 'degrade' ? 'border-[#0D98BA] bg-blue-50/10' : 'border-transparent bg-gray-50 hover:bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-gray-300'}`}
+              >
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#0D98BA] to-[#32CD32] shadow-inner"></div>
+                Dégradé
+              </button>
             </div>
-          </div>
-          <div className="pt-2">
-            <button 
-              onClick={async () => {
-                if (isTest) return setShowRestrictedPopup(true);
-                const newVal = !tempDarkMode;
-                setTempDarkMode(newVal);
-              }}
-              className={`w-full py-3 rounded-xl font-bold shadow-sm transition active:scale-95 text-sm flex items-center justify-center gap-3 ${tempDarkMode ? 'bg-zinc-800 text-white border border-white/10' : 'bg-gray-50 text-gray-800 border border-gray-100'}`}
-            >
-              {tempDarkMode ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-              )}
-              {tempDarkMode ? 'Désactiver Mode Sombre' : 'Activer Mode Sombre'}
-            </button>
-            {tempDarkMode !== state.darkMode && (
+            
+            {(bgColor !== (user?.bgColor || 'clair') || tempDarkMode !== state.darkMode) && (
               <button 
                 onClick={() => setShowSaveConfirm(true)}
-                className="mt-3 w-full py-2 bg-[#0D98BA] text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg transition active:scale-95"
+                className="mt-6 w-full py-3 bg-[#0D98BA] text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
               >
-                Sauvegarder ce paramètre
+                <CheckCircle2 size={16} /> Sauvegarder l'apparence
               </button>
             )}
           </div>

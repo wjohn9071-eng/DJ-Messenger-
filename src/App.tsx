@@ -366,20 +366,25 @@ export default function App() {
     if (state.currentUser) {
       const userData = state.users[state.currentUser];
       if (userData?.bgColor) {
-        root.style.setProperty('--bg-color', userData.bgColor);
-        let hex = userData.bgColor;
-        if (hex.startsWith('#') && hex.length >= 7) {
-          const r = parseInt(hex.slice(1, 3), 16);
-          const g = parseInt(hex.slice(3, 5), 16);
-          const b = parseInt(hex.slice(5, 7), 16);
-          const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-          root.style.setProperty('--text-color', yiq >= 128 ? '#000000' : '#ffffff');
+        root.setAttribute('data-theme', userData.bgColor);
+        if (userData.bgColor.includes('gradient')) {
+            root.style.setProperty('--bg-color', 'linear-gradient(135deg, #0D98BA 0%, #32CD32 100%)');
+        } else if (userData.bgColor === 'azur') {
+            root.style.setProperty('--bg-color', '#0D98BA');
+        } else if (userData.bgColor === 'lime') {
+            root.style.setProperty('--bg-color', '#32CD32');
+        } else if (userData.bgColor === 'clair') {
+            root.style.setProperty('--bg-color', '#f8fafc');
+            root.classList.remove('dark');
+        } else if (userData.bgColor === 'sombre') {
+            root.style.setProperty('--bg-color', '#09090b');
+            root.classList.add('dark');
         } else {
-          root.style.setProperty('--text-color', state.darkMode ? '#ffffff' : '#000000');
+            root.style.setProperty('--bg-color', userData.bgColor);
         }
       } else {
+        root.removeAttribute('data-theme');
         root.style.removeProperty('--bg-color');
-        root.style.removeProperty('--text-color');
       }
       if (userData?.btnColor) {
         root.style.setProperty('--btn-color', userData.btnColor);
@@ -387,9 +392,9 @@ export default function App() {
         root.style.removeProperty('--btn-color');
       }
     } else {
+      root.removeAttribute('data-theme');
       root.style.removeProperty('--bg-color');
       root.style.removeProperty('--btn-color');
-      root.style.removeProperty('--text-color');
     }
   }, [state.darkMode, state.currentUser, state.users]);
 

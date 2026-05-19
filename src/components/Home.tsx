@@ -171,7 +171,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
   );
 
   return (
-    <div className={`min-h-full p-6 animate-in fade-in duration-500 overflow-y-auto ${state.darkMode ? 'bg-transparent text-white' : 'bg-transparent text-gray-800'}`}>
+    <div className={`min-h-full p-6 animate-in fade-in duration-500 overflow-y-auto bg-transparent`}>
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-center w-full max-w-6xl mx-auto gap-8">
         
         {/* Main Center Content */}
@@ -192,13 +192,53 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           <div dangerouslySetInnerHTML={{ __html: DJ_LOGO_SVG }} className="w-full h-full" />
         </div>
 
-        <h1 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2 z-10 relative ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
+        <h1 className={`text-4xl md:text-5xl font-black uppercase tracking-tighter mb-2 z-10 relative ${state.darkMode ? 'text-white' : ''}`}>
           {getGreeting()} !
         </h1>
 
         <p className={`text-2xl font-bold mb-12 w-full z-10 relative ${djStyleText}`}>
           {welcomeMessage}
         </p>
+
+        {showUpdateNotice && (
+          <div className="w-full max-w-md mb-8 z-10 relative">
+            <div className={`p-6 rounded-[2rem] shadow-xl border text-left flex flex-col gap-4 ${state.darkMode ? 'bg-zinc-900 border-white/10' : 'bg-white border-blue-100'}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`p-2 rounded-xl text-white shadow-lg ${djStyleBg}`}>
+                  <Bell size={20} />
+                </div>
+                <h3 className={`text-lg font-black uppercase tracking-widest ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>Mise à Jour {currentVersion}</h3>
+              </div>
+              <p className={`text-sm font-bold leading-relaxed ${state.darkMode ? 'text-zinc-300' : 'text-gray-700'}`}>
+                {filteredDesc}
+              </p>
+              
+              {showHomeUpdateDetails && filteredManual && (
+                <div className={`mt-2 p-4 rounded-xl text-xs font-bold leading-relaxed ${state.darkMode ? 'bg-black/50 text-zinc-400' : 'bg-blue-50/50 text-gray-600'} markdown-body`}>
+                  <Markdown>{filteredManual}</Markdown>
+                </div>
+              )}
+              
+              <div className="flex gap-2 mt-2">
+                <button 
+                  onClick={() => setShowHomeUpdateDetails(!showHomeUpdateDetails)}
+                  className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm text-center ${state.darkMode ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
+                >
+                  {showHomeUpdateDetails ? 'Cacher détails' : 'Comment utiliser ?'}
+                </button>
+                <button 
+                  onClick={() => {
+                    localStorage.setItem(`update_notice_dismissed_${currentVersion}`, 'true');
+                    setShowUpdateNotice(false);
+                  }}
+                  className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-lg text-white text-center ${djStyleBg}`}
+                >
+                  J'ai compris
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {!isTest && (
           <div className="w-full max-w-md mb-8 z-0 opacity-80 transition-all duration-1000 animate-in fade-in slide-in-from-bottom-2">
@@ -287,7 +327,7 @@ export default function Home({ state, setView, updateState, startSimulation }: {
             <span className="text-gray-300 font-light">|</span>
             <span className={djStyleText}>DJ MESSENGER</span>
             <span className="text-gray-300 font-light">|</span>
-            <span className={djStyleText}>v3.0 • 02/05/2026</span>
+            <span className={djStyleText}>v{APP_UPDATES[0]?.version || '3.0'} • {APP_UPDATES[0]?.date || '02/05/2026'}</span>
             <span className="text-gray-300 font-light">|</span>
             <span className={djStyleText}>DJ Society</span>
           </p>
