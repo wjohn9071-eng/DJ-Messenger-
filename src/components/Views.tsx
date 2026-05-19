@@ -521,7 +521,7 @@ export function Profile({ state, updateState, handleLogout }: { state: AppState,
       <ConfirmModal 
         isOpen={!!confirmDialog} 
         message={confirmDialog?.message || ''} 
-        onConfirm={() => confirmDialog?.action()} 
+        onConfirm={() => { if(confirmDialog) confirmDialog.action(); setConfirmDialog(null); }} 
         onCancel={() => setConfirmDialog(null)} 
       />
 
@@ -742,7 +742,7 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
       <ConfirmModal 
         isOpen={!!confirmDialog} 
         message={confirmDialog?.message || ''} 
-        onConfirm={() => confirmDialog?.action()} 
+        onConfirm={() => { if(confirmDialog) confirmDialog.action(); setConfirmDialog(null); }} 
         onCancel={() => setConfirmDialog(null)} 
       />
 
@@ -1194,7 +1194,7 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
       <ConfirmModal 
         isOpen={!!confirmDialog} 
         message={confirmDialog?.message || ''} 
-        onConfirm={() => confirmDialog?.action()} 
+        onConfirm={() => { if(confirmDialog) confirmDialog.action(); setConfirmDialog(null); }} 
         onCancel={() => setConfirmDialog(null)} 
       />
 
@@ -1542,7 +1542,7 @@ export function DJSociety({ state, updateState }: { state: AppState, updateState
       <ConfirmModal 
         isOpen={!!confirmDialog} 
         message={confirmDialog?.message || ''} 
-        onConfirm={() => confirmDialog?.action()} 
+        onConfirm={() => { if(confirmDialog) confirmDialog.action(); setConfirmDialog(null); }} 
         onCancel={() => setConfirmDialog(null)} 
       />
 

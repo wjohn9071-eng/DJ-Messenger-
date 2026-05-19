@@ -56,13 +56,7 @@ html.dark * {
 html[data-theme="azur"] body,
 html[data-theme="lime"] body,
 html[data-theme="degrade"] body {
-    color: white !important;
-}
-
-html[data-theme="azur"] body *:not(input):not(textarea):not(button):not(.dj-style-text),
-html[data-theme="lime"] body *:not(input):not(textarea):not(button):not(.dj-style-text),
-html[data-theme="degrade"] body *:not(input):not(textarea):not(button):not(.dj-style-text) {
-    color: inherit;
+    color: white;
 }
 
 /* Translucent backgrounds for themed modes to let the background shine through */
@@ -79,8 +73,8 @@ html[data-theme="degrade"] .bg-white\/80, html[data-theme="degrade"] .bg-white\/
 }
 
 /* For dark mode */
-html.dark body, html.dark body * {
-    color: #ffffff !important;
+html.dark body {
+    color: #ffffff;
 }
 
 /* Specific overrides for inputs if needed */

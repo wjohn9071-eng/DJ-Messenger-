@@ -187,7 +187,7 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${state.darkMode ? 'bg-zinc-950 font-black text-white' : 'bg-[#f0f2f5] font-bold text-gray-900'}`}>
+    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300`}>
       <div className={`w-full max-w-md p-8 rounded-[2.5rem] shadow-2xl transition-all duration-300 border ${state.darkMode ? 'bg-zinc-900 border-white/10' : 'bg-white border-gray-100'}`}>
         <div className="flex flex-col items-center mb-8">
           <div className={`w-24 h-24 mb-4 flex items-center justify-center shadow-xl rounded-[2rem] overflow-hidden p-4 border ${state.darkMode ? 'bg-white/10 border-white/20' : 'bg-white border-gray-50'}`}>

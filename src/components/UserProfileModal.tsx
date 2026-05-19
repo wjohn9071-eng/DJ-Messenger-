@@ -48,8 +48,8 @@ export function UserProfileModal({ userId, state, updateState, onClose, setView 
 
   return (
     <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-white rounded-3xl w-full max-w-sm shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="relative h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
+      <div className={`rounded-3xl w-full max-w-sm shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden border ${state.darkMode ? 'bg-zinc-900 border-white/10' : 'bg-white border-gray-100'}`} onClick={e => e.stopPropagation()}>
+        <div className={`relative h-32 flex items-center justify-center overflow-hidden ${state.darkMode ? 'bg-zinc-800' : 'bg-gray-100'}`}>
           <div className={`absolute inset-0 opacity-40 ${djStyleBg}`}></div>
           <div className="absolute -bottom-10 flex justify-center w-full">
             <div className="relative">
@@ -71,31 +71,31 @@ export function UserProfileModal({ userId, state, updateState, onClose, setView 
           </button>
         </div>
         
-        <div className="pt-14 pb-8 px-6 text-center">
+        <div className={`pt-14 pb-8 px-6 text-center ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>
           <h2 className={`text-2xl font-black uppercase tracking-tighter ${djStyleText} mb-1 flex items-center justify-center gap-2`}>
             {user.name}
-            <div className={`w-3 h-3 rounded-full shadow-lg ${checkIsOnline(user) ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} title={checkIsOnline(user) ? "En ligne" : "Hors ligne"} />
+            <div className={`w-3 h-3 rounded-full shadow-lg ${checkIsOnline(user) ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} title={checkIsOnline(user) ? "En ligne" : "Hors ligne"} />
           </h2>
-          <p className="text-gray-500 text-sm font-medium mb-2">
+          <p className={`text-sm font-medium mb-2 ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
             {user.role || (user.isAdmin ? 'Admin' : 'Membre')}
           </p>
           
           <div className="flex justify-center gap-4 mb-6 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
             <div className="flex flex-col items-center">
               <span>Membre depuis</span>
-              <span className="text-gray-700">{user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Ancien compte'}</span>
+              <span className={state.darkMode ? 'text-gray-300' : 'text-gray-700'}>{user.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Ancien compte'}</span>
             </div>
-            <div className="w-px bg-gray-200"></div>
+            <div className={`w-px ${state.darkMode ? 'bg-white/10' : 'bg-gray-200'}`}></div>
             <div className="flex flex-col items-center">
               <span>{checkIsOnline(user) ? 'Actuellement' : 'Dernière activité'}</span>
-              <span className={checkIsOnline(user) ? "text-green-500" : "text-gray-700"}>{checkIsOnline(user) ? 'En ligne' : (user.lastSeen ? new Date(user.lastSeen).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Inconnue')}</span>
+              <span className={checkIsOnline(user) ? "text-green-500" : (state.darkMode ? "text-gray-300" : "text-gray-700")}>{checkIsOnline(user) ? 'En ligne' : (user.lastSeen ? new Date(user.lastSeen).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Inconnue')}</span>
             </div>
           </div>
 
           <div className="flex flex-col gap-3">
             <button 
               onClick={() => setShowPhoto(true)}
-              className="w-full py-4 bg-gray-50 flex items-center justify-center gap-2 rounded-2xl text-gray-700 font-bold hover:bg-gray-100 transition active:scale-95 border border-gray-100"
+              className={`w-full py-4 flex items-center justify-center gap-2 rounded-2xl font-bold transition active:scale-95 border ${state.darkMode ? 'bg-zinc-800 border-white/10 text-white hover:bg-zinc-700' : 'bg-gray-50 border-gray-100 text-gray-700 hover:bg-gray-100'}`}
             >
               <ImageIcon size={20} />
               <span>Voir la photo</span>

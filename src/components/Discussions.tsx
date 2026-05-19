@@ -2502,7 +2502,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                         </div>
                       </div>
                     )}
-                    <p className={`text-sm break-words whitespace-pre-wrap leading-relaxed ${isDeletedForEveryone && !isRevealed ? 'italic text-gray-400' : ''} ${state.darkMode ? 'text-zinc-100' : 'text-gray-800'}`}>
+                    <p className={`text-sm break-words whitespace-pre-wrap leading-relaxed ${isDeletedForEveryone && !isRevealed ? 'italic opacity-60' : ''}`}>
                       {isDeletedForEveryone && !isRevealed ? (
                         <span 
                           className={currentUser?.isSuperAdmin ? 'cursor-pointer hover:underline' : ''}

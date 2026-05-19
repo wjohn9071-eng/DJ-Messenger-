@@ -217,7 +217,7 @@ export default function App() {
             ...prev, 
             users: newUsers, 
             currentUserData: data as User,
-            darkMode: data.darkMode !== undefined ? data.darkMode : prev.darkMode
+            darkMode: data.bgColor === 'clair' ? false : (data.bgColor === 'sombre' ? true : (data.darkMode !== undefined ? data.darkMode : prev.darkMode))
           };
         });
       }
@@ -785,7 +785,7 @@ export default function App() {
   }
 
   return (
-    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-300 ${state.darkMode ? 'bg-zinc-950 text-white font-bold drop-shadow-sm' : 'text-gray-900'}`} style={{ backgroundColor: state.currentUser && state.users?.[state.currentUser]?.bgColor ? state.users[state.currentUser].bgColor : (state.darkMode ? '#09090b' : '#f8fafc') }}>
+    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-300`}>
       
       <NotificationToast 
         notification={notification} 
