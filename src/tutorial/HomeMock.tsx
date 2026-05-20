@@ -98,8 +98,12 @@ export function HomeMock({ state, setView, updateState, onComplete }: { state: A
             {getGreeting()} !
           </h1>
 
-          <p className={`text-2xl font-bold mb-8 w-full ${djStyleText}`}>
+          <p className={`text-2xl font-bold mb-2 w-full ${djStyleText}`}>
             Mode Simulation Tutoriel
+          </p>
+
+          <p className={`text-sm font-medium mb-8 w-full ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            Aujourd'hui nous sommes le {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.
           </p>
 
           <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-2xl mb-8 flex items-start gap-3 text-left">

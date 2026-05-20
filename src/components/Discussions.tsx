@@ -778,9 +778,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
 
   const handleDownloadAll = (files: any[]) => {
     files.forEach((file, index) => {
-      setTimeout(() => {
-        handleDownload(file.url, file.name || `fichier_${index + 1}`);
-      }, index * 300);
+      handleDownload(file.url, file.name || `fichier_${index + 1}`);
     });
     showToast(`${files.length} téléchargement(s) lancé(s)...`);
   };

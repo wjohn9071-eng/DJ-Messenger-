@@ -217,7 +217,7 @@ export default function App() {
             ...prev, 
             users: newUsers, 
             currentUserData: data as User,
-            darkMode: data.bgColor === 'clair' ? false : (data.bgColor === 'sombre' ? true : (data.darkMode !== undefined ? data.darkMode : prev.darkMode))
+            darkMode: ['sombre', 'azur', 'lime', 'degrade', 'gradient'].some(t => data.bgColor?.includes(t)) ? true : (data.bgColor === 'clair' ? false : (data.darkMode !== undefined ? data.darkMode : prev.darkMode))
           };
         });
       }

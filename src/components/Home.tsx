@@ -21,16 +21,16 @@ export default function Home({ state, setView, updateState, startSimulation }: {
     }
   }, [currentVersion]);
   
-  const sensitiveRegex = /([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|Staff-Help|Dj2024in|DJ_MASTER_2026|DJ24026IN|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive|visualisation des mots de passe|Visualisation|modération|sécurité)[^.!?]*[.!?])/gi;
-
-  // Filter description for Home Notice
+  // Use specific admin content if privileged, otherwise public content
   const filteredDesc = isPrivileged 
-    ? (APP_UPDATES[0]?.desc || "")
-    : ((APP_UPDATES[0]?.desc || "").replace(sensitiveRegex, '').split('\n').filter(line => line.trim()).join('\n').trim() || APP_UPDATES[0]?.desc || "");
+    ? (APP_UPDATES[0]?.adminDesc || APP_UPDATES[0]?.desc || "")
+    : (APP_UPDATES[0]?.desc || "");
 
   const filteredManual = isPrivileged
-    ? (APP_UPDATES[0]?.manual || "")
-    : ((APP_UPDATES[0]?.manual || "").replace(sensitiveRegex, '').split('\n').filter(line => line.trim()).join('\n').trim() || "");
+    ? (APP_UPDATES[0]?.adminManual || APP_UPDATES[0]?.manual || "")
+    : (APP_UPDATES[0]?.manual || "");
+
+  const hasUpdateInfo = !!filteredDesc;
 
   const username = isTest ? 'Anonyme' : (currentUserData?.name || state.currentUser);
   const isNewUser = !isTest && currentUserData && currentUserData.friends?.length === 0;
@@ -196,11 +196,15 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           {getGreeting()} !
         </h1>
 
-        <p className={`text-2xl font-bold mb-12 w-full z-10 relative ${djStyleText}`}>
+        <p className={`text-2xl font-bold mb-2 w-full z-10 relative ${djStyleText}`}>
           {welcomeMessage}
         </p>
 
-        {showUpdateNotice && (
+        <p className={`text-sm font-medium mb-12 w-full z-10 relative ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          Aujourd'hui nous sommes le {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.
+        </p>
+
+        {showUpdateNotice && hasUpdateInfo && (
           <div className="w-full max-w-md mb-8 z-10 relative">
             <div className={`p-6 rounded-[2rem] shadow-xl border text-left flex flex-col gap-4 ${state.darkMode ? 'bg-zinc-900 border-white/10' : 'bg-white border-blue-100'}`}>
               <div className="flex items-center gap-3 mb-2">

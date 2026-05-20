@@ -171,7 +171,7 @@ export function useAppStore() {
           setState(prev => ({
             ...prev,
             currentUserData: userData,
-            darkMode: userData.bgColor === 'clair' ? false : (userData.bgColor === 'sombre' ? true : (userData.darkMode !== undefined ? userData.darkMode : prev.darkMode)),
+            darkMode: ['sombre', 'azur', 'lime', 'degrade', 'gradient'].some(t => userData.bgColor?.includes(t)) ? true : (userData.bgColor === 'clair' ? false : (userData.darkMode !== undefined ? userData.darkMode : prev.darkMode)),
             users: { ...prev.users, [user.uid]: userData }
           }));
         }).catch(e => {

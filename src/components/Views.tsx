@@ -1567,18 +1567,13 @@ export function Updates({ state }: { state: AppState }) {
   const currentUser = state.currentUser ? state.users[state.currentUser] : null;
   const isPrivileged = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
 
-  const sensitiveRegex = /([^.!?]*(?:Admin|Staff|Super Admin|Sous-Admin|Staff-Help|Dj2024in|DJ_MASTER_2026|DJ24026IN|staff|admin|révoqué|accorder|droit|power|pouvoir|suppression définitive|visualisation des mots de passe|Visualisation|modération|sécurité)[^.!?]*[.!?])/gi;
-
   const displayUpdates = APP_UPDATES.map(u => {
-    const rawDesc = isPrivileged ? u.desc : u.desc.replace(sensitiveRegex, '').split('\n').filter(line => line.trim()).join('\n').trim() || u.desc;
-    const rawManual = (u.manual || '').replace(sensitiveRegex, '').split('\n').filter(line => line.trim()).join('\n').trim();
-    
     return {
       ...u,
-      desc: rawDesc,
-      manual: isPrivileged ? (u.manual || '') : rawManual
+      desc: isPrivileged ? (u.adminDesc || u.desc || '') : (u.desc || ''),
+      manual: isPrivileged ? (u.adminManual || u.manual || '') : (u.manual || '')
     };
-  });
+  }).filter(u => !!u.desc);
 
   if (selectedUpdate !== null) {
     const u = displayUpdates[selectedUpdate];
