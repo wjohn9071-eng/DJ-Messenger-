@@ -738,10 +738,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             href={part} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-[#00FFFF] font-bold underline underline-offset-4 hover:opacity-80 transition-opacity"
-            style={{ textShadow: '0 0 8px rgba(0, 255, 255, 0.5)' }}
+            className="inline-block relative px-1.5 py-0.5 my-0.5 rounded-md bg-white dark:bg-zinc-900 shadow-sm border border-black/5 dark:border-white/5 hover:scale-[1.02] active:scale-95 transition-all mx-0.5"
           >
-            {part}
+            <span className="dj-style-text font-black text-[0.95em] break-all underline decoration-2 underline-offset-2">{part}</span>
           </a>
         );
       }
@@ -752,7 +751,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       // Italic: **Text**
       safeText = safeText.replace(/\*\*(.*?)\*\*/g, "<i>$1</i>");
       // Bold: *Text*
-      safeText = safeText.replace(/\*(.*?)\*/g, "<b>$1</b>");
+      safeText = safeText.replace(/\*(.*?)\*/g, "<b class='font-black bg-black/15 dark:bg-white/20 px-1.5 py-0.5 rounded-md mx-0.5 shadow-sm text-[1.02em]'>$1</b>");
       // Underline: _Text_
       safeText = safeText.replace(/_(.*?)_/g, "<u>$1</u>");
 

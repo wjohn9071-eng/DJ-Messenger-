@@ -2,6 +2,14 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   {
+    version: '3.1.2',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    desc: 'Visibilité améliorée des textes en gras dans n\'importe quel thème et coloration automatique des liens envoyés dans les bulles.',
+    adminDesc: 'Visibilité améliorée des textes en gras dans n\'importe quel thème et coloration automatique des liens envoyés dans les bulles.',
+    manual: '### Guide d\'utilisation v3.1.2\n\n1. **Liens cliquables** : Les liens web sont maintenant automatiquement détectés et colorisés avec le Style DJ.\n2. **Formatage de texte** : Utilisez `*mot*` pour mettre en gras, `**mot**` pour mettre en italique, et `_mot_` pour souligner. Vous pouvez combiner ces symboles ! Par exemple : \n   - Gras + Italique : `***mot***`\n   - Gras + Souligné : `_*mot*_`\n   - Italique + Souligné : `_**mot**_`\n   - Les trois : `_***mot***_`\n3. **Thèmes globaux** : Dans vos Paramètres > Apparence, choisissez parmi Clair, Sombre, Azur, Lime et Dégradé.',
+    adminManual: '### Guide d\'utilisation v3.1.2\n\n1. **Liens cliquables** : Les liens web sont maintenant automatiquement colorisés avec le Style DJ.\n2. **Formatage de texte** : Utilisez `*mot*` pour mettre en gras, `**mot**` pour mettre en italique, et `_mot_` pour souligner. Vous pouvez combiner ces symboles !\n3. **Thèmes globaux** : Dans vos Paramètres > Apparence, choisissez parmi Clair, Sombre, Azur, Lime et Dégradé.'
+  },
+  {
     version: '3.1.1',
     date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
     desc: 'Clarification des critères de formatage Markdown (Gras, Italique, Souligné) dans le manuel. Mise en place de la nouvelle règle de versionnage : incrémentation mineure x.x.1 puis passage automatique en x.x+1.0 (ex: 3.2.0) à la 10ème itération avec récapitulatif total.',
