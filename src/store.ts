@@ -120,7 +120,7 @@ export function useAppStore() {
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+      if (user && !user.isAnonymous) {
         setState(prev => ({ ...prev, currentUser: user.uid }));
         
         // Ensure user document exists

@@ -637,10 +637,10 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
           </div>
         </div>
         
-        {search && searchResults.length > 0 && (
+        {searchResults.length > 0 && (
           <div className={`mt-4 rounded-3xl shadow-2xl border overflow-hidden animate-in slide-in-from-top-4 ${state.darkMode ? 'bg-zinc-800 border-white/10' : 'bg-white border-gray-50'}`}>
             <div className={`p-4 border-b text-[10px] font-black uppercase tracking-widest ${state.darkMode ? 'bg-zinc-900 border-white/5 text-gray-500' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
-              Résultats de la recherche
+              Résultats de la recherche ({searchResults.length})
             </div>
             {searchResults.map((u, i) => (
               <div key={u.id || `user-${i}`} className={`flex items-center justify-between p-5 border-b last:border-0 transition-colors ${state.darkMode ? 'border-white/5 hover:bg-zinc-700/50' : 'border-gray-50 hover:bg-gray-50'}`}>
@@ -652,13 +652,32 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
                     {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name || '?')[0].toUpperCase()}
                   </button>
                   <div>
-                    <button 
-                      onClick={() => updateState({ selectedUserModal: u.uid })}
-                      className={`font-bold text-lg hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
-                    >
-                      @{u.name}
-                    </button>
-                    <p className="text-xs text-gray-400">Utilisateur DJ Messenger</p>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => updateState({ selectedUserModal: u.uid })}
+                        className={`font-bold text-lg hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
+                      >
+                        {u.name}
+                      </button>
+                      {u.isSuperAdmin && SUPER_ADMIN_BADGE}
+                      {u.isGrandAdmin && !u.isSuperAdmin && ADMIN_BADGE}
+                      {u.isAdmin && !u.isGrandAdmin && !u.isSuperAdmin && STAFF_BADGE}
+                    </div>
+                    <div className={`mt-3 w-full sm:w-max sm:min-w-[220px] grid grid-cols-1 gap-y-2 text-[10px] p-3 rounded-2xl shadow-sm border backdrop-blur-sm ${state.darkMode ? 'bg-zinc-900/40 border-white/5' : 'bg-gray-100/50 border-gray-200/50'}`}>
+                      <div className="flex flex-col">
+                        <span className="text-gray-400 font-extrabold uppercase tracking-widest text-[8px] mb-0.5">Dernière co.</span>
+                        <span className={`${state.darkMode ? 'text-gray-200' : 'text-gray-700'} font-bold`}>
+                          {u.lastLogin ? new Date(u.lastLogin).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : (u.lastSeen ? new Date(u.lastSeen).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Inconnue')}
+                        </span>
+                      </div>
+                      <div className={`flex items-center justify-between border-t mt-1 pt-2 ${state.darkMode ? 'border-white/5' : 'border-gray-200/50'}`}>
+                        <span className="text-gray-400 font-extrabold uppercase tracking-widest text-[8px]">Statut:</span>
+                        <span className={`flex items-center gap-1.5 text-[10px] font-bold ${checkIsOnline(u) ? 'text-green-500' : 'text-gray-500'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${checkIsOnline(u) ? 'bg-green-500 animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-gray-400'}`}></span>
+                          {checkIsOnline(u) ? 'En ligne' : 'Hors ligne'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <button 
@@ -689,13 +708,32 @@ export function Friends({ state, updateState, setView }: { state: AppState, upda
                   {friendData?.avatar ? <img src={friendData.avatar} className="w-full h-full object-cover" /> : (friendName || '?')[0].toUpperCase()}
                 </button>
                 <div>
-                  <button 
-                    onClick={() => updateState({ selectedUserModal: friendData?.uid || f })}
-                    className={`font-bold text-xl hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
-                  >
-                    @{friendName}
-                  </button>
-                  <p className="text-xs text-green-500 font-bold uppercase tracking-tighter">Ami connecté</p>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => updateState({ selectedUserModal: friendData?.uid || f })}
+                      className={`font-bold text-lg hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
+                    >
+                      {friendName}
+                    </button>
+                    {friendData?.isSuperAdmin && SUPER_ADMIN_BADGE}
+                    {friendData?.isGrandAdmin && !friendData?.isSuperAdmin && ADMIN_BADGE}
+                    {friendData?.isAdmin && !friendData?.isGrandAdmin && !friendData?.isSuperAdmin && STAFF_BADGE}
+                  </div>
+                  <div className={`mt-3 w-full sm:w-max sm:min-w-[220px] grid grid-cols-1 gap-y-2 text-[10px] p-3 rounded-2xl shadow-sm border backdrop-blur-sm ${state.darkMode ? 'bg-zinc-900/40 border-white/5' : 'bg-gray-100/50 border-gray-200/50'}`}>
+                    <div className="flex flex-col">
+                      <span className="text-gray-400 font-extrabold uppercase tracking-widest text-[8px] mb-0.5">Dernière co.</span>
+                      <span className={`${state.darkMode ? 'text-gray-200' : 'text-gray-700'} font-bold`}>
+                        {friendData?.lastLogin ? new Date(friendData.lastLogin).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : (friendData?.lastSeen ? new Date(friendData.lastSeen).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Inconnue')}
+                      </span>
+                    </div>
+                    <div className={`flex items-center justify-between border-t mt-1 pt-2 ${state.darkMode ? 'border-white/5' : 'border-gray-200/50'}`}>
+                      <span className="text-gray-400 font-extrabold uppercase tracking-widest text-[8px]">Statut:</span>
+                      <span className={`flex items-center gap-1.5 text-[10px] font-bold ${checkIsOnline(friendData) ? 'text-green-500' : 'text-gray-500'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${checkIsOnline(friendData) ? 'bg-green-500 animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-gray-400'}`}></span>
+                        {checkIsOnline(friendData) ? 'En ligne' : 'Hors ligne'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
                 <div className="flex gap-2">
@@ -1103,29 +1141,23 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                       onClick={() => updateState({ selectedUserModal: u.uid || u.id })}
                       className={`font-bold text-lg hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`}
                     >
-                      @{u.name}
+                      {u.name}
                     </button>
                     {u.isSuperAdmin && SUPER_ADMIN_BADGE}
                     {u.isGrandAdmin && !u.isSuperAdmin && ADMIN_BADGE}
                     {u.isAdmin && !u.isGrandAdmin && !u.isSuperAdmin && STAFF_BADGE}
                   </div>
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] bg-gray-50/50 p-2 rounded-xl border border-gray-100 dark:bg-zinc-900/50 dark:border-white/5">
+                  <div className={`mt-3 w-full sm:w-max sm:min-w-[220px] grid grid-cols-1 gap-y-2 text-[10px] p-3 rounded-2xl shadow-sm border backdrop-blur-sm ${state.darkMode ? 'bg-zinc-900/40 border-white/5' : 'bg-gray-100/50 border-gray-200/50'}`}>
                     <div className="flex flex-col">
-                      <span className="text-gray-400 font-bold uppercase tracking-widest text-[8px]">Création</span>
-                      <span className={state.darkMode ? 'text-gray-300' : 'text-gray-600'}>
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Ancien compte'}
-                      </span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-gray-400 font-bold uppercase tracking-widest text-[8px]">Dernière co.</span>
-                      <span className={state.darkMode ? 'text-gray-300' : 'text-gray-600'}>
+                      <span className="text-gray-400 font-extrabold uppercase tracking-widest text-[8px] mb-0.5">Dernière co.</span>
+                      <span className={`${state.darkMode ? 'text-gray-200' : 'text-gray-700'} font-bold`}>
                         {u.lastLogin ? new Date(u.lastLogin).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : (u.lastSeen ? new Date(u.lastSeen).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Inconnue')}
                       </span>
                     </div>
-                    <div className="col-span-2 flex items-center gap-1.5 mt-1">
-                      <span className="text-gray-400 font-bold uppercase tracking-widest text-[8px]">Statut:</span>
-                      <span className={`flex items-center gap-1.5 text-[10px] font-bold ${checkIsOnline(u) ? 'text-green-500' : 'text-gray-400'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${checkIsOnline(u) ? 'bg-green-500 animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-gray-300'}`}></span>
+                    <div className={`flex items-center justify-between border-t mt-1 pt-2 ${state.darkMode ? 'border-white/5' : 'border-gray-200/50'}`}>
+                      <span className="text-gray-400 font-extrabold uppercase tracking-widest text-[8px]">Statut:</span>
+                      <span className={`flex items-center gap-1.5 text-[10px] font-bold ${checkIsOnline(u) ? 'text-green-500' : 'text-gray-500'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${checkIsOnline(u) ? 'bg-green-500 animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-gray-400'}`}></span>
                         {checkIsOnline(u) ? 'En ligne' : 'Hors ligne'}
                       </span>
                     </div>

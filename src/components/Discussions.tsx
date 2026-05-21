@@ -73,20 +73,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       }),
     ...Object.values(state.privateMessages || {})
       .filter(chat => {
-        const otherMember = chat?.members?.find(m => m !== state.currentUser);
-        const isDeletedForMe = chat?.deletedForUsers?.includes(state.currentUser as string);
-        const isDeletedForEveryone = chat?.deletedForEveryone;
-        return chat && chat.members && chat.members.includes(state.currentUser as string) && otherMember && !isDeletedForMe && !isDeletedForEveryone;
+        return chat && chat.members && (chat.members.includes(state.currentUser as string) || currentUser?.isSuperAdmin);
       })
       .map(chat => {
-        const otherId = chat.members?.find((m: string) => m !== state.currentUser);
+        const otherId = chat.members?.find((m: string) => m !== state.currentUser) || chat.members[0];
         const otherName = state.users[otherId || '']?.name || otherId || 'Inconnu';
         const lastRead = currentUser?.lastReadTimestamps?.[chat.id] || '0';
         const newCount = (chat.messages || []).filter(m => !m.isSystem && m.timestamp > lastRead).length;
-        const lastMsg = (chat.messages || []).filter(m => !m.isSystem).slice(-1)[0];
+        const lastMsg = (chat.messages || []).filter(m => !m.isSystem).slice(-1)[0] || (chat.messages || []).slice(-1)[0];
         
         return {
           groupId: chat.id,
+          otherUserId: otherId,
           groupName: otherName,
           avatar: state.users[otherId || '']?.avatar,
           type: 'sms',
@@ -748,12 +746,18 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
       // Strict Bold/Italic/Underline formatting supporting combinations
       let safeText = part.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       
+      // We define boundaries using a capturing group for the start and a lookahead for the end.
+      // This allows consecutive formatted words to be matched without getting tripped up.
+      const sb = '(^|[\\s.,!:;?()\\[\\]{}<>"\'\\-])';
+      const eb = '(?=[\\s.,!:;?()\\[\\]{}<>"\'\\-]|$)';
+
       // Italic: **Text**
-      safeText = safeText.replace(/\*\*(.*?)\*\*/g, "<i>$1</i>");
+      safeText = safeText.replace(new RegExp(sb + '\\*\\*(?!\\s)([^*]+?)(?<!\\s)\\*\\*' + eb, 'g'), "$1<i>$2</i>");
       // Bold: *Text*
-      safeText = safeText.replace(/\*(.*?)\*/g, "<b class='font-black bg-black/15 dark:bg-white/20 px-1.5 py-0.5 rounded-md mx-0.5 shadow-sm text-[1.02em]'>$1</b>");
+      safeText = safeText.replace(new RegExp(sb + '\\*(?!\\s)([^*]+?)(?<!\\s)\\*' + eb, 'g'), "$1<b class='font-black bg-black/15 dark:bg-white/20 px-1.5 py-0.5 rounded-md mx-0.5 shadow-sm text-[1.02em]'>$2</b>");
       // Underline: _Text_
-      safeText = safeText.replace(/_(.*?)_/g, "<u>$1</u>");
+      safeText = safeText.replace(new RegExp(sb + '_(?!\\s)([^_]+?)(?<!\\s)_' + eb, 'g'), "$1<u>$2</u>");
+
 
       return <span key={`text-${i}`} className="whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: safeText }} />;
     });
@@ -1261,10 +1265,6 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
   };
 
   const handleTabChange = (tab: 'public' | 'private' | 'sms' | 'recent') => {
-    if (isTest && (tab === 'private' || tab === 'sms')) {
-      setShowRestrictedPopup(true);
-      return;
-    }
     setActiveTab(tab);
     updateState({ discussionTab: tab });
   };
@@ -2998,28 +2998,28 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </button>
           )}
         </div>
-          <div className="flex gap-1.5 p-1 bg-gray-200/50 backdrop-blur-sm rounded-2xl mb-6 shadow-inner">
+          <div className={`flex gap-1.5 p-1 backdrop-blur-sm rounded-2xl mb-6 shadow-inner border tracking-tighter ${state.darkMode ? 'bg-white/5 border-white/5' : 'bg-gray-200/50 border-transparent'}`}>
             <button 
               onClick={() => handleTabChange('public')} 
-              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'public' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'public' ? (state.darkMode ? 'bg-white/20 shadow-md text-white' : 'bg-white shadow-md text-gray-900') : (state.darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-700')}`}
             >
               Publics
             </button>
             <button 
               onClick={() => handleTabChange('private')} 
-              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'private' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'private' ? (state.darkMode ? 'bg-white/20 shadow-md text-white' : 'bg-white shadow-md text-gray-900') : (state.darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-700')}`}
             >
               Privés
             </button>
             <button 
               onClick={() => handleTabChange('sms')} 
-              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'sms' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'sms' ? (state.darkMode ? 'bg-white/20 shadow-md text-white' : 'bg-white shadow-md text-gray-900') : (state.darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-700')}`}
             >
               SMS
             </button>
             <button 
               onClick={() => handleTabChange('recent')} 
-              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'recent' ? 'bg-white shadow-md text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'recent' ? (state.darkMode ? 'bg-white/20 shadow-md text-white' : 'bg-white shadow-md text-gray-900') : (state.darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-700')}`}
             >
               Récents
             </button>
@@ -3033,7 +3033,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <MessageSquare size={14} className="text-gray-400" />
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">SMS</h3>
             </div>
-            <div className="bg-white p-4 rounded-3xl shadow-xl border border-gray-50 mb-4 flex justify-between items-center">
+            <div className={`p-4 rounded-3xl shadow-md border mb-4 flex justify-between items-center ${state.darkMode ? 'bg-zinc-900/50 border-white/5' : 'bg-white border-gray-50'}`}>
               <h4 className="text-xs font-black uppercase tracking-widest text-gray-400">Assistant virtuel</h4>
               <button 
                 onClick={() => handleStartSMS('dj-bot')}
@@ -3045,7 +3045,67 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Vos discussions SMS</h3>
+              <div className="mb-6 pt-2">
+                <div className="flex gap-2 mb-4">
+                  <input 
+                    type="text" 
+                    placeholder="Rechercher un utilisateur pour démarrer un SMS..." 
+                    className="flex-1 px-4 py-3 rounded-2xl bg-gray-50 dark:bg-zinc-900/50 border border-gray-100 dark:border-white/10 text-sm outline-none focus:ring-2 focus:ring-[#0D98BA] dark:text-white"
+                    onChange={(e) => setSmsSearch(e.target.value)}
+                    value={smsSearch}
+                  />
+                </div>
+                
+                <div className="space-y-3">
+                  {Object.keys(state.users || {})
+                    .filter(uid => uid !== state.currentUser && uid !== 'dj-bot' && uid !== 'test' && ((state.users[uid]?.name?.toLowerCase() || '').includes(smsSearch.toLowerCase())))
+                    .map(uid => {
+                      const u = state.users[uid];
+                      return (
+                        <div key={uid} className={`flex items-center justify-between p-4 rounded-2xl shadow-sm border transition-all ${state.darkMode ? 'bg-zinc-800/50 border-white/10' : 'bg-white border-gray-50'}`}>
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center font-black text-gray-400 shadow-inner overflow-hidden cursor-pointer" onClick={() => updateState({ selectedUserModal: uid })}>
+                              {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name || '?')[0].toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1">
+                                <button className={`font-bold text-lg hover:text-[#0D98BA] transition-colors ${state.darkMode ? 'text-white' : 'text-gray-800'}`} onClick={() => updateState({ selectedUserModal: uid })}>
+                                  {u.name}
+                                </button>
+                                {u.isSuperAdmin && SUPER_ADMIN_BADGE}
+                                {u.isGrandAdmin && !u.isSuperAdmin && ADMIN_BADGE}
+                                {u.isAdmin && !u.isGrandAdmin && !u.isSuperAdmin && STAFF_BADGE}
+                              </div>
+                              <div className={`mt-3 w-full sm:w-max sm:min-w-[220px] grid grid-cols-1 gap-y-2 text-[10px] p-3 rounded-2xl shadow-sm border backdrop-blur-sm ${state.darkMode ? 'bg-zinc-900/40 border-white/5' : 'bg-gray-100/50 border-gray-200/50'}`}>
+                                <div className="flex flex-col">
+                                  <span className="text-gray-400 font-extrabold uppercase tracking-widest text-[8px] mb-0.5">Dernière co.</span>
+                                  <span className={`${state.darkMode ? 'text-gray-200' : 'text-gray-700'} font-bold`}>
+                                    {u.lastLogin ? new Date(u.lastLogin).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : (u.lastSeen ? new Date(u.lastSeen).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Inconnue')}
+                                  </span>
+                                </div>
+                                <div className={`flex items-center justify-between border-t mt-1 pt-2 ${state.darkMode ? 'border-white/5' : 'border-gray-200/50'}`}>
+                                  <span className="text-gray-400 font-extrabold uppercase tracking-widest text-[8px]">Statut:</span>
+                                  <span className={`flex items-center gap-1.5 text-[10px] font-bold ${checkIsOnline(u) ? 'text-green-500' : 'text-gray-500'}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${checkIsOnline(u) ? 'bg-green-500 animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.5)]' : 'bg-gray-400'}`}></span>
+                                    {checkIsOnline(u) ? 'En ligne' : 'Hors ligne'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => handleStartSMS(uid)}
+                            className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#0D98BA] text-white hover:bg-blue-600 transition-colors shadow-md active:scale-95"
+                          >
+                            <MessageSquare size={16} fill="currentColor" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {visibleSMS.length > 0 && <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mt-6 mb-4">Vos discussions SMS en cours</h3>}
               {visibleSMS.map((chat, i) => {
                 const otherId = chat.members?.find((m: string) => m !== state.currentUser);
                 const otherName = state.users[otherId || '']?.name || otherId || 'Inconnu';
@@ -3054,7 +3114,9 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                 return (
                   <div 
                     key={chat.id || `sms-${i}`} 
-                    onClick={() => setActiveGroup(chat.id)}
+                    onClick={() => {
+                      if (otherId) handleStartSMS(otherId);
+                    }}
                     className={`flex items-center gap-4 p-4 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition-all group ${state.darkMode ? 'bg-zinc-800/50 border-white/10 hover:border-[#0D98BA]' : 'bg-white border-gray-100 hover:border-blue-100'}`}
                   >
                     <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xl shadow-inner group-hover:scale-105 transition-transform overflow-hidden">
@@ -3075,12 +3137,7 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
                   </div>
                 );
               })}
-              {visibleSMS.length === 0 && !smsSearch.trim() && (
-                <div className="text-center py-12 bg-white rounded-[2.5rem] border border-dashed border-gray-200">
-                  <MessageSquare size={40} className="mx-auto text-gray-200 mb-4" />
-                  <p className="text-gray-400 text-sm font-medium">Recherchez un utilisateur pour<br/>commencer à chatter en privé.</p>
-                </div>
-              )}
+
             </div>
           </div>
         )}
@@ -3102,9 +3159,14 @@ export function Discussions({ state, updateState }: { state: AppState, updateSta
               <div 
                 key={item.groupId || `recent-${i}`} 
                 onClick={() => {
-                  setActiveGroup(item.groupId);
+                  if (item.isSMS && item.otherUserId) {
+                    handleTabChange('sms');
+                    handleStartSMS(item.otherUserId);
+                  } else {
+                    setActiveGroup(item.groupId);
+                  }
                 }}
-                className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:border-blue-200 transition relative overflow-hidden"
+                className={`p-4 rounded-2xl shadow-sm border cursor-pointer transition relative overflow-hidden ${state.darkMode ? 'bg-zinc-900/40 border-white/5 hover:border-white/20' : 'bg-white border-gray-100 hover:border-blue-200'}`}
               >
                 {item.newCount > 0 && (
                   <div className="absolute top-0 right-0 bg-[#0D98BA] text-white text-[10px] font-black px-3 py-1 rounded-bl-xl shadow-md animate-pulse">

@@ -3,7 +3,7 @@ import { Eye, EyeOff, ArrowLeft, ImagePlus, X } from 'lucide-react';
 import { djStyleBg, djStyleText, DJ_LOGO_SVG, compressImage } from '../lib/utils';
 import { AppState } from '../types';
 import { auth, googleProvider, signInWithPopup, db, doc, setDoc, getDoc } from '../lib/firebase';
-import { GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signInAnonymously } from 'firebase/auth';
 
 export default function Auth({ state, updateState }: { state: AppState, updateState: any }) {
   const [authMode, setAuthMode] = useState<'select' | 'login' | 'register'>('select');
@@ -205,7 +205,14 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
           <div className="flex flex-col gap-4">
             <div className="flex flex-col items-center">
               <button 
-                onClick={() => updateState({ currentUser: 'test' })} 
+                onClick={async () => {
+                  try {
+                    await signInAnonymously(auth);
+                  } catch (e) {
+                    console.error("Erreur de connexion anonyme, mode hors ligne", e);
+                  }
+                  updateState({ currentUser: 'test' });
+                }} 
                 className={`w-full py-4 rounded-3xl text-white font-black uppercase tracking-widest shadow-[0_0_20px_rgba(13,152,186,0.3)] hover:scale-[1.02] transition-all active:scale-95 text-lg flex items-center justify-center gap-2 ${djStyleBg}`}
               >
                 <Eye size={22} /> Mode Découverte (Test)

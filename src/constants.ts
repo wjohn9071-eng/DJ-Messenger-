@@ -2,6 +2,63 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   {
+    version: '3.1.3',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    desc: 'Réintégration de la liste de sélection des utilisateurs pour démarrer une discussion SMS, modernisation de l\'onglet Amis, et correction du bug des onglets masqués en mode sombre. Amélioration approfondie de la Regex Markdown pour éviter les conflits avec les numéros.',
+    adminDesc: 'Réintégration de la liste de sélection des utilisateurs pour SMS, rafraîchissement visuel de l\'onglet Amis (suppression Création, retrait arobase), transparence ajustée en mode sombre pour les onglets, et SMS de nouveau visibles dans l\'onglet Récents.',
+    manual: `### Guide d'utilisation détaillé v3.1.3
+
+1. **Démarrer une discussion SMS avec N'IMPORTE QUI étape par étape** :
+   - Étape 1 : Ouvrez le menu latéral (le bouton avec les 3 barres horizontales).
+   - Étape 2 : Cliquez sur l'onglet **Discussions**.
+   - Étape 3 : Dans l'en-tête de la page de discussions, cliquez sur le sous-onglet **SMS** (qui est désormais parfaitement visible même en mode sombre).
+   - Étape 4 : Observez la partie située juste sous "Assistant virtuel". Vous y verrez une barre de recherche.
+   - Étape 5 : Juste en dessous de cette barre, **SANS MÊME AVOIR BESOIN DE CHERCHER**, la liste complète de tous les utilisateurs inscrits sur l'application s'affiche.
+   - Étape 6 : Chaque utilisateur est présenté avec sa photo et un tableau moderne. Ce tableau affiche sa "Dernière co." et son "Statut" (En ligne/Hors ligne).
+   - Étape 7 : Pour lancer le SMS, cliquez simplement sur le bouton bleu avec l'icône de message à côté du compte.
+   
+2. **Consultation et ajout d'Amis modernisés** :
+   - Étape 1 : Allez dans le menu principal et cliquez sur l'onglet **Amis**.
+   - Étape 2 : Dans la section de recherche en haut, remarquez que **tous les utilisateurs s'affichent par défaut**, avec le nouveau style de tableau contenant leurs statuts.
+   - Étape 3 : Descendez vers la section "Mes amis". 
+   - Étape 4 : L'interface a été épurée : l'arobase "@" devant les noms a été retirée et la date de création de compte a été supprimée des statistiques de la carte pour l'alléger.
+   
+3. **Récupération des conversations SMS dans l'onglet Récents** :
+   - Étape 1 : Ouvrez l'onglet **Discussions**.
+   - Étape 2 : Cliquez sur l'onglet **Récents** (tout à droite).
+   - Étape 3 : Constatez que vos discussions SMS privées apparaissent à nouveau aux côtés de vos groupes, listées par heure d'activité.
+   - Étape 4 : Cliquez sur une carte SMS depuis cet espace Récents, le système vous emmènera directement dans le bon onglet conversationnel.
+   
+4. **Utilisation experte du formatage de texte sans bug de numéros** :
+   - Étape 1 : Rendez-vous dans n'importe quel chat (Groupe ou SMS).
+   - Étape 2 : Pour mettre un mot en *Gras*, tapez un seul astérisque : \`*Bonjour*\`.
+   - Étape 3 : Pour l'Italique, utilisez deux astérisques : \`**Salut**\`.
+   - Étape 4 : Pour le Souligné, le tiret bas : \`_Coucou_\`.
+   - Étape 5 : Essayez d'écrire un numéro USSD téléphonique comme \`*155*1#\`. Le système possède désormais une lecture stricte qui n'altère pas vos chiffres.
+   
+5. **Mode Sombre et Lisibilité parfaite** :
+   - Étape 1 : Dans les Paramètres, activez l'Apparence **Sombre**.
+   - Étape 2 : Les titres comme "Vos discussions SMS" ou les boutons "PUBLICS/PRIVÉS" sont désormais mis en surbrillance réfléchie pour le contraste nocturne.`,
+    adminManual: `### Guide d'utilisation détaillé v3.1.3 (Admin)
+
+1. **Démarrer une discussion SMS (Privée) étape par étape** :
+   - Étape 1 : Rendez-vous dans l'onglet **Discussions**, puis sélectionnez le sous-onglet **SMS**.
+   - Étape 2 : En haut de l'écran, vous avez accès immédiatement à la liste de TOUS les utilisateurs existants.
+   - Étape 3 : Leurs profils intègrent le fameux tableau des statistiques (Dernière co., statut) au format modernisé (sans la création pour une vue allégée).
+   - Étape 4 : Cliquez sur le bouton bleu avec l'icône de message à côté du compte.
+   
+2. **Consultation de vos Amis** :
+   - Étape 1 : Dans **Amis**, vous avez accès directement à la recherche globale des membres avec les badges Staff/Admin et statistiques détaillés.
+   - Étape 2 : Vous retrouvez vos amis dans la partie inférieure, avec des fiches allégées (sans arobase @ ni tableau de création).
+   
+3. **Consulter l'historique global (Récents)** :
+   - Étape 1 : En naviguant sur l'onglet **Récents**, le système compile vos SMS et Groupes.
+   - Étape 2 : Le clic vers un SMS depuis la zone Récents est désormais 100% transparent et fonctionnel.
+   
+4. **Formatage strict du Markdown** :
+   - La technologie d'analyse de message a été convertie en Regex universelle pour soutenir complètement les anciens navigateurs comme Safari iOS, interdisant aux codes USSD (*123#) de devenir du texte en gras ou de s'étaler sur tout le message.`
+  },
+  {
     version: '3.1.2',
     date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
     desc: 'Visibilité améliorée des textes en gras dans n\'importe quel thème et coloration automatique des liens envoyés dans les bulles.',
