@@ -46,6 +46,7 @@ export interface Message {
   text: string;
   time: string;
   timestamp: string; // ISO string for comparison
+  isPending?: boolean;
   isSystem?: boolean;
   fileUrl?: string;
   fileType?: 'image' | 'video' | 'sticker' | 'audio' | 'pdf' | 'docx' | 'app' | 'file' | 'zip' | 'folder';

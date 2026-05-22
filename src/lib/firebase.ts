@@ -1,6 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import { 
-  getFirestore, 
+  initializeFirestore, 
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection, 
   doc, 
   setDoc, 
@@ -40,7 +42,9 @@ console.warn = (...args) => {
 };
 
 // Optimisation Firestore pour éviter les erreurs "Offline" et "Network Request Failed"
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
+}, firebaseConfig.firestoreDatabaseId);
 
 // Test de connexion silencieux avec gestion d'erreur améliorée
 async function testConnection() {

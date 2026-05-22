@@ -244,6 +244,15 @@ export default function Home({ state, setView, updateState, startSimulation }: {
           </div>
         )}
 
+        {isTest && (
+          <button 
+            onClick={startSimulation}
+            className={`w-full max-w-md p-4 mb-8 rounded-2xl shadow-xl border transition-all hover:scale-[1.02] active:scale-95 text-white font-black uppercase tracking-widest ${djStyleBg}`}
+          >
+            Lancer le Tutoriel
+          </button>
+        )}
+
         {!isTest && (
           <div className="w-full max-w-md mb-8 z-0 opacity-80 transition-all duration-1000 animate-in fade-in slide-in-from-bottom-2">
             <div className="flex items-center justify-center gap-3 p-4 rounded-2xl bg-[#0D98BA]/5 border border-[#0D98BA]/10">

@@ -10,8 +10,18 @@ import { FriendsMock } from './FriendsMock';
 import { SocietyMock } from './SocietyMock';
 import { SettingsMock } from './SettingsMock';
 
-export function AppMock({ state, view, setView: setParentView, updateState, onComplete }: { state: AppState, view?: string, setView: (v: string) => void, updateState: any, onComplete: () => void }) {
+export function AppMock({ state: initialState, view, setView: setParentView, updateState: parentUpdateState, onComplete }: { state: AppState, view?: string, setView: (v: string) => void, updateState: any, onComplete: () => void }) {
   const [internalView, setInternalView] = useState('home');
+  const [localState, setLocalState] = useState(initialState);
+  
+  const updateState = (updates: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => {
+    setLocalState((prev: AppState) => {
+      const newState = typeof updates === 'function' ? updates(prev) : updates;
+      return { ...prev, ...newState };
+    });
+  };
+
+  const state = localState;
   
   useEffect(() => {
     if (view) {
@@ -55,15 +65,8 @@ export function AppMock({ state, view, setView: setParentView, updateState, onCo
     setMenuOpen(false);
   };
 
-  // Sync state variables for style
-  useEffect(() => {
-    const root = document.documentElement;
-    if (state.darkMode) root.classList.add('dark'); else root.classList.remove('dark');
-    if (user?.bgColor) root.style.setProperty('--bg-color', user.bgColor);
-  }, [state.darkMode, user]);
-
   return (
-    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-300 ${state.darkMode ? 'bg-gray-900 text-white' : 'text-gray-900'}`} style={{ backgroundColor: 'var(--bg-color, #f0f2f5)' }}>
+    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-300 ${state.darkMode ? 'bg-gray-900 text-white dark' : 'bg-gray-50 text-gray-900'}`} style={{ backgroundColor: user?.bgColor || '#f0f2f5' }}>
       
       {/* Sidebar Mockup - Exact Copy of Real App Sidebar */}
       <aside className={`fixed inset-y-0 left-0 lg:relative z-[9999] bg-black/90 backdrop-blur-xl border-r border-white/10 text-white flex flex-col transition-all duration-300 ease-in-out h-full overflow-hidden shrink-0 ${menuOpen ? 'w-full lg:w-72' : 'w-0 lg:w-72'}`}>

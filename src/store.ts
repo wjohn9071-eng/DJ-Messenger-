@@ -259,12 +259,13 @@ export function useAppStore() {
         if (!unsubMessages[groupDoc.id]) {
           unsubMessages[groupDoc.id] = onSnapshot(query(collection(db, 'groups', groupDoc.id, 'messages'), orderBy('timestamp', 'asc')), (msgSnap) => {
             const messages: Message[] = [];
-            msgSnap.forEach(mDoc => {
+            msgSnap.docs.forEach(mDoc => {
               const data = mDoc.data();
               messages.push({ 
                 id: mDoc.id, 
                 ...data,
-                user: data.user || data.senderId // Ensure user is the UID
+                user: data.user || data.senderId, // Ensure user is the UID
+                isPending: mDoc.metadata.hasPendingWrites
               } as Message);
             });
 
@@ -372,13 +373,14 @@ export function useAppStore() {
         if (!unsubMessages[chatDoc.id]) {
           unsubMessages[chatDoc.id] = onSnapshot(query(collection(db, 'private_messages', chatDoc.id, 'messages'), orderBy('timestamp', 'asc')), (msgSnap) => {
             const messages: Message[] = [];
-            msgSnap.forEach(mDoc => {
+            msgSnap.docs.forEach(mDoc => {
               const data = mDoc.data();
               messages.push({ 
                 id: mDoc.id, 
                 ...data,
                 user: data.senderId || data.user, // Ensure user is the UID
-                time: new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                time: data.timestamp ? new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+                isPending: mDoc.metadata.hasPendingWrites
               } as Message);
             });
 
