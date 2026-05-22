@@ -10,18 +10,8 @@ import { FriendsMock } from './FriendsMock';
 import { SocietyMock } from './SocietyMock';
 import { SettingsMock } from './SettingsMock';
 
-export function AppMock({ state: initialState, view, setView: setParentView, updateState: parentUpdateState, onComplete }: { state: AppState, view?: string, setView: (v: string) => void, updateState: any, onComplete: () => void }) {
+export function AppMock({ state, view, setView: setParentView, updateState, onComplete }: { state: AppState, view?: string, setView: (v: string) => void, updateState: any, onComplete: () => void }) {
   const [internalView, setInternalView] = useState('home');
-  const [localState, setLocalState] = useState(initialState);
-  
-  const updateState = (updates: Partial<AppState> | ((prev: AppState) => Partial<AppState>)) => {
-    setLocalState((prev: AppState) => {
-      const newState = typeof updates === 'function' ? updates(prev) : updates;
-      return { ...prev, ...newState };
-    });
-  };
-
-  const state = localState;
   
   useEffect(() => {
     if (view) {

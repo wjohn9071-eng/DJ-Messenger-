@@ -260,7 +260,16 @@ export function SettingsMock({
               <button
                 onClick={() => {
                   setBgColor("clair");
-                  updateState({ darkMode: false });
+                  updateState((prev: AppState) => ({
+                    darkMode: false,
+                    users: {
+                      ...prev.users,
+                      [prev.currentUser as string]: {
+                        ...prev.users[prev.currentUser as string],
+                        bgColor: "clair"
+                      }
+                    }
+                  }));
                 }}
                 className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all border-2 ${bgColor === "clair" || (!["sombre", "azur", "lime", "degrade"].includes(bgColor) && !state.darkMode) ? "border-gray-900 bg-gray-100" : "border-transparent bg-gray-50 hover:bg-gray-100 text-gray-700"}`}
               >
@@ -270,7 +279,16 @@ export function SettingsMock({
               <button
                 onClick={() => {
                   setBgColor("sombre");
-                  updateState({ darkMode: true });
+                  updateState((prev: AppState) => ({
+                    darkMode: true,
+                    users: {
+                      ...prev.users,
+                      [prev.currentUser as string]: {
+                        ...prev.users[prev.currentUser as string],
+                        bgColor: "sombre"
+                      }
+                    }
+                  }));
                 }}
                 className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all border-2 ${bgColor === "sombre" || (!["azur", "lime", "degrade"].includes(bgColor) && state.darkMode) ? "border-white bg-zinc-800 text-white" : "border-transparent bg-zinc-900 hover:bg-zinc-800 text-gray-300"}`}
               >
@@ -280,7 +298,16 @@ export function SettingsMock({
               <button
                 onClick={() => {
                   setBgColor("azur");
-                  updateState({ darkMode: false });
+                  updateState((prev: AppState) => ({
+                    darkMode: false,
+                    users: {
+                      ...prev.users,
+                      [prev.currentUser as string]: {
+                        ...prev.users[prev.currentUser as string],
+                        bgColor: "azur"
+                      }
+                    }
+                  }));
                 }}
                 className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all border-2 ${bgColor === "azur" ? "border-[#0D98BA] bg-blue-50/10" : "border-transparent bg-gray-50 hover:bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-gray-300"}`}
               >
@@ -290,7 +317,16 @@ export function SettingsMock({
               <button
                 onClick={() => {
                   setBgColor("lime");
-                  updateState({ darkMode: false });
+                  updateState((prev: AppState) => ({
+                    darkMode: false,
+                    users: {
+                      ...prev.users,
+                      [prev.currentUser as string]: {
+                        ...prev.users[prev.currentUser as string],
+                        bgColor: "lime"
+                      }
+                    }
+                  }));
                 }}
                 className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all border-2 ${bgColor === "lime" ? "border-[#32CD32] bg-green-50/10" : "border-transparent bg-gray-50 hover:bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-gray-300"}`}
               >
@@ -300,7 +336,16 @@ export function SettingsMock({
               <button
                 onClick={() => {
                   setBgColor("degrade");
-                  updateState({ darkMode: false });
+                  updateState((prev: AppState) => ({
+                    darkMode: false,
+                    users: {
+                      ...prev.users,
+                      [prev.currentUser as string]: {
+                        ...prev.users[prev.currentUser as string],
+                        bgColor: "degrade"
+                      }
+                    }
+                  }));
                 }}
                 className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all border-2 ${bgColor === "degrade" ? "border-[#0D98BA] bg-blue-50/10" : "border-transparent bg-gray-50 hover:bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-gray-300"}`}
               >
