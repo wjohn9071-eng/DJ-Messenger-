@@ -1085,22 +1085,38 @@ export function Discussions({
         .replace(/>/g, "&gt;");
 
       const parseFormatting = (t: string) => {
-        const protectNumbers = (match: string, p1: string, p2: string, format: (inner: string) => string) => {
-          if (/^[0-9\s\-+().]+$/.test(p2) || /^[^a-zA-Z0-9À-ÿ]+$/.test(p2)) return match;
-          return `${p1}${format(p2)}`;
+        let res = t;
+
+        // Protection des balises HTML existantes
+        const htmlTags: string[] = [];
+        res = res.replace(/<[^>]+>/g, (match) => {
+          htmlTags.push(match);
+          return `__HTML_${htmlTags.length - 1}__`;
+        });
+
+        // Applique une règle de formatage unique sans empêcher les combinaisons.
+        // Les balises générées (< et >) agissent comme des délimiteurs naturels pour les passes suivantes.
+        const applyFormat = (symbol: string, formatter: (c: string) => string) => {
+          const sb = "(^|[\\s.,!?;:\"'()\\[\\]{}<>«»_*~\\n])";
+          const eb = "(?=[\\s.,!?;:\"'()\\[\\]{}<>«»_*~\\n]|$)";
+          // Le contenu doit commencer et finir par un NON-espace (sinon pas de style), et pas de retours à la ligne
+          const content = "([^\\s\\n](?:[^\\n]*?[^\\s\\n])?)";
+          const regex = new RegExp(sb + symbol + content + symbol + eb, "g");
+          
+          res = res.replace(regex, (match, prefix, c) => {
+            if (/^[0-9\s\-+().=]+$/.test(c)) return match; // Protège les opérations et numéros de tél
+            return `${prefix}${formatter(c)}`;
+          });
         };
 
-        const sb = "(^|\\s|[.,!?])";
-        const eb = "(?=\\s|$|[.,!?])";
+        applyFormat("\\*\\*\\*", (c) => `<i><b class='font-black bg-black/15 dark:bg-white/20 px-1.5 py-0.5 rounded-md mx-0.5 shadow-sm text-[1.02em]'>${c}</b></i>`);
+        applyFormat("\\*\\*", (c) => `<i class='italic'>${c}</i>`);
+        applyFormat("\\*", (c) => `<b class='font-black bg-black/15 dark:bg-white/20 px-1.5 py-0.5 rounded-md mx-0.5 shadow-sm text-[1.02em]'>${c}</b>`);
+        applyFormat("_", (c) => `<u>${c}</u>`);
 
-        let res = t;
-        res = res.replace(new RegExp(sb + "_\\*\\*\\*(?!\\s)(.+?)(?<!\\s)\\*\\*\\*_" + eb, "g"), (m, p1, p2) => protectNumbers(m, p1, p2, (i) => `<u><i class='italic'><b class='font-black bg-black/15 dark:bg-white/20 px-1.5 py-0.5 rounded-md mx-0.5 shadow-sm text-[1.02em]'>${i}</b></i></u>`));
-        res = res.replace(new RegExp(sb + "_\\*\\*(?!\\s)(.+?)(?<!\\s)\\*\\*_" + eb, "g"), (m, p1, p2) => protectNumbers(m, p1, p2, (i) => `<u><i class='italic'>${i}</i></u>`));
-        res = res.replace(new RegExp(sb + "_\\*(?!\\s)(.+?)(?<!\\s)\\*_" + eb, "g"), (m, p1, p2) => protectNumbers(m, p1, p2, (i) => `<u><b class='font-black bg-black/15 dark:bg-white/20 px-1.5 py-0.5 rounded-md mx-0.5 shadow-sm text-[1.02em]'>${i}</b></u>`));
-        res = res.replace(new RegExp(sb + "\\*\\*\\*(?!\\s)(.+?)(?<!\\s)\\*\\*\\*" + eb, "g"), (m, p1, p2) => protectNumbers(m, p1, p2, (i) => `<i class='italic'><b class='font-black bg-black/15 dark:bg-white/20 px-1.5 py-0.5 rounded-md mx-0.5 shadow-sm text-[1.02em]'>${i}</b></i>`));
-        res = res.replace(new RegExp(sb + "\\*\\*(?!\\s)(.+?)(?<!\\s)\\*\\*" + eb, "g"), (m, p1, p2) => protectNumbers(m, p1, p2, (i) => `<i class='italic'>${i}</i>`));
-        res = res.replace(new RegExp(sb + "\\*(?!\\s)(.+?)(?<!\\s)\\*" + eb, "g"), (m, p1, p2) => protectNumbers(m, p1, p2, (i) => `<b class='font-black bg-black/15 dark:bg-white/20 px-1.5 py-0.5 rounded-md mx-0.5 shadow-sm text-[1.02em]'>${i}</b>`));
-        res = res.replace(new RegExp(sb + "_(?!\\s)(.+?)(?<!\\s)_" + eb, "g"), (m, p1, p2) => protectNumbers(m, p1, p2, (i) => `<u>${i}</u>`));
+        // Restauration des balises HTML
+        res = res.replace(/__HTML_(\d+)__/g, (match, index) => htmlTags[parseInt(index, 10)]);
+
         return res;
       };
 

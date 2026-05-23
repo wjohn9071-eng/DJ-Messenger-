@@ -1009,11 +1009,8 @@ export default function App() {
   navItems.push(
     { id: "updates", label: "Mises à jour", icon: Bell },
     { id: "settings", label: "Paramètres", icon: SettingsIcon },
+    { id: "tutorial", label: "Tutoriel", icon: HelpCircle },
   );
-
-  if (isTest) {
-    navItems.push({ id: "tutorial", label: "Tutoriel", icon: HelpCircle });
-  }
 
   const renderView = () => {
     switch (view) {

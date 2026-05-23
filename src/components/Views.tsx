@@ -6,7 +6,7 @@ import { User, Key, ImagePlus, Trash2, MessageSquare, BarChart2, X, Plus, Downlo
 import { RestrictedActionPopup } from './RestrictedActionPopup';
 
 import { db, auth, doc, updateDoc, signOut, deleteDoc, collection, addDoc, getDoc, setDoc, arrayUnion, arrayRemove, query, where, getDocs, reauthenticateWithPopup, googleProvider } from '../lib/firebase';
-import { updateProfile, updatePassword, deleteUser } from 'firebase/auth';
+import { updateProfile, updatePassword, deleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
 export const DJ_FRAME_STYLE = "border-4 border-[#0D98BA] shadow-[0_0_15px_rgba(13,152,186,0.4)] rounded-3xl p-4 bg-white/90 backdrop-blur-sm relative overflow-hidden";
 export const STAFF_BADGE = <span className="text-[8px] font-black uppercase bg-[#0D98BA] text-white px-2 py-0.5 rounded-full ml-2 shadow-[0_0_8px_rgba(13,152,186,0.5)]">STAFF</span>;
@@ -132,20 +132,51 @@ export function Profile({ state, updateState, handleLogout }: { state: AppState,
           } catch (pwdError: any) {
             console.error("Erreur mot de passe:", pwdError);
             if (pwdError.code === 'auth/requires-recent-login') {
-              showToast("Sécurité : Re-vérification nécessaire pour changer le mot de passe...");
+              showToast("Sécurité : Re-vérification en cours...");
               try {
-                await reauthenticateWithPopup(auth.currentUser, googleProvider);
-                await updatePassword(auth.currentUser, password);
-                showToast("Mot de passe mis à jour !");
+                if (auth.currentUser.providerData.some(p => p.providerId === 'password')) {
+                  if (auth.currentUser.email) {
+                    let reauthSuccess = false;
+                    try {
+                      if (user?.password) {
+                        const credential = EmailAuthProvider.credential(auth.currentUser.email, user.password);
+                        await reauthenticateWithCredential(auth.currentUser, credential);
+                        reauthSuccess = true;
+                      }
+                    } catch (e) {
+                      console.log("Auto-reauth failed, falling back to prompt");
+                    }
+                    
+                    if (!reauthSuccess) {
+                      const currentPwd = window.prompt("Sécurité: Veuillez entrer votre mot de passe ACTUEL :");
+                      if (!currentPwd) return showToast("Modification annulée.");
+                      const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPwd);
+                      await reauthenticateWithCredential(auth.currentUser, credential);
+                    }
+                    
+                    await updatePassword(auth.currentUser, password);
+                    showToast("Mot de passe mis à jour !");
+                  } else {
+                    return showToast("Erreur: Votre session est expirée, veuillez vous reconnecter.");
+                  }
+                } else {
+                  await reauthenticateWithPopup(auth.currentUser, googleProvider);
+                  await updatePassword(auth.currentUser, password);
+                  showToast("Mot de passe mis à jour !");
+                }
               } catch (reauthError: any) {
                 console.error("Re-authentification échouée:", reauthError);
                 if (reauthError.code === 'auth/cancelled-popup-request') {
                   return showToast("Modification annulée.");
                 } else if (reauthError.code === 'auth/user-mismatch') {
                   return showToast("Erreur : Veuillez sélectionner le même compte Google.");
+                } else if (reauthError.code === 'auth/wrong-password' || reauthError.code === 'auth/invalid-credential') {
+                  return showToast("Mot de passe actuel incorrect.");
                 }
                 return showToast("Erreur: Vous devez vous reconnecter manuellement pour changer de mot de passe.");
               }
+            } else if (pwdError.code === 'auth/weak-password') {
+              return showToast("Le mot de passe doit contenir au moins 6 caractères.");
             } else {
               return showToast("Erreur lors de la modification du mot de passe.");
             }
@@ -350,36 +381,50 @@ export function Profile({ state, updateState, handleLogout }: { state: AppState,
 
         <div className="space-y-4">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Sécurité / Mot de passe</label>
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1">
-              <input 
-                type={showPassword ? "text" : "password"} 
-                autoComplete="new-password"
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-14 ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
-                placeholder="Nouveau mot de passe..."
-              />
-              <button 
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl text-zinc-400 hover:text-zinc-600 transition-all"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+          {auth.currentUser?.providerData.some(p => p.providerId === 'google.com') ? (
+            <div className={`p-4 rounded-2xl flex items-center justify-between border ${state.darkMode ? 'bg-zinc-800/50 border-white/5' : 'bg-gray-50 border-gray-100'}`}>
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm border border-gray-100">
+                    <Globe size={20} className="text-[#0D98BA]" />
+                 </div>
+                 <div>
+                   <p className={`font-bold ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>Connecté avec Google</p>
+                   <p className="text-xs text-gray-500 font-medium">Mot de passe géré par Google. Confidentialité garantie.</p>
+                 </div>
+              </div>
             </div>
-            {hasPasswordChanged ? (
-              <button 
-                type="button"
-                onClick={handleSave}
-                className="px-4 py-3 bg-[#0D98BA] text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg hover:scale-[1.05] active:scale-95 transition-all"
-              >
-                Sauvegarder
-              </button>
-            ) : (
-               <div className="w-[110px]" />
-            )}
-          </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  autoComplete="new-password"
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  className={`w-full px-6 py-4 rounded-2xl border focus:ring-4 focus:ring-[#0D98BA]/20 outline-none transition-all font-bold pr-14 ${state.darkMode ? 'bg-zinc-800 border-zinc-700 text-white' : 'border-zinc-100 bg-zinc-50/50 text-zinc-800'}`} 
+                  placeholder="Nouveau mot de passe..."
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-xl text-zinc-400 hover:text-zinc-600 transition-all"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              {hasPasswordChanged ? (
+                <button 
+                  type="button"
+                  onClick={handleSave}
+                  className="px-4 py-3 bg-[#0D98BA] text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg hover:scale-[1.05] active:scale-95 transition-all"
+                >
+                  Sauvegarder
+                </button>
+              ) : (
+                 <div className="w-[110px]" />
+              )}
+            </div>
+          )}
         </div>
         
         <div className={`mt-6 p-6 rounded-2xl border ${state.darkMode ? 'bg-zinc-800/50 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
@@ -1168,28 +1213,40 @@ export function AdminUsers({ state, updateState }: { state: AppState, updateStat
                 {isSuperAdmin ? (
                   <>
                     {u.password && (
-                      <div className="bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-xl border border-gray-100 flex items-center gap-2">
-                        <span>MDP: {u.password}</span>
+                      <div className="bg-gray-50 text-gray-500 text-[11px] font-medium px-3 py-2 rounded-xl border border-gray-100 flex items-center gap-2">
+                        <span className="font-black uppercase tracking-widest text-[10px]">MDP:</span>
+                        <span className="font-mono tracking-wider text-black">{u.password}</span>
+                        <button 
+                          onClick={() => {
+                            setPromptDialog({
+                              message: "Modifier la note du mot de passe (Attention : cela ne modifie PAS ses accès réels Firebase) :",
+                              defaultValue: u.password || '',
+                              action: (newPwd: string) => {
+                                if (newPwd) {
+                                  const targetId = u.uid || u.id;
+                                  if (!targetId) return showToast("Erreur: ID introuvable");
+                                  setDoc(doc(db, 'users', targetId), { password: newPwd }, { merge: true })
+                                    .then(() => {
+                                      updateState((prev: AppState) => ({ 
+                                        users: { ...prev.users, [targetId]: { ...prev.users[targetId], password: newPwd } } 
+                                      }));
+                                      showToast("Note mot de passe modifiée.");
+                                    })
+                                    .catch((err) => {
+                                      console.error("Firestore error:", err);
+                                      showToast("Erreur de permission Firestore.");
+                                    });
+                                }
+                              }
+                            });
+                          }}
+                          className="ml-2 p-1 text-blue-500 hover:bg-blue-100 rounded-md transition-colors"
+                          title="Modifier la note"
+                        >
+                          <Edit3 size={12} />
+                        </button>
                       </div>
                     )}
-                    <button 
-                      onClick={() => {
-                        setPromptDialog({
-                          message: "Nouveau mot de passe pour cet utilisateur :",
-                          defaultValue: u.password || '',
-                          action: (newPwd: string) => {
-                            if (newPwd) {
-                              setDoc(doc(db, 'users', u.uid || u.id), { password: newPwd }, { merge: true });
-                              updateState({ users: { ...state.users, [u.uid || u.id]: { ...u, password: newPwd } } });
-                              showToast("Mot de passe modifié.");
-                            }
-                          }
-                        });
-                      }}
-                      className="px-3 py-2 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-100 transition-colors"
-                    >
-                      <span className="flex items-center gap-1"><Edit3 size={12} /> Modifier</span>
-                    </button>
                   </>
                 ) : (
                   <div className="text-[8px] font-black uppercase text-gray-400 italic px-2">Lecture seule</div>

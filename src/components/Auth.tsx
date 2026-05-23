@@ -108,7 +108,13 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
     try {
       await signInWithEmailAndPassword(auth, finalEmail, passInp);
     } catch (error: any) {
-      showToast("Identifiants incorrects ou erreur.");
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-login-credentials' || error.code === 'auth/invalid-credential') {
+        showToast("Identifiants incorrects. Si c'est un compte Google, utilise le bouton Google !");
+      } else if (error.code === 'auth/user-not-found') {
+        showToast("Compte introuvable.");
+      } else {
+        showToast("Erreur de connexion.");
+      }
     }
   };
 

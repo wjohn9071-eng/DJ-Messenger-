@@ -42,6 +42,12 @@ export function TutorialGame({
   const [actionCompleted, setActionCompleted] = useState(false);
   const [isExplanationsHidden, setIsExplanationsHidden] = useState(false);
 
+  useEffect(() => {
+    if (actionCompleted) {
+      setIsExplanationsHidden(false);
+    }
+  }, [actionCompleted]);
+
   // Local state for the simulation to avoid touching the real database
   const [simulatedAppState, setSimulatedAppState] = useState<AppState>(() => {
     const currentUid = state.currentUser || 'test';
