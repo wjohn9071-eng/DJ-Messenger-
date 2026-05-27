@@ -1135,28 +1135,22 @@ export function Discussions({
 
   const handleDownload = async (url: string, fileName: string) => {
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
+      let downloadUrl = url;
+      if (url.includes('cloudinary.com') && url.includes('/upload/') && !url.includes('fl_attachment')) {
+        downloadUrl = url.replace('/upload/', `/upload/fl_attachment:${encodeURIComponent(fileName)}/`);
+      }
+
       const link = document.createElement("a");
-      link.href = window.URL.createObjectURL(blob);
+      link.href = downloadUrl;
+      link.target = "_blank";
       link.download = fileName || "download";
+      link.rel = "noopener noreferrer";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setTimeout(() => window.URL.revokeObjectURL(link.href), 60000);
     } catch (error) {
-      console.error("Download error, falling back to window.open:", error);
-      try {
-        const link = document.createElement("a");
-        link.href = url;
-        link.target = "_blank";
-        link.download = fileName || "download";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch (e) {
-        window.open(url, '_blank');
-      }
+      console.error("Download error:", error);
+      window.open(url, '_blank');
     }
   };
 

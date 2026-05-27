@@ -19,11 +19,13 @@ export const APP_UPDATES = [
    - Le système suit plus fidèlement les fonds adaptés du mode sombre pour les utilisateurs concernés.`,
     adminManual: `### Guide d'utilisation détaillé v3.1.4 (Admin)
 
-1. **Révocation retardée pour Téléchargements** :
-   - L'erreur "Échec de téléchargement" était due à la fonction \`URL.revokeObjectURL\` qui effaçait la zone mémoire trop vite. Elle a été ajustée pour préserver le fichier en mémoire le temps du téléchargement ou ouvrir un onglet de substitution.
+1. **Bug Échec Téléchargement (Explication technique)** :
+   - Le système utilisait \`window.URL.createObjectURL(blob)\` suivi d'une révocation immédiate (\`setTimeout 100ms\`). Sur Android, le "Download Manager" est un processus séparé. Le temps qu'il se connecte pour récupérer le fichier, l'URL Blob était déjà détruite, provoquant instantanément un **Échec du téléchargement** dans les notifications. De plus, charger de gros fichiers dans la RAM via \`fetch()\` faisait crasher les navigateurs mobiles. J'ai supprimé ce système pour utiliser l'attribut natif Cloudinary \`fl_attachment\` qui déclenche le téléchargement sécurisé du gestionnaire Android.
 
-2. **Logo par défaut** :
-   - Les \`newGroupAvatar\` vides lors de la création (\`setDoc\`) se voient désormais attribuer le \`DJ_LOGO_DATA_URL\` statique généré pour minimiser le coût de stockage Firestore.`
+2. **Confidentialité des Mises à jour :**
+   - Les notes de mise à jour ont été divisées en deux versions sécurisées :
+   - Les informations concernant les administrateurs et outils de modération ont été catégorisées en « accès restreint ».
+   - Les utilisateurs non gradés apercevront uniquement les nouveautés publiques (Thèmes, interface) dans leur bandeau d'accueil et dans l'onglet des notes de la communauté, tandis que les informations du Staff seront masquées. Si une note ne concerne que les administrateurs, elle n'apparaitra même pas pour les autres.`
   },
   {
     version: '3.1.3',
