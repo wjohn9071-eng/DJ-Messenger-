@@ -706,6 +706,7 @@ export function Discussions({
     const files = Array.from(e.target.files || []) as File[];
     if (files.length === 0 || !activeGroup) return;
 
+    console.log(`[Diagnostic] handleFileChange: ${files.length} fichiers sélectionnés.`);
     const uploadedFiles: { url: string; type: string; name: string }[] = [];
     const cloudName = "dfbhvgcbi";
     const uploadPreset = "djmessenger_preset";
@@ -713,6 +714,7 @@ export function Discussions({
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      console.log(`[Diagnostic] Traitement du fichier: ${file.name} (${file.type}, ${file.size} bytes)`);
 
       // Limit to 20GB
       if (file.size > 20 * 1024 * 1024 * 1024) {
@@ -756,6 +758,7 @@ export function Discussions({
 
       // Fallback pour les petits fichiers (Base64 dans Firestore) pour Firebase (Rapidité)
       if (file.size < 800 * 1024 && (isImage || isVideo || isAudio)) {
+        console.log(`[Diagnostic] Petit fichier multimedia (<800KB), lecture en Base64 locale: ${file.name}`);
         const base64data = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
@@ -771,33 +774,54 @@ export function Discussions({
 
       // Cloudinary pour les fichiers lourds (> 800KB) ou documents
       try {
+        console.log(`[Diagnostic] Démarrage Upload Cloudinary pour: ${file.name}`);
         const jobId = `job-${Date.now()}-${i}`;
+        const xhr = new XMLHttpRequest();
 
         setUploadJobs((prev) => [
           ...prev,
-          { id: jobId, name: file.name, progress: 0, xhr: new XMLHttpRequest() },
+          { id: jobId, name: file.name, progress: 0, xhr },
         ]);
 
-        await new Promise<void>((resolve) => {
-           let progress = 0;
-           const speed = Math.max(15, 100 - (file.size / (50*1024*1024))); // Simulation speed
-           const interval = setInterval(() => {
-              progress += speed;
-              if (progress >= 100) {
-                 progress = 100;
-                 clearInterval(interval);
-                 resolve();
-              }
+        const fileUrl = await new Promise<string>((resolve, reject) => {
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const progress = Math.round((event.loaded / event.total) * 100);
               setUploadJobs((prev) =>
                 prev.map((job) =>
                   job.id === jobId ? { ...job, progress } : job,
                 ),
               );
-           }, 100);
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const response = JSON.parse(xhr.responseText);
+              resolve(response.secure_url);
+            } else {
+              reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error("Network Error"));
+          xhr.onabort = () => reject("Annulé");
+
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("upload_preset", uploadPreset);
+
+          // Workaround pour types raw Cloudinary si ce n'est pas un media standard
+          if (!isImage && !isVideo && !isAudio) {
+            // Pas toujours requis mais on peut préciser raw resource_type si besoin
+            // Cependant, le preset Cloudinary gère probablement auto.
+          }
+
+          xhr.open("POST", url, true);
+          xhr.send(formData);
         });
 
-        // Use local browser object URL as reference (bypass cloud limits and achieve instant render of up to 20GB files)
-        const fileUrl = URL.createObjectURL(file);
+        console.log(`[Diagnostic] Succès Upload Cloudinary: ${file.name} -> ${fileUrl}`);
 
         uploadedFiles.push({
           url: fileUrl,
@@ -806,8 +830,10 @@ export function Discussions({
         });
       } catch (error) {
         if (error !== "Annulé") {
-          console.error(`File upload error for ${file.name}:`, error);
+          console.error(`[Diagnostic] Erreur upload pour ${file.name}:`, error);
           showToast(`Erreur lors de l'envoi de ${file.name}.`);
+        } else {
+          console.log(`[Diagnostic] Upload annulé par l'utilisateur: ${file.name}`);
         }
       } finally {
         setUploadJobs((prev) => prev.filter((job) => job.name !== file.name));
@@ -1134,23 +1160,33 @@ export function Discussions({
   };
 
   const handleDownload = async (url: string, fileName: string) => {
+    console.log(`[Diagnostic] handleDownload initié pour: ${fileName} | URL: ${url.substring(0, 50)}...`);
     try {
-      let downloadUrl = url;
-      if (url.includes('cloudinary.com') && url.includes('/upload/') && !url.includes('fl_attachment')) {
-        downloadUrl = url.replace('/upload/', `/upload/fl_attachment:${encodeURIComponent(fileName)}/`);
-      }
-
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.target = "_blank";
-      link.download = fileName || "download";
-      link.rel = "noopener noreferrer";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      showToast("Préparation du téléchargement...");
+      
+      console.log(`[Diagnostic] Fetching blob...`);
+      const response = await fetch(url);
+      const blob = await response.blob();
+      console.log(`[Diagnostic] Blob fetch réussi: type=${blob.type}, size=${blob.size} bytes`);
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        console.log(`[Diagnostic] Lecture DataURL réussie, taille: ${(reader.result as string).length} chars, déclenchement du téléchargement natif.`);
+        const link = document.createElement("a");
+        link.href = reader.result as string;
+        link.download = fileName || "download";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+      reader.onerror = () => {
+        console.error(`[Diagnostic] Erreur de lecture du blob en DataURL pour ${fileName}`);
+        throw new Error("Erreur de conversion locale du fichier.");
+      };
+      reader.readAsDataURL(blob);
     } catch (error) {
-      console.error("Download error:", error);
-      window.open(url, '_blank');
+      console.error("[Diagnostic] Download error, fallback to window.open:", error);
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
 

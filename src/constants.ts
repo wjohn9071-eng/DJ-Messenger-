@@ -20,7 +20,7 @@ export const APP_UPDATES = [
     adminManual: `### Guide d'utilisation détaillé v3.1.4 (Admin)
 
 1. **Bug Échec Téléchargement (Explication technique)** :
-   - Le système utilisait \`window.URL.createObjectURL(blob)\` suivi d'une révocation immédiate (\`setTimeout 100ms\`). Sur Android, le "Download Manager" est un processus séparé. Le temps qu'il se connecte pour récupérer le fichier, l'URL Blob était déjà détruite, provoquant instantanément un **Échec du téléchargement** dans les notifications. De plus, charger de gros fichiers dans la RAM via \`fetch()\` faisait crasher les navigateurs mobiles. J'ai supprimé ce système pour utiliser l'attribut natif Cloudinary \`fl_attachment\` qui déclenche le téléchargement sécurisé du gestionnaire Android.
+   - Initialement, l'API Cloudinary \`fl_attachment\` causait des erreurs HTTP 400 (Bad Request) sur les fichiers « raw » (comme ZIP, DOCX). De plus, l'utilisation de \`URL.createObjectURL(blob)\` empêchait le gestionnaire de téléchargement Android natif de lire le fichier en mémoire. La solution définitive a été d'utiliser l'API \`FileReader\` pour encoder le blob en Base64 (\`data: URL\`) avant de lancer le clic natif, assurant un téléchargement sécurisé et autonome, même sur PWA.
 
 2. **Confidentialité des Mises à jour :**
    - Les notes de mise à jour ont été divisées en deux versions sécurisées :
