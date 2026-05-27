@@ -33,6 +33,9 @@ export const DJ_LOGO_SVG = `
 </svg>
 `;
 
+export const DJ_LOGO_DATA_URL = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(DJ_LOGO_SVG.replace(/class="[^"]*"/, ''))}`;
+
+
 export function compressImage(file: File, maxWidth = 400, maxHeight = 400, quality = 0.7): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

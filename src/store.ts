@@ -80,7 +80,7 @@ const defaultState: AppState = {
   autoHideSidebar: true,
   activeGroup: null,
   newMessages: [],
-  darkMode: localStorage.getItem('dj_messenger_dark_mode') === 'true'
+  darkMode: localStorage.getItem('dj_messenger_dark_mode') !== null ? localStorage.getItem('dj_messenger_dark_mode') === 'true' : (typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)').matches : false)
 };
 
 export function useAppStore() {

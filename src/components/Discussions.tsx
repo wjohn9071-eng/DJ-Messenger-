@@ -26,6 +26,7 @@ import {
   setDraftStatus,
   compressImage,
   checkIsOnline,
+  DJ_LOGO_DATA_URL,
 } from "../lib/utils";
 import {
   Send,
@@ -1142,9 +1143,20 @@ export function Discussions({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(link.href), 100);
     } catch (error) {
-      console.error("Download error:", error);
-      showToast("Erreur lors du téléchargement.");
+      console.error("Download error, falling back to window.open:", error);
+      try {
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.download = fileName || "download";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (e) {
+        window.open(url, '_blank');
+      }
     }
   };
 
@@ -1253,7 +1265,7 @@ export function Discussions({
       creator: state.currentUser as string,
       admins: [state.currentUser as string],
       members: [state.currentUser as string, ...newGroupInvite],
-      avatar: newGroupAvatar || "",
+      avatar: newGroupAvatar || DJ_LOGO_DATA_URL,
       banned: [],
       muted: [],
       code: activeTab === "private" ? newGroupCode : null,
