@@ -1143,7 +1143,7 @@ export function Discussions({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setTimeout(() => window.URL.revokeObjectURL(link.href), 100);
+      setTimeout(() => window.URL.revokeObjectURL(link.href), 60000);
     } catch (error) {
       console.error("Download error, falling back to window.open:", error);
       try {

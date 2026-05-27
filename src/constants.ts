@@ -2,6 +2,30 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   {
+    version: '3.1.4',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    desc: 'Correction du problème d\'échec de téléchargement pour les fichiers, assignation automatique du logo officiel DJ Messenger lors de la création d\'un groupe sans image, et finalisation de l\'adaptation au mode sombre sur l\'interface.',
+    adminDesc: 'Correction du problème d\'échec de téléchargement pour les fichiers (gestion de la persistance des Blob URLs dans le navigateur), assignation de l\'image par défaut (DJ_LOGO) aux nouveaux groupes, et renforcement du mode sombre.',
+    manual: `### Guide d'utilisation détaillé v3.1.4
+
+1. **Téléchargement de fichiers réparé** :
+   - Étape 1 : Cliquez sur le bouton de téléchargement de n'importe quel fichier envoyé dans le chat.
+   - Étape 2 : Le fichier se télécharge désormais de manière fiable sans générer d'erreur "Echec du téléchargement" dans votre navigateur.
+
+2. **Création de Groupe facilitée** :
+   - Désormais, si vous créez un groupe et oubliez d'ajouter une image, l'image officielle par défaut de DJ Messenger sera automatiquement attribuée. Vous n'aurez plus une bulle vide au contour douteux !
+
+3. **Adaptation système au mode sombre** :
+   - Le système suit plus fidèlement les fonds adaptés du mode sombre pour les utilisateurs concernés.`,
+    adminManual: `### Guide d'utilisation détaillé v3.1.4 (Admin)
+
+1. **Révocation retardée pour Téléchargements** :
+   - L'erreur "Échec de téléchargement" était due à la fonction \`URL.revokeObjectURL\` qui effaçait la zone mémoire trop vite. Elle a été ajustée pour préserver le fichier en mémoire le temps du téléchargement ou ouvrir un onglet de substitution.
+
+2. **Logo par défaut** :
+   - Les \`newGroupAvatar\` vides lors de la création (\`setDoc\`) se voient désormais attribuer le \`DJ_LOGO_DATA_URL\` statique généré pour minimiser le coût de stockage Firestore.`
+  },
+  {
     version: '3.1.3',
     date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
     desc: 'Réintégration de la liste de sélection des utilisateurs pour démarrer une discussion SMS, modernisation de l\'onglet Amis, et correction du bug des onglets masqués en mode sombre. Amélioration approfondie de la Regex Markdown pour éviter les conflits avec les numéros.',
