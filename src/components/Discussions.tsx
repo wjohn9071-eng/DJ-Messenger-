@@ -1161,6 +1161,14 @@ export function Discussions({
 
   const handleDownload = async (url: string, fileName: string) => {
     console.log(`[Diagnostic] handleDownload initié pour: ${fileName} | URL: ${url.substring(0, 50)}...`);
+    
+    // Gérer les anciens fichiers (avant la correction Cloudinary) qui étaient juste des liens locaux
+    if (url.startsWith("blob:")) {
+      showToast("Fichier expiré : Ce fichier a été envoyé avec une ancienne version locale et n'est plus disponible sur le serveur.");
+      console.error("[Diagnostic] Tentative de téléchargement d'une ancienne URL blob locale invalide.");
+      return;
+    }
+
     try {
       showToast("Préparation du téléchargement...");
       
