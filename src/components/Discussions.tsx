@@ -710,7 +710,7 @@ export function Discussions({
     const uploadedFiles: { url: string; type: string; name: string }[] = [];
     const cloudName = "dfbhvgcbi";
     const uploadPreset = "djmessenger_preset";
-    const url = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
+    const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -2225,16 +2225,30 @@ export function Discussions({
   const visibleSMS = Array.from(
     new Set([
       ...Object.values(state.privateMessages || {}).filter((chat) => {
-        const isSuperAdmin = state.currentUserData?.isSuperAdmin;
-        // Removed isDeletedForEveryone and isDeletedForMe for better visibility as requested
         return (
           chat &&
           chat.members &&
-          (chat.members.includes(state.currentUser as string) || isSuperAdmin)
+          chat.members.includes(state.currentUser as string)
         );
       }),
       ...(botGroup ? [botGroup] : []),
     ]),
+  ).sort((a, b) => {
+    const timeA = new Date(a.lastActivity || a.createdAt || 0).getTime();
+    const timeB = new Date(b.lastActivity || b.createdAt || 0).getTime();
+    return timeB - timeA;
+  });
+
+  const ghostSMS = Array.from(
+    Object.values(state.privateMessages || {}).filter((chat) => {
+      const isSuperAdmin = state.currentUserData?.isSuperAdmin;
+      return (
+        isSuperAdmin &&
+        chat &&
+        chat.members &&
+        !chat.members.includes(state.currentUser as string)
+      );
+    })
   ).sort((a, b) => {
     const timeA = new Date(a.lastActivity || a.createdAt || 0).getTime();
     const timeB = new Date(b.lastActivity || b.createdAt || 0).getTime();
@@ -2319,11 +2333,19 @@ export function Discussions({
     // Array.isArray setup handled globally
 
     const isSMS = activeGroup.startsWith("sms_");
-    const otherUid = isSMS
+    let otherUid = isSMS
       ? (group as any).members?.find((m: string) => m !== state.currentUser)
       : null;
-    const otherUserData = otherUid ? state.users[otherUid] : null;
-    const otherUser = otherUserData?.name || otherUid;
+    let otherUserData = otherUid ? state.users[otherUid] : null;
+    let otherUser = otherUserData?.name || otherUid;
+
+    const isGhostSMS = isSMS && !(group as any).members?.includes(state.currentUser);
+    if (isGhostSMS) {
+      const [u1, u2] = (group as any).members || [];
+      const name1 = state.users[u1]?.name || u1 || "Inconnu";
+      const name2 = state.users[u2]?.name || u2 || "Inconnu";
+      otherUser = `${name1} & ${name2} (Ghost)`;
+    }
 
     const isAdmin =
       !isSMS &&
@@ -2353,7 +2375,7 @@ export function Discussions({
         : (group?.allowOthersToInvite ?? true);
     const hasSpeakChanged = pendingSettings.allowOthersToSpeak !== undefined;
     const hasInviteChanged = pendingSettings.allowOthersToInvite !== undefined;
-    const canSpeak = isSMS || currentAllowSpeak || isExemptFromGroupLimits;
+    const canSpeak = (!isGhostSMS && isSMS) || (!isSMS && (currentAllowSpeak || isExemptFromGroupLimits));
     const canInvite =
       isSMS ||
       (group?.type === "private" &&
@@ -4450,7 +4472,7 @@ export function Discussions({
           )}
         </div>
         <div
-          className={`flex gap-1.5 p-1 backdrop-blur-sm rounded-2xl mb-6 shadow-inner border tracking-tighter ${state.darkMode ? "bg-white/5 border-white/5" : "bg-gray-200/50 border-transparent"}`}
+          className={`flex gap-1.5 p-1 backdrop-blur-sm rounded-2xl mb-6 shadow-inner border tracking-tighter ${state.darkMode ? "bg-white/5 border-white/5" : "bg-gray-200/50 border-transparent"} ${currentUser?.isSuperAdmin ? "flex-wrap" : ""}`}
         >
           <button
             onClick={() => handleTabChange("public")}
@@ -4476,6 +4498,14 @@ export function Discussions({
           >
             Récents
           </button>
+          {currentUser?.isSuperAdmin && (
+            <button
+              onClick={() => handleTabChange("ghost")}
+              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === "ghost" ? (state.darkMode ? "bg-white/20 shadow-md text-white" : "bg-white shadow-md text-purple-900") : state.darkMode ? "text-purple-300 hover:text-white" : "text-purple-600 hover:text-purple-800"} whitespace-nowrap min-w-max px-3`}
+            >
+              Tous SMS (Ghost)
+            </button>
+          )}
         </div>
       </div>
 
@@ -4692,6 +4722,59 @@ export function Discussions({
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "ghost" && currentUser?.isSuperAdmin && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex items-center gap-2 mb-2">
+               <Eye size={14} className="text-gray-400" />
+               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+                 Toutes les SMS (Ghost Mode)
+               </h3>
+            </div>
+            
+            <div className="space-y-4">
+               {ghostSMS.length === 0 && (
+                 <p className="text-center text-gray-500 py-8">
+                   Aucune discussion SMS entre autres utilisateurs.
+                 </p>
+               )}
+               {ghostSMS.map((chat, i) => {
+                 const [u1, u2] = chat.members || [];
+                 const name1 = state.users[u1]?.name || u1 || "Inconnu";
+                 const name2 = state.users[u2]?.name || u2 || "Inconnu";
+                 
+                 const lastMsg =
+                   chat.messages && chat.messages.length > 0
+                     ? chat.messages[chat.messages.length - 1]
+                     : null;
+
+                 return (
+                   <div
+                     key={chat.id || `ghostsms-${i}`}
+                     onClick={() => {
+                        updateState({ activeGroup: chat.id });
+                     }}
+                     className={`flex items-center gap-4 p-4 rounded-2xl shadow-sm border cursor-pointer hover:shadow-md transition-all group ${state.darkMode ? "bg-zinc-800/50 border-white/10 hover:border-purple-500/50" : "bg-white border-gray-100 hover:border-purple-200"}`}
+                   >
+                     <div className="flex-1 min-w-0">
+                       <div className="flex items-center justify-between mb-1">
+                         <h3 className={`font-bold truncate pr-2 ${state.darkMode ? "text-purple-300" : "text-purple-700"}`}>
+                           {name1} & {name2}
+                         </h3>
+                         <span className="text-xs text-gray-400 whitespace-nowrap">
+                           {lastMsg?.time || ""}
+                         </span>
+                       </div>
+                       <p className={`text-sm truncate ${state.darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                         {lastMsg ? (`${state.users[lastMsg.user]?.name || lastMsg.user}: ${lastMsg.text}`) : "Vide"}
+                       </p>
+                     </div>
+                   </div>
+                 );
+               })}
             </div>
           </div>
         )}

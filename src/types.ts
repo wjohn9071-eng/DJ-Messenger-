@@ -131,7 +131,7 @@ export interface AppState {
   currentUser: string | null;
   currentUserData: User | null; // 'test' for anonymous
   newMessages?: string[]; // IDs of groups with new messages
-  discussionTab?: 'public' | 'private' | 'sms' | 'recent';
+  discussionTab?: 'public' | 'private' | 'sms' | 'recent' | 'ghost';
   simulatedMessages?: Message[]; // Messages factices pour le tutoriel
   menuOpen?: boolean;
   autoHideSidebar?: boolean;
