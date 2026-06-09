@@ -286,6 +286,7 @@ export function Discussions({
       name: string;
       progress: number;
       xhr?: XMLHttpRequest;
+      task?: any;
     }[]
   >([]);
   const [showStickers, setShowStickers] = useState(false);
@@ -800,25 +801,53 @@ export function Discussions({
               const response = JSON.parse(xhr.responseText);
               resolve(response.secure_url);
             } else {
-              reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
+              try {
+                const err = JSON.parse(xhr.responseText);
+                const errMsg = err.error?.message || "Upload failed";
+                if (errMsg.includes("Unsigned upload of raw") || errMsg.includes("not supported")) {
+                  reject(new Error(`Cloudinary refuse les fichiers non-médias (raw) sans config. lisez les instructions.`));
+                } else {
+                  reject(new Error(errMsg));
+                }
+              } catch(e) {
+                reject(new Error(`Upload failed HTTP ${xhr.status}`));
+              }
             }
           };
 
           xhr.onerror = () => reject(new Error("Network Error"));
           xhr.onabort = () => reject("Annulé");
 
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("upload_preset", uploadPreset);
+          const performUpload = async () => {
+            try {
+              // 1. Get signature from our full-stack backend
+              const signRes = await fetch('/api/cloudinary-sign', { method: 'POST' });
+              if (!signRes.ok) throw new Error("Erreur de requête vers le serveur (Signature)");
+              const signData = await signRes.json();
+              if (signData.error) throw new Error(signData.error);
 
-          let resourceType = "auto";
-          if (!isImage && !isVideo && !isAudio) {
-            resourceType = "raw";
-          }
-          const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;
+              const { timestamp, signature, apiKey, cloudName: serverCloudName } = signData;
 
-          xhr.open("POST", uploadUrl, true);
-          xhr.send(formData);
+              const formData = new FormData();
+              formData.append("file", file);
+              formData.append("api_key", apiKey);
+              formData.append("timestamp", timestamp.toString());
+              formData.append("signature", signature);
+
+              let resourceType = "auto";
+              if (!isImage && !isVideo && !isAudio) {
+                resourceType = "raw";
+              }
+              const uploadUrl = `https://api.cloudinary.com/v1_1/${serverCloudName}/${resourceType}/upload`;
+
+              xhr.open("POST", uploadUrl, true);
+              xhr.send(formData);
+            } catch(e: any) {
+              reject(new Error("Erreur Signature: " + (e?.message || "Inconnue")));
+            }
+          };
+
+          performUpload();
         });
 
         console.log(`[Diagnostic] Succès Upload Cloudinary: ${file.name} -> ${fileUrl}`);
@@ -831,7 +860,7 @@ export function Discussions({
       } catch (error) {
         if (error !== "Annulé") {
           console.error(`[Diagnostic] Erreur upload pour ${file.name}:`, error);
-          showToast(`Erreur lors de l'envoi de ${file.name}.`);
+          showToast(error instanceof Error ? error.message : `Erreur lors de l'envoi de ${file.name}`);
         } else {
           console.log(`[Diagnostic] Upload annulé par l'utilisateur: ${file.name}`);
         }
@@ -2664,7 +2693,7 @@ export function Discussions({
                             );
 
                             const response = await fetch(
-                              "https://api.cloudinary.com/v1_1/dfbhvgcbi/upload",
+                              "https://api.cloudinary.com/v1_1/dfbhvgcbi/image/upload",
                               {
                                 method: "POST",
                                 body: formData,
