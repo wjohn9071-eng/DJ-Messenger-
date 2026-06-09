@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { supabase } from "../supabase";
 import {
   db,
   collection,
@@ -773,114 +774,62 @@ export function Discussions({
         continue;
       }
 
-      // --- LIMITATIONS COMMERCIALES CLOUDINARY (FORFAIT GRATUIT) ---
-      const isRawCloudinary = (!isImage && !isVideo && !isAudio);
-      if (isRawCloudinary && file.size > 10 * 1024 * 1024) {
-        showToast(`Impossible: Cloudinary bloque les fichiers .zip/.apk/.pdf à 10 Mo sur le forfait Gratuit.`);
-        continue;
-      }
-      if (isImage && file.size > 10 * 1024 * 1024) {
-        showToast(`Impossible: Cloudinary bloque les images à 10 Mo sur le forfait Gratuit.`);
-        continue;
-      }
-      if (isVideo && file.size > 100 * 1024 * 1024) {
-        showToast(`Impossible: Cloudinary bloque les vidéos à 100 Mo sur le forfait Gratuit.`);
-        continue;
-      }
-
-      // Cloudinary pour les fichiers lourds (> 800KB) ou documents
+      // Supabase Storage pour les fichiers lourds (> 800KB) ou documents
       try {
-        console.log(`[Diagnostic] Démarrage Upload Cloudinary pour: ${file.name}`);
+        console.log(`[Diagnostic] Démarrage Upload Supabase pour: ${file.name}`);
         const jobId = `job-${Date.now()}-${i}`;
-        const xhr = new XMLHttpRequest();
+        // Since we are using Supabase JS client, XHR is null but we simulate a job for the UI.
+        const xhr = null as any;
 
         setUploadJobs((prev) => [
           ...prev,
           { id: jobId, name: file.name, progress: 0, xhr },
         ]);
 
-        const fileUrl = await new Promise<string>((resolve, reject) => {
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              const progress = Math.round((event.loaded / event.total) * 100);
-              setUploadJobs((prev) =>
-                prev.map((job) =>
-                  job.id === jobId ? { ...job, progress } : job,
-                ),
-              );
-            }
-          };
+        const fileUrl = await new Promise<string>(async (resolve, reject) => {
+          // Fake progress simulation
+          const progressInterval = setInterval(() => {
+            setUploadJobs((prev) =>
+              prev.map((job) =>
+                job.id === jobId && job.progress < 90
+                  ? { ...job, progress: job.progress + Math.floor(Math.random() * 10) + 5 }
+                  : job
+              )
+            );
+          }, 500);
 
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              const response = JSON.parse(xhr.responseText);
-              resolve(response.secure_url);
-            } else {
-              try {
-                const err = JSON.parse(xhr.responseText);
-                const errMsg = err.error?.message || "Upload failed";
-                if (errMsg.includes("Unsigned upload of raw") || errMsg.includes("not supported")) {
-                  reject(new Error(`Cloudinary refuse les fichiers non-médias (raw) sans config. lisez les instructions.`));
-                } else {
-                  reject(new Error(errMsg));
-                }
-              } catch(e) {
-                reject(new Error(`Upload failed HTTP ${xhr.status}`));
-              }
-            }
-          };
-
-          xhr.onerror = () => reject(new Error("Network Error"));
-          xhr.onabort = () => reject("Annulé");
-
-          const performUpload = async () => {
-            try {
-              // 1. Get signature from our full-stack backend
-              const signRes = await fetch('/api/cloudinary-sign', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ upload_preset: uploadPreset })
+          try {
+            const filePath = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+            const { error: uploadError } = await supabase.storage
+              .from('medias')
+              .upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: false
               });
-              const rawText = await signRes.text();
-              let signData;
-              try {
-                signData = JSON.parse(rawText);
-              } catch (e: any) {
-                console.error("Erreur serveur (non-JSON):", rawText.substring(0, 50));
-                if (rawText.trim().startsWith("<") || rawText.includes("The page")) {
-                  throw new Error("Impossible de joindre le Backend ! Assurez-vous d'avoir redéployé sur Vercel : l'API /api/cloudinary-sign.ts a été ajoutée.");
-                }
-                throw new Error("Erreur Serveur: " + rawText.substring(0, 50) + "...");
-              }
-              if (!signRes.ok) throw new Error(signData.error || "Erreur de requête vers le serveur");
-              if (signData.error) throw new Error(signData.error);
 
-              const { timestamp, signature, apiKey, cloudName: serverCloudName } = signData;
+            clearInterval(progressInterval);
 
-              const formData = new FormData();
-              formData.append("file", file);
-              formData.append("api_key", apiKey);
-              formData.append("timestamp", timestamp.toString());
-              formData.append("upload_preset", uploadPreset);
-              formData.append("signature", signature);
-
-              let resourceType = "auto";
-              if (!isImage && !isVideo && !isAudio) {
-                resourceType = "raw";
-              }
-              const uploadUrl = `https://api.cloudinary.com/v1_1/${serverCloudName}/${resourceType}/upload`;
-
-              xhr.open("POST", uploadUrl, true);
-              xhr.send(formData);
-            } catch(e: any) {
-              reject(new Error("Erreur Signature: " + (e?.message || "Inconnue")));
+            if (uploadError) {
+              console.error("Supabase Upload Error:", uploadError);
+              throw new Error(uploadError.message || "Erreur lors de l'upload Supabase");
             }
-          };
 
-          performUpload();
+            const { data } = supabase.storage.from('medias').getPublicUrl(filePath);
+            
+            setUploadJobs((prev) =>
+              prev.map((job) =>
+                job.id === jobId ? { ...job, progress: 100 } : job
+              )
+            );
+            
+            resolve(data.publicUrl);
+          } catch(e: any) {
+            clearInterval(progressInterval);
+            reject(new Error("Erreur Upload: " + (e?.message || "Inconnue")));
+          }
         });
 
-        console.log(`[Diagnostic] Succès Upload Cloudinary: ${file.name} -> ${fileUrl}`);
+        console.log(`[Diagnostic] Succès Upload Supabase: ${file.name} -> ${fileUrl}`);
 
         uploadedFiles.push({
           url: fileUrl,
@@ -2715,27 +2664,18 @@ export function Discussions({
 
                           showToast("Téléchargement de l'icône...");
                           try {
-                            const formData = new FormData();
-                            formData.append("file", file);
-                            formData.append(
-                              "upload_preset",
-                              "djmessenger_preset",
-                            );
+                            const filePath = `avatar_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+                            const { error: uploadError } = await supabase.storage
+                              .from('medias')
+                              .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
-                            const response = await fetch(
-                              "https://api.cloudinary.com/v1_1/dfbhvgcbi/image/upload",
-                              {
-                                method: "POST",
-                                body: formData,
-                              },
-                            );
+                            if (uploadError) throw uploadError;
 
-                            if (!response.ok) throw new Error("Upload failed");
-                            const data = await response.json();
+                            const { data } = supabase.storage.from('medias').getPublicUrl(filePath);
 
                             await setDoc(
                               doc(db, "groups", activeGroup),
-                              { avatar: data.secure_url },
+                              { avatar: data.publicUrl },
                               { merge: true },
                             );
                             showToast("Icône modifiée !");
