@@ -773,6 +773,21 @@ export function Discussions({
         continue;
       }
 
+      // --- LIMITATIONS COMMERCIALES CLOUDINARY (FORFAIT GRATUIT) ---
+      const isRawCloudinary = (!isImage && !isVideo && !isAudio);
+      if (isRawCloudinary && file.size > 10 * 1024 * 1024) {
+        showToast(`Impossible: Cloudinary bloque les fichiers .zip/.apk/.pdf à 10 Mo sur le forfait Gratuit.`);
+        continue;
+      }
+      if (isImage && file.size > 10 * 1024 * 1024) {
+        showToast(`Impossible: Cloudinary bloque les images à 10 Mo sur le forfait Gratuit.`);
+        continue;
+      }
+      if (isVideo && file.size > 100 * 1024 * 1024) {
+        showToast(`Impossible: Cloudinary bloque les vidéos à 100 Mo sur le forfait Gratuit.`);
+        continue;
+      }
+
       // Cloudinary pour les fichiers lourds (> 800KB) ou documents
       try {
         console.log(`[Diagnostic] Démarrage Upload Cloudinary pour: ${file.name}`);
