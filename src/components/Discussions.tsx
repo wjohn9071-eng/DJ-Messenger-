@@ -826,7 +826,17 @@ export function Discussions({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ upload_preset: uploadPreset })
               });
-              const signData = await signRes.json();
+              const rawText = await signRes.text();
+              let signData;
+              try {
+                signData = JSON.parse(rawText);
+              } catch (e: any) {
+                console.error("Erreur serveur (non-JSON):", rawText.substring(0, 50));
+                if (rawText.trim().startsWith("<") || rawText.includes("The page")) {
+                  throw new Error("Impossible de joindre le Backend ! Assurez-vous d'avoir redéployé sur Vercel : l'API /api/cloudinary-sign.ts a été ajoutée.");
+                }
+                throw new Error("Erreur Serveur: " + rawText.substring(0, 50) + "...");
+              }
               if (!signRes.ok) throw new Error(signData.error || "Erreur de requête vers le serveur");
               if (signData.error) throw new Error(signData.error);
 

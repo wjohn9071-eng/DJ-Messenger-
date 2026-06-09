@@ -12,8 +12,8 @@ async function startServer() {
   // Cloudinary signature endpoint
   app.post("/api/cloudinary-sign", (req, res) => {
     try {
-      const apiKey = (process.env.CLOUDINARY_API_KEY || "").trim();
-      const apiSecret = (process.env.CLOUDINARY_API_SECRET || "").trim();
+      const apiKey = (process.env.CLOUDINARY_API_KEY || "281391161144684").trim();
+      const apiSecret = (process.env.CLOUDINARY_API_SECRET || "p7bfK2vkQtHybRXeAnNyAfcvH3g").trim();
       const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || "dfbhvgcbi").trim();
 
       if (!apiSecret || !apiKey) {
