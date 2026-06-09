@@ -4,7 +4,7 @@ import { djStyleBg, djStyleText } from '../../lib/utils';
 import { Send, Trash2, Plus, Paperclip, Smile, X, BarChart2, Download } from 'lucide-react';
 
 export function SimulatedDiscussions({ state, updateState }: { state: AppState, updateState: any }) {
-  const [activeTab, setActiveTab] = useState<'public' | 'private' | 'sms' | 'recent'>(state.discussionTab || (state.newMessages && state.newMessages.length > 0 ? 'recent' : 'public'));
+  const [activeTab, setActiveTab] = useState<'public' | 'private' | 'sms' | 'recent' | 'ghost'>(state.discussionTab || (state.newMessages && state.newMessages.length > 0 ? 'recent' : 'public'));
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [smsSearch, setSmsSearch] = useState('');

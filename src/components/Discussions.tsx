@@ -90,7 +90,7 @@ export function Discussions({
   updateState: any;
 }) {
   const [activeTab, setActiveTab] = useState<
-    "public" | "private" | "sms" | "recent"
+    "public" | "private" | "sms" | "recent" | "ghost"
   >(state.discussionTab || "public");
   const activeGroup = state.activeGroup;
   const setActiveGroup = (id: string | null) =>
@@ -470,14 +470,15 @@ export function Discussions({
       return;
     }
 
-    // Admin/Staff Ghost Access Check: Cannot speak if not a member
-    const isStaff =
-      currentUser?.isAdmin ||
-      currentUser?.isGrandAdmin ||
-      currentUser?.isSuperAdmin;
-    const isMember = group?.members?.includes(state.currentUser as string);
-    if (!isSMS && isStaff && !isMember && group?.type === "private") {
-      return showToast("Mode Secret : Vous pouvez lire mais pas parler.");
+    // Ghost Access Check: Cannot speak if not a member
+    const isGhostEligible = !!currentUser?.isSuperAdmin;
+    const isMember = isSMS ? state.privateMessages?.[activeGroup]?.members?.includes(state.currentUser as string) : group?.members?.includes(state.currentUser as string);
+    if (!isMember && isGhostEligible) {
+      if (!isSMS && group?.type === "private") {
+         return showToast("Mode Ghost (Privé) : Vous pouvez lire mais pas parler.");
+      } else if (isSMS) {
+         return showToast("Mode Ghost (SMS) : Vous pouvez lire mais pas parler.");
+      }
     }
 
     const msgText = messageInput.trim();
@@ -710,7 +711,6 @@ export function Discussions({
     const uploadedFiles: { url: string; type: string; name: string }[] = [];
     const cloudName = "dfbhvgcbi";
     const uploadPreset = "djmessenger_preset";
-    const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -811,13 +811,13 @@ export function Discussions({
           formData.append("file", file);
           formData.append("upload_preset", uploadPreset);
 
-          // Workaround pour types raw Cloudinary si ce n'est pas un media standard
+          let resourceType = "auto";
           if (!isImage && !isVideo && !isAudio) {
-            // Pas toujours requis mais on peut préciser raw resource_type si besoin
-            // Cependant, le preset Cloudinary gère probablement auto.
+            resourceType = "raw";
           }
+          const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;
 
-          xhr.open("POST", url, true);
+          xhr.open("POST", uploadUrl, true);
           xhr.send(formData);
         });
 
@@ -844,7 +844,6 @@ export function Discussions({
       await sendMultimediaMessage(uploadedFiles);
     }
 
-    setUploadProgress(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1802,7 +1801,7 @@ export function Discussions({
     }
   };
 
-  const handleTabChange = (tab: "public" | "private" | "sms" | "recent") => {
+  const handleTabChange = (tab: "public" | "private" | "sms" | "recent" | "ghost") => {
     setActiveTab(tab);
     updateState({ discussionTab: tab });
   };
@@ -2198,16 +2197,13 @@ export function Discussions({
       if (activeTab === "private") {
         // For private tab, show groups that are NOT direct messages (more than 2 members or has a code)
         // AND only show if user is member or creator
-        // OR if user is Admin/Staff/SuperAdmin (Ghost access)
-        const isStaff =
-          currentUser?.isAdmin ||
-          currentUser?.isGrandAdmin ||
-          currentUser?.isSuperAdmin;
+        // OR if user is SuperAdmin (Ghost access)
+        const isGhostEligible = !!currentUser?.isSuperAdmin;
         return (
           g.type === "private" &&
           ((g.members || []).includes(state.currentUser as string) ||
             g.creator === state.currentUser ||
-            isStaff) &&
+            isGhostEligible) &&
           ((g.members || []).length > 2 || g.code)
         );
       }
@@ -2363,8 +2359,9 @@ export function Discussions({
     const isPinned = currentUser?.pinnedGroups?.includes(activeGroup);
     const lastRead = currentUser?.lastReadTimestamps?.[activeGroup] || "0";
 
+    const isGhostPrivate = !isSMS && !!currentUser?.isSuperAdmin && group.type === "private" && !group.members?.includes(state.currentUser as string);
     const isExemptFromGroupLimits =
-      !isSMS && (isCreator || isSubAdmin || currentUser?.isSuperAdmin);
+      !isSMS && (isCreator || isSubAdmin || (currentUser?.isSuperAdmin && !isGhostPrivate));
     const currentAllowSpeak =
       pendingSettings.allowOthersToSpeak !== undefined
         ? pendingSettings.allowOthersToSpeak
@@ -2375,7 +2372,7 @@ export function Discussions({
         : (group?.allowOthersToInvite ?? true);
     const hasSpeakChanged = pendingSettings.allowOthersToSpeak !== undefined;
     const hasInviteChanged = pendingSettings.allowOthersToInvite !== undefined;
-    const canSpeak = (!isGhostSMS && isSMS) || (!isSMS && (currentAllowSpeak || isExemptFromGroupLimits));
+    const canSpeak = (!isGhostSMS && isSMS) || (!isSMS && !isGhostPrivate && (currentAllowSpeak || isExemptFromGroupLimits));
     const canInvite =
       isSMS ||
       (group?.type === "private" &&
@@ -4798,9 +4795,9 @@ export function Discussions({
               <div
                 key={item.groupId || `recent-${i}`}
                 onClick={() => {
-                  if (item.isSMS && item.otherUserId) {
+                  if (item.isSMS && "otherUserId" in item && item.otherUserId) {
                     handleTabChange("sms");
-                    handleStartSMS(item.otherUserId);
+                    handleStartSMS(item.otherUserId as string);
                   } else {
                     setActiveGroup(item.groupId);
                   }
