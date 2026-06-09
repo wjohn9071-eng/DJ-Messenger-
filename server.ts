@@ -12,9 +12,9 @@ async function startServer() {
   // Cloudinary signature endpoint
   app.post("/api/cloudinary-sign", (req, res) => {
     try {
-      const apiKey = process.env.CLOUDINARY_API_KEY || "";
-      const apiSecret = process.env.CLOUDINARY_API_SECRET || "";
-      const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "dfbhvgcbi";
+      const apiKey = (process.env.CLOUDINARY_API_KEY || "").trim();
+      const apiSecret = (process.env.CLOUDINARY_API_SECRET || "").trim();
+      const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || "dfbhvgcbi").trim();
 
       if (!apiSecret || !apiKey) {
         return res.status(500).json({ error: "Missing Cloudinary credentials on server." });
@@ -22,10 +22,18 @@ async function startServer() {
 
       // Generate signature
       const timestamp = Math.round(new Date().getTime() / 1000);
+      const paramsToSign: Record<string, any> = { timestamp };
+
+      const uploadPreset = req.body?.upload_preset;
+      if (uploadPreset) {
+        paramsToSign.upload_preset = uploadPreset;
+      }
+
       const signature = cloudinary.v2.utils.api_sign_request(
-        { timestamp: timestamp },
+        paramsToSign,
         apiSecret
       );
+
 
       res.json({
         timestamp,

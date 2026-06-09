@@ -821,9 +821,13 @@ export function Discussions({
           const performUpload = async () => {
             try {
               // 1. Get signature from our full-stack backend
-              const signRes = await fetch('/api/cloudinary-sign', { method: 'POST' });
-              if (!signRes.ok) throw new Error("Erreur de requête vers le serveur (Signature)");
+              const signRes = await fetch('/api/cloudinary-sign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ upload_preset: uploadPreset })
+              });
               const signData = await signRes.json();
+              if (!signRes.ok) throw new Error(signData.error || "Erreur de requête vers le serveur");
               if (signData.error) throw new Error(signData.error);
 
               const { timestamp, signature, apiKey, cloudName: serverCloudName } = signData;
@@ -832,6 +836,7 @@ export function Discussions({
               formData.append("file", file);
               formData.append("api_key", apiKey);
               formData.append("timestamp", timestamp.toString());
+              formData.append("upload_preset", uploadPreset);
               formData.append("signature", signature);
 
               let resourceType = "auto";
