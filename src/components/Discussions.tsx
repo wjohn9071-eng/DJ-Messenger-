@@ -811,7 +811,11 @@ export function Discussions({
 
             if (uploadError) {
               console.error("Supabase Upload Error:", uploadError);
-              throw new Error(uploadError.message || "Erreur lors de l'upload Supabase");
+              let errorMsg = uploadError.message || "Erreur lors de l'upload Supabase";
+              if (errorMsg.includes("row-level security policy")) {
+                errorMsg = "Bloqué par Supabase (RLS). Tu dois autoriser les envois (INSERT) sur ton bucket 'medias' via ton dashboard Supabase.";
+              }
+              throw new Error(errorMsg);
             }
 
             const { data } = supabase.storage.from('medias').getPublicUrl(filePath);
@@ -2669,7 +2673,13 @@ export function Discussions({
                               .from('medias')
                               .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
-                            if (uploadError) throw uploadError;
+                            if (uploadError) {
+                              let errorMsg = uploadError.message;
+                              if (errorMsg.includes("row-level security policy")) {
+                                errorMsg = "Bloqué par Supabase (RLS). Tu dois autoriser les envois (INSERT) sur ton bucket 'medias' via ton dashboard Supabase.";
+                              }
+                              throw new Error(errorMsg);
+                            }
 
                             const { data } = supabase.storage.from('medias').getPublicUrl(filePath);
 
