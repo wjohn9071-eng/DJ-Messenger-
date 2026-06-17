@@ -349,7 +349,7 @@ export function Profile({ state, updateState, handleLogout }: { state: AppState,
         )}
       </div>
 
-      <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-8 bg-white/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-white/50 mb-8">
+      <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className={`space-y-8 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border mb-8 ${state.darkMode ? 'bg-zinc-900/80 border-white/10' : 'bg-white/80 border-white/50'}`}>
 
         <div className="space-y-4">
           <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 ml-1">Nom d'utilisateur</label>
@@ -389,7 +389,7 @@ export function Profile({ state, updateState, handleLogout }: { state: AppState,
                  </div>
                  <div>
                    <p className={`font-bold ${state.darkMode ? 'text-white' : 'text-gray-900'}`}>Connecté avec Google</p>
-                   <p className="text-xs text-gray-500 font-medium">Mot de passe géré par Google. Confidentialité garantie.</p>
+                   <p className={`text-xs font-medium ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Mot de passe géré par Google. Confidentialité garantie.</p>
                  </div>
               </div>
             </div>
@@ -430,19 +430,19 @@ export function Profile({ state, updateState, handleLogout }: { state: AppState,
         <div className={`mt-6 p-6 rounded-2xl border ${state.darkMode ? 'bg-zinc-800/50 border-white/5' : 'bg-gray-50/50 border-gray-100'}`}>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Date de création</span>
+              <span className={`text-xs font-bold uppercase tracking-widest ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Date de création</span>
               <span className={`text-sm font-black ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
                 {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Inconnue'}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Dernière activité</span>
+              <span className={`text-xs font-bold uppercase tracking-widest ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Dernière activité</span>
               <span className={`text-sm font-black ${state.darkMode ? 'text-white' : 'text-gray-800'}`}>
                 {checkIsOnline(user) ? <span className="text-green-500">En ligne</span> : (user?.lastSeen ? new Date(user.lastSeen).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) : 'Inconnue')}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Rôle</span>
+              <span className={`text-xs font-bold uppercase tracking-widest ${state.darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Rôle</span>
               <span className={`text-[10px] px-2 py-1 rounded-md font-black uppercase text-white ${user?.isSuperAdmin ? 'bg-red-500' : (user?.isGrandAdmin ? 'bg-purple-500' : (user?.isAdmin ? 'bg-blue-500' : 'bg-gray-400'))}`}>
                 {user?.isSuperAdmin ? 'Super Admin' : (user?.isGrandAdmin ? 'Grand Admin' : (user?.isAdmin ? 'Staff' : 'Standard'))}
               </span>

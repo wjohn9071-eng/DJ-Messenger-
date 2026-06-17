@@ -1,6 +1,14 @@
 import { AppState } from './types';
 
 export const APP_UPDATES = [
+  { 
+    version: '3.2.0',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
+    desc: 'Amélioration de la connexion avec Google et optimisation des couleurs dans le profil (Mode sombre). Remplacement du système de stockage pour envoyer des fichiers lourds de façon sécurisée (Terminé Cloudinary).',
+    adminDesc: 'Amélioration de la connexion Google (correction erreur auth/cancelled-popup-request) et fix visuel en mode sombre. Migration complète de Cloudinary vers Supabase Storage pour l\'envoi natif de tout type de fichier sans limite d\'extension bloquée.',
+    manual: '### Guide d\'utilisation v3.2.0\n\n1. **Connexion Google** : Le problème de compte bloqué par popup a été corrigé.\n2. **Stockage Amélioré** : Le système de partage de gros fichiers est beaucoup plus robuste et tolérant.\n3. **Amélioration Visuelle** : L\'onglet Profil est parfaitement lisible en fond sombre.',
+    adminManual: '### Guide d\'utilisation v3.2.0 (Admin)\n\n1. **Réseau & Base de Données** : Les fichiers passent désormais sur le bucket "medias" de Supabase pour contrer les limitations gratuites de 10 Mo de Cloudinary.\n2. **Google Connect** : Un système "isAuthenticating" empêche le clic multiple sur le bouton Google.'
+  },
   {
     version: '3.1.4',
     date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),

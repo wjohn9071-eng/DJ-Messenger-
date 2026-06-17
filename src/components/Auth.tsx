@@ -13,6 +13,7 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
   const [showPassword, setShowPassword] = useState(false);
   const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const showToast = (text: string) => {
     setToast(text);
@@ -20,6 +21,8 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
   };
 
   const handleGoogleLogin = async () => {
+    if (isAuthenticating) return;
+    setIsAuthenticating(true);
     try {
       console.log("Starting Google Login with Popup...");
       // Try with standard provider first, it's often more stable
@@ -78,7 +81,7 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
         }
       }
     } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         showToast("Connexion annulée.");
         return;
       }
@@ -94,6 +97,8 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
       } else {
         showToast("Erreur de connexion Google: " + (error.message || "Inconnue"));
       }
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -249,10 +254,11 @@ export default function Auth({ state, updateState }: { state: AppState, updateSt
 
             <button 
               onClick={handleGoogleLogin} 
-              className="w-full py-3 rounded-2xl font-bold bg-white text-gray-500 border border-gray-100 hover:bg-gray-50 transition active:scale-95 text-sm flex items-center justify-center gap-2 mt-2"
+              disabled={isAuthenticating}
+              className={`w-full py-3 rounded-2xl font-bold bg-white text-gray-500 border border-gray-100 transition active:scale-95 text-sm flex items-center justify-center gap-2 mt-2 ${isAuthenticating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
             >
               <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
-              Continuer avec Google
+              {isAuthenticating ? "Connexion..." : "Continuer avec Google"}
             </button>
           </div>
         ) : (
