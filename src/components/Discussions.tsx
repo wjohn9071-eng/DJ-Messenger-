@@ -799,7 +799,7 @@ export function Discussions({
           }, 500);
 
           try {
-            const filePath = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+            const filePath = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
             const { error: uploadError } = await supabase.storage
               .from('medias')
               .upload(filePath, file, {
@@ -814,6 +814,8 @@ export function Discussions({
               let errorMsg = uploadError.message || "Erreur lors de l'upload Supabase";
               if (errorMsg.includes("row-level security policy")) {
                 errorMsg = "Bloqué par Supabase (RLS). Tu dois autoriser les envois (INSERT) sur ton bucket 'medias' via ton dashboard Supabase.";
+              } else if (errorMsg.toLowerCase().includes("failed to fetch")) {
+                errorMsg = "Erreur réseau (Failed to fetch) : la connexion a échoué ou le fichier dépasse la limite max de votre bucket Supabase. Augmentez la limite dans Storage Settings.";
               }
               throw new Error(errorMsg);
             }
@@ -2668,7 +2670,7 @@ export function Discussions({
 
                           showToast("Téléchargement de l'icône...");
                           try {
-                            const filePath = `avatar_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+                            const filePath = `avatar_${Date.now()}_${Math.random().toString(36).substring(2, 9)}_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
                             const { error: uploadError } = await supabase.storage
                               .from('medias')
                               .upload(filePath, file, { cacheControl: '3600', upsert: false });
@@ -2677,6 +2679,8 @@ export function Discussions({
                               let errorMsg = uploadError.message;
                               if (errorMsg.includes("row-level security policy")) {
                                 errorMsg = "Bloqué par Supabase (RLS). Tu dois autoriser les envois (INSERT) sur ton bucket 'medias' via ton dashboard Supabase.";
+                              } else if (errorMsg.toLowerCase().includes("failed to fetch")) {
+                                errorMsg = "Erreur réseau (Failed to fetch) : la connexion a échoué.";
                               }
                               throw new Error(errorMsg);
                             }

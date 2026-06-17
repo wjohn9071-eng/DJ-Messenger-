@@ -2,6 +2,14 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   { 
+    version: '3.2.1',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
+    desc: 'Correction d\'un problème de collision lors de l\'envoi simultané de plusieurs fichiers du même type.',
+    adminDesc: 'Correction d\'un bug provoquant l\'erreur "Failed to fetch" sur Supabase lors de l\'upload de plusieurs fichiers avec un nom identique (ajout d\'un hash aléatoire pour garantir l\'unicité des chemins du bucket).',
+    manual: '### Guide d\'utilisation v3.2.1\n\n1. **Gros fichiers** : La sélection de plusieurs fichiers de même type d\'un coup ne provoque plus d\'erreur réseau.',
+    adminManual: '### Guide d\'utilisation v3.2.1 (Admin)\n\n1. **Hash Supabase** : L\'ajout d\'une clé aléatoire "Math.random().toString(36)" prévient toute collision d\'upload.'
+  },
+  { 
     version: '3.2.0',
     date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
     desc: 'Amélioration de la connexion avec Google et optimisation des couleurs dans le profil (Mode sombre). Remplacement du système de stockage pour envoyer des fichiers lourds de façon sécurisée (Terminé Cloudinary).',
