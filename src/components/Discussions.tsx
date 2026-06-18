@@ -1904,9 +1904,36 @@ export function Discussions({
               originalText: msg && msg.text ? msg.text : "Message supprimé",
               text: "Message supprimé",
               deletedAt: new Date().toISOString(),
+              fileUrl: null,
+              files: null,
             },
             { merge: true },
           );
+
+          if (msg) {
+            const urlsToDelete: string[] = [];
+            if (msg.fileUrl) urlsToDelete.push(msg.fileUrl);
+            if (msg.files) {
+              msg.files.forEach((f: any) => {
+                if (f.url) urlsToDelete.push(f.url);
+              });
+            }
+
+            for (const url of urlsToDelete) {
+              if (url.includes('supabase.co')) {
+                const marker = '/storage/v1/object/public/medias/';
+                const idx = url.indexOf(marker);
+                if (idx !== -1) {
+                  const filePath = url.substring(idx + marker.length);
+                  try {
+                    await supabase.storage.from('medias').remove([filePath]);
+                  } catch(e) {
+                    console.error("Failed to delete from Supabase", e);
+                  }
+                }
+              }
+            }
+          }
         } else if (option === "bubble") {
           await deleteDoc(msgRef);
         }
@@ -2435,18 +2462,22 @@ export function Discussions({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() =>
+                onClick={() => {
+                  const allSelectedAreMine = Array.from(selectedMessages).every((id) => {
+                    const msg = group?.messages?.find(m => m.id === id);
+                    return msg?.senderId === state.currentUser;
+                  });
                   setDeleteOptionsPrompt({
                     msgIds: Array.from(selectedMessages),
-                    isMine: true,
+                    isMine: allSelectedAreMine,
                     isCreator,
                     isSubAdmin:
                       (group as Group).subAdmins?.includes(
                         state.currentUser as string,
                       ) || false,
                     isDeletedForEveryone: false,
-                  })
-                }
+                  });
+                }}
                 className="p-2 rounded-xl bg-white shadow-sm border border-blue-200 text-red-500 hover:bg-red-50 transition"
                 title="Supprimer la sélection"
               >
@@ -4245,12 +4276,7 @@ export function Discussions({
                     : "Supprimer pour moi uniquement"}
                 </button>
                 {!deleteOptionsPrompt.isDeletedForEveryone &&
-                  (deleteOptionsPrompt.isMine ||
-                    currentUser?.isAdmin ||
-                    currentUser?.isGrandAdmin ||
-                    currentUser?.isSuperAdmin ||
-                    deleteOptionsPrompt.isCreator ||
-                    deleteOptionsPrompt.isSubAdmin) && (
+                  deleteOptionsPrompt.isMine && (
                     <button
                       onClick={() =>
                         handleDeleteMessage(
@@ -4994,7 +5020,7 @@ export function Discussions({
                     <input
                       type="text"
                       placeholder="Code (ex: A1b2!)"
-                      maxLength={7}
+                      maxLength={8}
                       value={joinCode}
                       onChange={(e) => setJoinCode(e.target.value)}
                       className={`flex-1 px-4 py-3 rounded-xl border outline-none transition-all font-mono text-center tracking-widest ${state.darkMode ? "bg-zinc-800 border-white/10 text-white focus:ring-4 focus:ring-[#0D98BA]/20" : "bg-gray-50 border-gray-100 text-gray-900 focus:ring-4 focus:ring-[#0D98BA]/20"}`}

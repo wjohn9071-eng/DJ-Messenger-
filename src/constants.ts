@@ -1,6 +1,14 @@
 import { AppState } from './types';
 
 export const APP_UPDATES = [
+  {
+    version: '3.2.2',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    desc: 'Résolution de divers bugs liés à la messagerie de groupe et l\'envoi de fichiers.',
+    adminDesc: 'Correction de la longueur maximale du code de groupe (passant de 7 à 8 caractères). Suppression complète et simultanée du fichier depuis le bucket Supabase lorsqu\'un message est supprimé pour tout le monde. Restriction de la suppression pour tout le monde exclusive à l\'auteur du message.',
+    manual: '### Guide d\'utilisation v3.2.2\n\n1. **Codes de Groupes** : Vous pouvez désormais utiliser sans problème les codes d\'invitation à 8 caractères.\n2. **Suppression de message** : La suppression pour tout le monde est réservée uniquement à la personne qui a envoyé le message. De plus, supprimer un message pour tout le monde supprime complètement le fichier joint de nos serveurs de façon permanente !',
+    adminManual: '### Guide d\'utilisation v3.2.2 (Admin)\n\n1. **Bucket Storage** : Retrait du fichier via API key directement dans `Supabase` après une action de suppression pour alléger la limite de stockage.\n2. **Modération** : Un administrateur peut toujours supprimer une bulle avec son statut staff, mais l\'option standard "Supprimer pour tous" n\'est désormais plus visible pour le staff sur un message d\'autrui afin d\'éviter les erreurs de clics.'
+  },
   { 
     version: '3.2.1',
     date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
