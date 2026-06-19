@@ -711,10 +711,13 @@ export function Discussions({
 
     console.log(`[Diagnostic] handleFileChange: ${files.length} fichiers sélectionnés.`);
     const uploadedFiles: { url: string; type: string; name: string }[] = [];
-    const cloudName = "dfbhvgcbi";
-    const uploadPreset = "djmessenger_preset";
+    
+    const totalSize = files.reduce((acc, file) => acc + file.size, 0);
+    const estimatedBase64Total = totalSize * 1.34;
+    const allMultimedia = files.every(f => f.type.startsWith("image/") || f.type.startsWith("video/") || f.type.startsWith("audio/"));
+    const useFirebaseBase64 = estimatedBase64Total < 800 * 1024 && allMultimedia;
 
-    let totalBase64Size = 0;
+    console.log(`[Diagnostic] Total File Size: ${totalSize} bytes. Estimated Base64: ${estimatedBase64Total} bytes. Use Firebase: ${useFirebaseBase64}`);
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -760,11 +763,8 @@ export function Discussions({
       else if (isZip) fileType = "zip";
       else if (isCode) fileType = "file"; // Treat code as file for now
 
-      // Fallback pour les petits fichiers (Base64 dans Firestore) pour Firebase (Rapidité)
-      const estimatedBase64Size = file.size * 1.34;
-      if (file.size < 800 * 1024 && totalBase64Size + estimatedBase64Size < 900 * 1024 && (isImage || isVideo || isAudio)) {
-        console.log(`[Diagnostic] Petit fichier multimedia (<800KB), lecture en Base64 locale: ${file.name}`);
-        totalBase64Size += estimatedBase64Size;
+      if (useFirebaseBase64) {
+        console.log(`[Diagnostic] Conversion locale en Base64 pour Firebase: ${file.name}`);
         const base64data = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
@@ -778,7 +778,7 @@ export function Discussions({
         continue;
       }
 
-      // Supabase Storage pour les fichiers lourds (> 800KB) ou documents
+      // Supabase Storage pour les fichiers lourds ou documents
       try {
         console.log(`[Diagnostic] Démarrage Upload Supabase pour: ${file.name}`);
         const jobId = `job-${Date.now()}-${i}`;

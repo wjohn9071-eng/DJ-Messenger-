@@ -2,6 +2,22 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   {
+    version: '3.2.6',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    desc: 'Amélioration de la méthode d\'upload: Routage intelligent des fichiers entre le mode instantané (Firebase) et le mode Cloud (Supabase) selon le poids total de l\'envoi.',
+    adminDesc: 'Restauration de la conversion Base64 sécurisée. Au lieu d\'une évaluation par fichier qui pouvait surcharger le document, l\'évaluation se base sur la charge totale cumulée (payload size). Si le groupe de fichiers multimédias dépasse 800Ko estimé Base64, l\'ensemble bascule automatiquement sur le Storage asynchrone Supabase.',
+    manual: '### Guide d\'utilisation v3.2.6\n\n1. **Envoi Intelligent** : Les petits groupes d\'images/vidéos sont de nouveau expédiés de manière instantanée. Si vous sélectionnez de nombreux médias dépassant un total estimé d\'environ 1 Mégaoctet, le système dirigera l\'intégralité des envois directement vers le Cloud (Supabase) pour garantir leur conservation sans échec !',
+    adminManual: '### Guide d\'utilisation v3.2.6 (Admin)\n\n1. **Base64 Payload Routing** : Implémentation du `estimatedBase64Total`. Les envois ne crashent plus la limite de document Firestore, car tout lot dépassant 800 Ko est poussé uniformément vers un upload Supabase Storage.'
+  },
+  {
+    version: '3.2.5',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    desc: 'Passage exclusif à Supabase pour le stockage des fichiers pour éviter les limites de taille lors d\'envois groupés.',
+    adminDesc: 'Suppression complète du partitionnement Base64 local dans l\'upload handler. Les fichiers petits et grands sont tous uploadés de façon asynchrone sur Supabase pour garantir qu\'aucun document ne dépasse la limite de 1MB de charge Firestore.',
+    manual: '### Guide d\'utilisation v3.2.5\n\n1. **Stockage Cloud Supabase** : L\'application a basculé à 100% sur Supabase pour l\'envoi des fichiers. Vos envois massifs ne causeront plus de disparitions de messages liées à la limite de taille, et passeront tous via l\'infrastructure cloud dédiée.',
+    adminManual: '### Guide d\'utilisation v3.2.5 (Admin)\n\n1. **Retrait Base64** : Afin d\'éviter la limite stricte de la base de données Firestore à 1MB par document, tous les envois même minuscules sont hébergés via Supabase Storage Storage V1.'
+  },
+  {
     version: '3.2.4',
     date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
     desc: 'Correction critique d\'un bug provoquant la disparition des messages contenant plusieurs images (Erreur Firebase de taille limite dépassée).',
