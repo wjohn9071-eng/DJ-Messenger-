@@ -2,6 +2,14 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   {
+    version: '3.2.4',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    desc: 'Correction critique d\'un bug provoquant la disparition des messages contenant plusieurs images (Erreur Firebase de taille limite dépassée).',
+    adminDesc: 'Limitation de l\'encodage Base64 combiné local à < 900KB dans le parseur handleFileUpload. Les fichiers dépassant cette charge globale sont déroutés automatiquement vers l\'upload Supabase asynchrone, ce qui résout le bug Firebase `[code=invalid-argument]: Payload too large` (1MB limit) qui faisait rollback le snapshot optimiste.',
+    manual: '### Guide d\'utilisation v3.2.4\n\n1. **Envoi multiple de Fichiers** : L\'envoi de multiples photos et vidéos fonctionne à présent sans causer de bugs de disparition liés au poids de l\'envoi global ! Les fichiers légers passeront instantanément, tandis que les plus lourds chargeront proprement dans le cloud.',
+    adminManual: '### Guide d\'utilisation v3.2.4 (Admin)\n\n1. **Payload Limit Firestore** : La taille des documents Firestore est hard-cap à 1MB. En gérant la taille d\'encodage Base64 cumulée, l\'application empêche les crashs de requêtes `addDoc` invisibles et redirige silencieusement les images vers le Storage tier-3.'
+  },
+  {
     version: '3.2.3',
     date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
     desc: 'Amélioration de la modération des groupes (chefs et sous-admins) et correction de la multi-sélection pour la suppression.',

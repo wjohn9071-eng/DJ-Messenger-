@@ -714,6 +714,8 @@ export function Discussions({
     const cloudName = "dfbhvgcbi";
     const uploadPreset = "djmessenger_preset";
 
+    let totalBase64Size = 0;
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       console.log(`[Diagnostic] Traitement du fichier: ${file.name} (${file.type}, ${file.size} bytes)`);
@@ -759,8 +761,10 @@ export function Discussions({
       else if (isCode) fileType = "file"; // Treat code as file for now
 
       // Fallback pour les petits fichiers (Base64 dans Firestore) pour Firebase (Rapidité)
-      if (file.size < 800 * 1024 && (isImage || isVideo || isAudio)) {
+      const estimatedBase64Size = file.size * 1.34;
+      if (file.size < 800 * 1024 && totalBase64Size + estimatedBase64Size < 900 * 1024 && (isImage || isVideo || isAudio)) {
         console.log(`[Diagnostic] Petit fichier multimedia (<800KB), lecture en Base64 locale: ${file.name}`);
+        totalBase64Size += estimatedBase64Size;
         const base64data = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
