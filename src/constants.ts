@@ -2,6 +2,14 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   {
+    version: '3.2.3',
+    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    desc: 'Amélioration de la modération des groupes (chefs et sous-admins) et correction de la multi-sélection pour la suppression.',
+    adminDesc: 'Rétablissement de l\'accès de suppression pour la modération locale des groupes (créateur et sous-admins) via l\'option de suppression de la bulle modérateur. Correction des sélecteurs allSelectedAreMine, isMine, isDeletedAccount et sender pour prendre en charge simultanément les propriétés "user" et "senderId" sur les messages afin de restaurer le fonctionnement de la multi-sélection et l\'affichage des boutons d\'action.',
+    manual: '### Guide d\'utilisation v3.2.3\n\n1. **Modération Restaurée** : En tant que créateur d\'un groupe ou sous-admin, vous disposez maintenant du bouton "Supprimer la bulle (Modérateur)" pour retirer facilement les messages d\'un autre membre.\n2. **Multi-Sélection** : La multi-sélection des messages fonctionne de nouveau parfaitement pour la suppression globale ou individuelle !',
+    adminManual: '### Guide d\'utilisation v3.2.3 (Admin)\n\n1. **Local Mod Permission** : Les créateurs de groupe et sous-admins peuvent détruire des bulles de messages directement sans affecter le statut global mais en supprimant la ressource.\n2. **Type Compatibility** : Changement de `msg?.senderId` vers un double test robuste `msg?.user || msg?.senderId` lors de la vérification de la suppression de groupe.'
+  },
+  {
     version: '3.2.2',
     date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
     desc: 'Résolution de divers bugs liés à la messagerie de groupe et l\'envoi de fichiers.',

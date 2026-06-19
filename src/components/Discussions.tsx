@@ -1912,15 +1912,19 @@ export function Discussions({
 
           if (msg) {
             const urlsToDelete: string[] = [];
-            if (msg.fileUrl) urlsToDelete.push(msg.fileUrl);
-            if (msg.files) {
+            if (msg.fileUrl && typeof msg.fileUrl === 'string') {
+              urlsToDelete.push(msg.fileUrl);
+            }
+            if (msg.files && Array.isArray(msg.files)) {
               msg.files.forEach((f: any) => {
-                if (f.url) urlsToDelete.push(f.url);
+                if (f && typeof f.url === 'string') {
+                  urlsToDelete.push(f.url);
+                }
               });
             }
 
             for (const url of urlsToDelete) {
-              if (url.includes('supabase.co')) {
+              if (url && typeof url === 'string' && url.includes('supabase.co')) {
                 const marker = '/storage/v1/object/public/medias/';
                 const idx = url.indexOf(marker);
                 if (idx !== -1) {
@@ -2465,7 +2469,7 @@ export function Discussions({
                 onClick={() => {
                   const allSelectedAreMine = Array.from(selectedMessages).every((id) => {
                     const msg = group?.messages?.find(m => m.id === id);
-                    return msg?.senderId === state.currentUser;
+                    return msg && (msg.user === state.currentUser || msg.senderId === state.currentUser);
                   });
                   setDeleteOptionsPrompt({
                     msgIds: Array.from(selectedMessages),
@@ -3317,8 +3321,8 @@ export function Discussions({
                   prevMsg.user === msg.user &&
                   !msg.isSystem &&
                   !prevMsg.isSystem;
-                const isMine = msg.user === state.currentUser;
-                const sender = state.users[msg.user];
+                const isMine = msg.user === state.currentUser || msg.senderId === state.currentUser;
+                const sender = state.users[msg.user] || (msg.senderId ? state.users[msg.senderId] : undefined);
                 const msgSessionLastRead = sessionLastRead[activeGroup] || "0";
                 const msgSessionEnterTime =
                   sessionEnterTime[activeGroup] || new Date().toISOString();
@@ -3328,7 +3332,7 @@ export function Discussions({
                   msg.timestamp > msgSessionLastRead &&
                   msg.timestamp <= msgSessionEnterTime;
                 const isDeletedAccount =
-                  !msg.isSystem && (!state.users || !state.users[msg.user]);
+                  !msg.isSystem && (!state.users || (!state.users[msg.user] && (!msg.senderId || !state.users[msg.senderId])));
                 const isStaff =
                   sender?.isAdmin ||
                   sender?.isGrandAdmin ||
@@ -4291,14 +4295,18 @@ export function Discussions({
                   )}
                 {(currentUser?.isAdmin ||
                   currentUser?.isGrandAdmin ||
-                  currentUser?.isSuperAdmin) && (
+                  currentUser?.isSuperAdmin ||
+                  deleteOptionsPrompt.isCreator ||
+                  deleteOptionsPrompt.isSubAdmin) && (
                   <button
                     onClick={() =>
                       handleDeleteMessage(deleteOptionsPrompt.msgIds, "bubble")
                     }
-                    className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition"
+                    className="w-full py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition shadow-lg shadow-red-500/20"
                   >
-                    Supprimer la bulle (Staff)
+                    {deleteOptionsPrompt.isCreator || deleteOptionsPrompt.isSubAdmin
+                      ? "Supprimer la bulle (Modérateur)"
+                      : "Supprimer la bulle (Staff)"}
                   </button>
                 )}
                 <button
