@@ -2,6 +2,14 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   {
+    version: '3.2.8',
+    date: '21/06/2026',
+    desc: 'Amélioration de DJ Bot : Il reconnaît désormais de manière autonome vos requêtes récurrentes (PWA, Paramètres, Profil, Staff...) même en cas de panne réseau !',
+    adminDesc: 'Création d\'un système robuste de reconnaissance par Regex/keywords en offline-fallback pour le DJ Bot au sein de App.tsx (Permet d\'agir de filet de sécurité lorsque l\'API Gemini throw une exception réseau).',
+    manual: '### Guide d\'utilisation v3.2.8\n\n1. **DJ Bot Autonome** : Que le réseau soit instable ou que le bot ait des "absences", il saura toujours vous orienter vers le Staff, les Options ou vous expliquer la PWA.',
+    adminManual: '### Guide d\'utilisation v3.2.8 (Admin)\n\n1. **Fallback Gemini** : En cas de crash du endpoint `/api/bot`, un dictionnaire de conditions a été rajouté sur le trigger Private Messages du DJ Bot afin de parser la sémantique de l\'utilisateur.'
+  },
+  {
     version: '3.2.7',
     date: '21/06/2026',
     desc: 'Correction des erreurs d\'écran (messages rouges) liées au WebSocket, et restriction de test appliquée au canal de communication du Staff.',

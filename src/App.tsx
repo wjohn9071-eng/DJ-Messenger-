@@ -827,7 +827,33 @@ export default function App() {
             return;
           }
 
-          let response = "Je suis désolé, mes capteurs ne captent pas bien cette fréquence ! (Erreur réseau)";
+          const textLower = (lastMsg.text || "").toLowerCase();
+          
+          let fallbackResponse = "Je suis désolé, mes capteurs ne captent pas bien cette fréquence ! Si ton réseau bug, essaie de poser une question contenant : mot de passe, pwa, profil, staff, society...";
+          
+          if (textLower.includes("pwa") || textLower.includes("installer") || textLower.includes("télécharger")) {
+             fallbackResponse = "📱 Pour installer l'application (PWA) : appuie sur les trois petits points de ton navigateur et choisis 'Ajouter à l'écran d'accueil', ou bien utilise l'icône de téléchargement si elle apparaît dans la barre d'adresse !";
+          } else if (textLower.includes("paramètre") || textLower.includes("parametres") || textLower.includes("reglage") || textLower.includes("réglage")) {
+             fallbackResponse = "⚙️ Les paramètres (l'icône d'engrenage en bas) te permettent de changer le thème de l'application, et de modifier les réglages de ton compte ou de te déconnecter.";
+          } else if (textLower.includes("profil") || textLower.includes("nom") || textLower.includes("photo") || textLower.includes("avatar")) {
+             fallbackResponse = "👤 Dans l'onglet Mon Profil, tu peux modifier ton avatar, changer ton nom, mettre à jour ta bio, et voir ton historique.";
+          } else if (textLower.includes("déconnect") || textLower.includes("deconnect") || textLower.includes("quitter")) {
+             fallbackResponse = "👋 Pour te déconnecter, va dans l'onglet 'Paramètres' et fais défiler tout en bas. Le gros bouton blanc 'Se déconnecter' s'y trouve.";
+          } else if (textLower.includes("mot de passe") || textLower.includes("mdp") || textLower.includes("oubli")) {
+             fallbackResponse = "🔑 Cas d'oubli de mot de passe :\n1. Si tu as utilisé Google ou un vrai email, tu peux le réinitialiser depuis l'écran de connexion.\n2. Si tu es bloqué sur un compte invité, rends-toi dans l'onglet 'Staff' pour demander de l'aide à un admin !";
+          } else if (textLower.includes("staff") || textLower.includes("aide") || textLower.includes("admin") || textLower.includes("problème")) {
+             fallbackResponse = "🛡️ L'onglet 'Staff' te permet de contacter directement les modérateurs et développeurs en privé. Dès que tu publies là-bas, c'est comme un mini forum entre toi et l'équipe.";
+          } else if (textLower.includes("society") || textLower.includes("idée") || textLower.includes("vote")) {
+             fallbackResponse = "💡 La DJ Society est un espace de vote ! Tu peux y soumettre des propositions ou soutenir les idées des autres pour les prochaines mises à jour.";
+          } else if (textLower.includes("mise à jour") || textLower.includes("maj") || textLower.includes("nouveau") || textLower.includes("mise a jour")) {
+             fallbackResponse = "🔄 L'onglet 'Mises à jour' (l'icône en forme de cloche) répertorie toutes les nouveautés, correctifs et ajouts de fonctionnalités par version.";
+          } else if (textLower.includes("tuto") || textLower.includes("tutoriel") || textLower.includes("démo") || textLower.includes("demo")) {
+             fallbackResponse = "🎮 Un tutoriel interactif est disponible au centre de l'Accueil ! Il te montrera les bases sous forme de simulation. Tu peux y accéder depuis la page d'accueil.";
+          } else if (textLower.includes("bonjour") || textLower.includes("salut") || textLower.includes("coucou") || textLower.includes("hello")) {
+             fallbackResponse = "Salut l'artiste ! 🎧 Je suis DJ Bot. Je peux t'expliquer comment marche PWA, Staff, Society, Profil, Mots de passe, Mises à jour...";
+          }
+
+          let response = fallbackResponse;
           try {
              const res = await fetch("/api/bot", {
                method: "POST",
@@ -836,7 +862,9 @@ export default function App() {
              });
              if (res.ok) {
                const data = await res.json();
-               response = data.response || response;
+               if (data.response && data.response.trim() !== "") {
+                 response = data.response;
+               }
              }
           } catch(e) {
              console.error("DJ Bot API error:", e);
