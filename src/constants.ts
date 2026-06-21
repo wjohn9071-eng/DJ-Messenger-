@@ -3,7 +3,7 @@ import { AppState } from './types';
 export const APP_UPDATES = [
   {
     version: '3.2.6',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    date: '21/06/2026',
     desc: 'Amélioration de la méthode d\'upload: Routage intelligent des fichiers entre le mode instantané (Firebase) et le mode Cloud (Supabase) selon le poids total de l\'envoi.',
     adminDesc: 'Restauration de la conversion Base64 sécurisée. Au lieu d\'une évaluation par fichier qui pouvait surcharger le document, l\'évaluation se base sur la charge totale cumulée (payload size). Si le groupe de fichiers multimédias dépasse 800Ko estimé Base64, l\'ensemble bascule automatiquement sur le Storage asynchrone Supabase.',
     manual: '### Guide d\'utilisation v3.2.6\n\n1. **Envoi Intelligent** : Les petits groupes d\'images/vidéos sont de nouveau expédiés de manière instantanée. Si vous sélectionnez de nombreux médias dépassant un total estimé d\'environ 1 Mégaoctet, le système dirigera l\'intégralité des envois directement vers le Cloud (Supabase) pour garantir leur conservation sans échec !',
@@ -11,7 +11,7 @@ export const APP_UPDATES = [
   },
   {
     version: '3.2.5',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    date: '19/06/2026',
     desc: 'Passage exclusif à Supabase pour le stockage des fichiers pour éviter les limites de taille lors d\'envois groupés.',
     adminDesc: 'Suppression complète du partitionnement Base64 local dans l\'upload handler. Les fichiers petits et grands sont tous uploadés de façon asynchrone sur Supabase pour garantir qu\'aucun document ne dépasse la limite de 1MB de charge Firestore.',
     manual: '### Guide d\'utilisation v3.2.5\n\n1. **Stockage Cloud Supabase** : L\'application a basculé à 100% sur Supabase pour l\'envoi des fichiers. Vos envois massifs ne causeront plus de disparitions de messages liées à la limite de taille, et passeront tous via l\'infrastructure cloud dédiée.',
@@ -19,7 +19,7 @@ export const APP_UPDATES = [
   },
   {
     version: '3.2.4',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    date: '19/06/2026',
     desc: 'Correction critique d\'un bug provoquant la disparition des messages contenant plusieurs images (Erreur Firebase de taille limite dépassée).',
     adminDesc: 'Limitation de l\'encodage Base64 combiné local à < 900KB dans le parseur handleFileUpload. Les fichiers dépassant cette charge globale sont déroutés automatiquement vers l\'upload Supabase asynchrone, ce qui résout le bug Firebase `[code=invalid-argument]: Payload too large` (1MB limit) qui faisait rollback le snapshot optimiste.',
     manual: '### Guide d\'utilisation v3.2.4\n\n1. **Envoi multiple de Fichiers** : L\'envoi de multiples photos et vidéos fonctionne à présent sans causer de bugs de disparition liés au poids de l\'envoi global ! Les fichiers légers passeront instantanément, tandis que les plus lourds chargeront proprement dans le cloud.',
@@ -27,7 +27,7 @@ export const APP_UPDATES = [
   },
   {
     version: '3.2.3',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    date: '19/06/2026',
     desc: 'Amélioration de la modération des groupes (chefs et sous-admins) et correction de la multi-sélection pour la suppression.',
     adminDesc: 'Rétablissement de l\'accès de suppression pour la modération locale des groupes (créateur et sous-admins) via l\'option de suppression de la bulle modérateur. Correction des sélecteurs allSelectedAreMine, isMine, isDeletedAccount et sender pour prendre en charge simultanément les propriétés "user" et "senderId" sur les messages afin de restaurer le fonctionnement de la multi-sélection et l\'affichage des boutons d\'action.',
     manual: '### Guide d\'utilisation v3.2.3\n\n1. **Modération Restaurée** : En tant que créateur d\'un groupe ou sous-admin, vous disposez maintenant du bouton "Supprimer la bulle (Modérateur)" pour retirer facilement les messages d\'un autre membre.\n2. **Multi-Sélection** : La multi-sélection des messages fonctionne de nouveau parfaitement pour la suppression globale ou individuelle !',
@@ -35,7 +35,7 @@ export const APP_UPDATES = [
   },
   {
     version: '3.2.2',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    date: '18/06/2026',
     desc: 'Résolution de divers bugs liés à la messagerie de groupe et l\'envoi de fichiers.',
     adminDesc: 'Correction de la longueur maximale du code de groupe (passant de 7 à 8 caractères). Suppression complète et simultanée du fichier depuis le bucket Supabase lorsqu\'un message est supprimé pour tout le monde. Restriction de la suppression pour tout le monde exclusive à l\'auteur du message.',
     manual: '### Guide d\'utilisation v3.2.2\n\n1. **Codes de Groupes** : Vous pouvez désormais utiliser sans problème les codes d\'invitation à 8 caractères.\n2. **Suppression de message** : La suppression pour tout le monde est réservée uniquement à la personne qui a envoyé le message. De plus, supprimer un message pour tout le monde supprime complètement le fichier joint de nos serveurs de façon permanente !',
@@ -43,7 +43,7 @@ export const APP_UPDATES = [
   },
   { 
     version: '3.2.1',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
+    date: '18/06/2026', 
     desc: 'Correction d\'un problème de collision lors de l\'envoi simultané de plusieurs fichiers du même type.',
     adminDesc: 'Correction d\'un bug provoquant l\'erreur "Failed to fetch" sur Supabase lors de l\'upload de plusieurs fichiers avec un nom identique (ajout d\'un hash aléatoire pour garantir l\'unicité des chemins du bucket).',
     manual: '### Guide d\'utilisation v3.2.1\n\n1. **Gros fichiers** : La sélection de plusieurs fichiers de même type d\'un coup ne provoque plus d\'erreur réseau.',
@@ -51,7 +51,7 @@ export const APP_UPDATES = [
   },
   { 
     version: '3.2.0',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
+    date: '18/06/2026', 
     desc: 'Amélioration de la connexion avec Google et optimisation des couleurs dans le profil (Mode sombre). Remplacement du système de stockage pour envoyer des fichiers lourds de façon sécurisée (Terminé Cloudinary).',
     adminDesc: 'Amélioration de la connexion Google (correction erreur auth/cancelled-popup-request) et fix visuel en mode sombre. Migration complète de Cloudinary vers Supabase Storage pour l\'envoi natif de tout type de fichier sans limite d\'extension bloquée.',
     manual: '### Guide d\'utilisation v3.2.0\n\n1. **Connexion Google** : Le problème de compte bloqué par popup a été corrigé.\n2. **Stockage Amélioré** : Le système de partage de gros fichiers est beaucoup plus robuste et tolérant.\n3. **Amélioration Visuelle** : L\'onglet Profil est parfaitement lisible en fond sombre.',
@@ -59,7 +59,7 @@ export const APP_UPDATES = [
   },
   {
     version: '3.1.4',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    date: '16/06/2026',
     desc: 'Correction du problème d\'échec de téléchargement pour les fichiers, assignation automatique du logo officiel DJ Messenger lors de la création d\'un groupe sans image, et finalisation de l\'adaptation au mode sombre sur l\'interface.',
     adminDesc: 'Correction du problème d\'échec de téléchargement pour les fichiers (gestion de la persistance des Blob URLs dans le navigateur), assignation de l\'image par défaut (DJ_LOGO) aux nouveaux groupes, et renforcement du mode sombre.',
     manual: `### Guide d'utilisation détaillé v3.1.4
@@ -85,7 +85,7 @@ export const APP_UPDATES = [
   },
   {
     version: '3.1.3',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    date: '15/06/2026',
     desc: 'Réintégration de la liste de sélection des utilisateurs pour démarrer une discussion SMS, modernisation de l\'onglet Amis, et correction du bug des onglets masqués en mode sombre. Amélioration approfondie de la Regex Markdown pour éviter les conflits avec les numéros.',
     adminDesc: 'Réintégration de la liste de sélection des utilisateurs pour SMS, rafraîchissement visuel de l\'onglet Amis (suppression Création, retrait arobase), transparence ajustée en mode sombre pour les onglets, et SMS de nouveau visibles dans l\'onglet Récents.',
     manual: `### Guide d'utilisation détaillé v3.1.3
@@ -142,7 +142,7 @@ export const APP_UPDATES = [
   },
   {
     version: '3.1.2',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    date: '14/06/2026',
     desc: 'Visibilité améliorée des textes en gras dans n\'importe quel thème et coloration automatique des liens envoyés dans les bulles.',
     adminDesc: 'Visibilité améliorée des textes en gras dans n\'importe quel thème et coloration automatique des liens envoyés dans les bulles.',
     manual: '### Guide d\'utilisation v3.1.2\n\n1. **Liens cliquables** : Les liens web sont maintenant automatiquement détectés et colorisés avec le Style DJ.\n2. **Formatage de texte** : Utilisez `*mot*` pour mettre en gras, `**mot**` pour mettre en italique, et `_mot_` pour souligner. Vous pouvez combiner ces symboles ! Par exemple : \n   - Gras + Italique : `***mot***`\n   - Gras + Souligné : `_*mot*_`\n   - Italique + Souligné : `_**mot**_`\n   - Les trois : `_***mot***_`\n3. **Thèmes globaux** : Dans vos Paramètres > Apparence, choisissez parmi Clair, Sombre, Azur, Lime et Dégradé.',
@@ -150,13 +150,13 @@ export const APP_UPDATES = [
   },
   {
     version: '3.1.1',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+    date: '14/06/2026',
     desc: 'Clarification des critères de formatage Markdown (Gras, Italique, Souligné) dans le manuel. Mise en place de la nouvelle règle de versionnage : incrémentation mineure x.x.1 puis passage automatique en x.x+1.0 (ex: 3.2.0) à la 10ème itération avec récapitulatif total.',
     manual: '### Guide d\'utilisation v3.1.1\n\n1. **Formatage de texte** : Utilisez `*mot*` pour mettre en gras, `**mot**` pour mettre en italique, et `_mot_` pour souligner. Vous pouvez combiner ces symboles ! Par exemple : \n   - Gras + Italique : `***mot***`\n   - Gras + Souligné : `_*mot*_`\n   - Italique + Souligné : `_**mot**_`\n   - Les trois : `_***mot***_`\n2. **Thèmes globaux** : Dans vos Paramètres > Apparence, choisissez parmi Clair, Sombre, Azur, Lime et Dégradé.\n3. **Lisibilité** : Les textes s\'adaptent automatiquement au fond coloré.'
   },
   { 
     version: '3.1.0',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
+    date: '13/06/2026', 
     desc: 'Nouveau système de thèmes globaux, adaptation des textes sur les fonds personnalisés comme l\'Azur ou le Lime, et optimisation de l\'écran d\'accueil/mon compte.',
     adminDesc: 'Nouveau système de thèmes globaux, correction des droits administrateur (Super Admin) rendant l\'accès parfait, adaptation des textes sur les fonds personnalisés comme l\'Azur ou le Lime, et optimisation de l\'écran d\'accueil/mon compte.',
     manual: '### Guide d\'utilisation v3.1\n\n1. **Thèmes** : Dans vos Paramètres > Apparence, choisissez parmi 5 ambiances globales : Clair, Sombre, Azur, Lime et Dégradé.\n2. **Lisibilité** : Les écritures et les contours s\'adaptent automatiquement aux fonds colorés sur toute l\'application.',
@@ -164,7 +164,7 @@ export const APP_UPDATES = [
   },
   { 
     version: '3.0.0',
-    date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }), 
+    date: '12/06/2026', 
     desc: 'Refonte totale du système de bulles de messages, ajout du Markdown (Gras, Italique, Souligné), sécurité renforcée des groupes privés (Codes complexes), indicateurs de frappe en direct, et refonte du Mode Sombre personnalisé.',
     manual: '### Guide d\'utilisation v3.0\n\n1. **Formatage** : Utilisez *texte* pour le gras, **texte** pour l\'italique et _texte_ pour le souligné.\n2. **Tutoriel** : Le tutoriel dispose maintenant d\'un bouton Quitter pour y revenir plus tard du menu latéral.\n3. **Présence** : L\'état "En ligne" de vos interlocuteurs s\'affiche de façon fiable dans vos SMS et vos profils d\'utilisateurs rapides.\n4. **Typing** : Des points de suspension s\'affichent de façon animée lorsque un utilisateur est en train d\'écrire un message.\n5. **Actions Rapides** : Les boutons pour télécharger, citer ou supprimer un message ont été repositionnés proprement après le message, sans gêner l\'avatar.'
   },

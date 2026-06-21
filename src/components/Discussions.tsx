@@ -4284,7 +4284,12 @@ export function Discussions({
                     : "Supprimer pour moi uniquement"}
                 </button>
                 {!deleteOptionsPrompt.isDeletedForEveryone &&
-                  deleteOptionsPrompt.isMine && (
+                  (deleteOptionsPrompt.isMine ||
+                    currentUser?.isAdmin ||
+                    currentUser?.isSuperAdmin ||
+                    currentUser?.isGrandAdmin ||
+                    deleteOptionsPrompt.isCreator ||
+                    deleteOptionsPrompt.isSubAdmin) && (
                     <button
                       onClick={() =>
                         handleDeleteMessage(

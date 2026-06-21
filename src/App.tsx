@@ -827,109 +827,19 @@ export default function App() {
             return;
           }
 
-          let response =
-            "Je suis désolé, mes capteurs ne captent pas bien cette fréquence ! Mais je peux vous guider sur les groupes, les SMS privés, le transfert de fichiers, la DJ Society ou vos réglages. Posez-moi une question précise !";
-          const text = (lastMsg.text || "").toLowerCase();
-
-          if (
-            text.includes("bonjour") ||
-            text.includes("salut") ||
-            text.includes("coucou") ||
-            text.includes("hello")
-          ) {
-            response =
-              "Salut l'artiste ! 🎧 Je suis DJ Bot, ton assistant virtuel personnel. Je suis expert en DJ Messenger. Comment puis-je t'aider à propulser ton expérience aujourd'hui ?\n\nJe peux t'expliquer :\n- Comment créer des Groupes (Publics ou Privés)\n- Comment ajouter des Amis pour des SMS secrets\n- Comment utiliser la DJ Society pour changer l'app\n- Comment personnaliser ton style dans les Paramètres";
-          } else if (text.includes("groupe")) {
-            response =
-              "Les Groupes sont le cœur de la communauté ! 🌍\n\n1. **Publics** : Visibles par tous, parfaits pour les annonces DJ.\n2. **Privés** : Sécurisés par un code secret (5-7 caractères). On y entre par invitation ou avec le code.\n3. **SMS** : Discussions 1-à-1 avec tes amis.\n\n**Astuce PRO** : Pour créer le groupe parfait, appuie sur '+' et laisse-toi guider par l'assistant en 4 étapes !";
-          } else if (text.includes("ami")) {
-            response =
-              "Besoin d'un crew ? 👯‍♂️\n\n1. Direction l'onglet **'AMIS'**.\n2. Tape son pseudo dans la barre de recherche.\n3. Envoie une invitation.\n\nUne fois accepté, vous pourrez échanger des messages cryptés et des fichiers en privé !";
-          } else if (
-            text.includes("paramètre") ||
-            text.includes("couleur") ||
-            text.includes("style") ||
-            text.includes("theme") ||
-            text.includes("thème")
-          ) {
-            response =
-              "Exprime ton style ! 🎨 Dans l'onglet **'PARAMÈTRES'**, tu peux :\n- Changer la couleur principale de l'app (Style DJ).\n- Basculer entre le Mode Sombre et Clair.\n- Modifier ton mot de passe.\n- Devenir un **ADMIN** si tu possèdes le code secret 'Dj2024in' !";
-          } else if (
-            text.includes("society") ||
-            text.includes("idée") ||
-            text.includes("proposer") ||
-            text.includes("vote")
-          ) {
-            response =
-              "La **DJ Society** est ta tribune ! 🏛️\n\n- Propose des idées d'amélioration (3 par jour max).\n- Vote pour les suggestions des autres.\n- Les administrateurs valident les meilleures idées pour les intégrer dans la prochaine version (comme la v3.0 actuelle !).";
-          } else if (text.includes("test") || text.includes("visiteur")) {
-            response =
-              "Le **Mode Test** est une démo. 👁️\nTu peux observer, mais pour devenir un vrai acteur, créer des groupes et avoir des amis, tu dois te connecter avec un vrai compte. C'est instantané et ça débloque toute la puissance de l'application !";
-          } else if (text.includes("code")) {
-            response =
-              "La sécurité avant tout ! 🔒\nLes codes de groupe sont définis à la création par le créateur. Ne le donne qu'à ceux que tu veux voir dans tes discussions privées. Si tu as perdu le code d'un de tes groupes, demande à un autre admin !";
-          } else if (
-            text.includes("sms") ||
-            text.includes("message") ||
-            text.includes("privé")
-          ) {
-            response =
-              "Les SMS sont ultra-privés. 📱\nChaque discussion est une bulle entre toi et ton contact. Tu peux y envoyer du texte stylé (*italique*, **gras**), des stickers et des fichiers lourds.";
-          } else if (
-            text.includes("fichier") ||
-            text.includes("image") ||
-            text.includes("vidéo") ||
-            text.includes("photo") ||
-            text.includes("partage")
-          ) {
-            response =
-              "Partage tes créations ! 💿\nUtilise l'icône **Trombone (📎)**. Tu peux envoyer des photos HD et des vidéos jusqu'à 200 Mo. Ils s'affichent directement dans la discussion pour tous les membres !";
-          } else if (
-            text.includes("admin") ||
-            text.includes("modérateur") ||
-            text.includes("pouvoir")
-          ) {
-            response =
-              "Les Admins règnent sur l'app ! 🛡️\nIls peuvent supprimer les messages toxiques, bannir les trolls et valider les idées. Pour les rejoindre, va dans Paramètres > Compte et entre le code admin.";
-          } else if (
-            text.includes("v3") ||
-            text.includes("version") ||
-            text.includes("nouveau") ||
-            text.includes("mise à jour")
-          ) {
-            response =
-              "La **Version 3.0** est une révolution ! 🚀\n- Notifications In-App interactives.\n- Support des notifications Background.\n- Système de présence (En Ligne).\n- Avatars de groupes et rendu Markdown amélioré.\nConsulte l'onglet **'MISES À JOUR'** pour tout savoir !";
-          } else if (
-            text.includes("merci") ||
-            text.includes("thanks") ||
-            text.includes("top")
-          ) {
-            response =
-              "À ton service ! 🎧 N'hésite pas si tu as d'autres questions. À plus dans le mix !";
-          } else if (
-            text.includes("aide") ||
-            text.includes("help") ||
-            text.includes("comment")
-          ) {
-            response =
-              "Je suis ton manuel d'utilisation vivant ! 📘 Dis-moi ce qui te bloque : les groupes, les SMS, les fichiers, les amis ou ton profil ?";
-          } else if (
-            text.includes("musique") ||
-            text.includes("dj") ||
-            text.includes("set")
-          ) {
-            response =
-              "Pour le moment, je gère la messagerie, mais on murmure que des lecteurs audio pourraient un jour arriver dans DJ Messenger... Reste à l'écoute ! 🎶";
-          } else if (text.includes("supprimer") || text.includes("quitter")) {
-            response =
-              "Tu veux faire du ménage ? 🧹\n- Tu peux quitter un groupe depuis sa barre d'options.\n- Si tu es admin, tu peux supprimer un message ou bannir un membre indélicat.";
-          } else if (
-            text.includes("qui es-tu") ||
-            text.includes("qui est tu") ||
-            text.includes("t'es qui")
-          ) {
-            response =
-              "Je suis **DJ Bot**, le premier résident permanent de DJ Messenger ! 🤖 Mon but est de faire en sorte que personne ne soit perdu dans l'application. Je ne dors jamais, je suis là 24h/24.";
+          let response = "Je suis désolé, mes capteurs ne captent pas bien cette fréquence ! (Erreur réseau)";
+          try {
+             const res = await fetch("/api/bot", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({ text: lastMsg.text })
+             });
+             if (res.ok) {
+               const data = await res.json();
+               response = data.response || response;
+             }
+          } catch(e) {
+             console.error("DJ Bot API error:", e);
           }
 
           const botResponse = {
