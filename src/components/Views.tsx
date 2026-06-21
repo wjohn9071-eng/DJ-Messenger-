@@ -846,14 +846,23 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
   const [toast, setToast] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeHelpRequest, setActiveHelpRequest] = useState<string | null>(null);
+  const [showRestrictedPopup, setShowRestrictedPopup] = useState(false);
   
-  const currentUser = state.users[state.currentUser as string];
+  const currentUser = state.users?.[state.currentUser as string] || { name: 'Utilisateur Anonyme', isAdmin: false, isGrandAdmin: false, isSuperAdmin: false } as User;
   const isStaffMember = currentUser?.isAdmin || currentUser?.isGrandAdmin || currentUser?.isSuperAdmin;
   const staffMembers = Object.values(state.users || {}).filter(u => u.isAdmin || u.isGrandAdmin || u.isSuperAdmin);
   const staffGroupId = `staff-help-${state.currentUser}`;
+  const isTest = state.currentUser === 'test';
   
   const helpRequests = Object.values(state.groups || {}).filter(g => g.id.startsWith('staff-help-'));
   const staffGroup = activeHelpRequest ? state.groups[activeHelpRequest] : state.groups[staffGroupId];
+
+  useEffect(() => {
+    if (state.activeGroup && state.activeGroup.startsWith('staff-help-') && isStaffMember) {
+      setActiveHelpRequest(state.activeGroup);
+      updateState({ activeGroup: null }); // clear after picking it up
+    }
+  }, [state.activeGroup, isStaffMember, updateState]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -866,6 +875,7 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isTest) return setShowRestrictedPopup(true);
     if (!message.trim() || !state.currentUser) return;
 
     const targetGroupId = activeHelpRequest || staffGroupId;
@@ -873,13 +883,13 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
 
     // Limit to 9 problems per day for normal users
     const today = new Date().toISOString().split('T')[0];
-    const user = state.users[state.currentUser];
+    const user = state.users?.[state.currentUser] || { name: 'Utilisateur Anonyme', isAdmin: false } as User;
     let problemsToday = user.problemsToday || 0;
     if (user.lastProblemDate !== today) {
       problemsToday = 0;
     }
 
-    if (problemsToday >= 9 && !user.isAdmin && !activeHelpRequest) {
+    if (problemsToday >= 9 && !user.isAdmin && !user.isGrandAdmin && !user.isSuperAdmin && !activeHelpRequest) {
       return showToast("Limite de 9 messages au staff par jour atteinte.");
     }
 
@@ -1064,6 +1074,12 @@ export function Staff({ state, updateState }: { state: AppState, updateState: an
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest shadow-2xl backdrop-blur-md z-50 animate-in slide-in-from-bottom-4">
           {toast}
         </div>
+      )}
+      
+      {showRestrictedPopup && (
+        <RestrictedActionPopup 
+          onClose={() => setShowRestrictedPopup(false)} 
+        />
       )}
     </div>
   );

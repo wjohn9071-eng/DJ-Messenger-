@@ -904,11 +904,11 @@ export default function App() {
     { id: "profile", label: "Mon Profil", icon: UserIcon },
     { id: "discussions", label: "Discussions", icon: MessageSquare },
     { id: "friends", label: "Amis", icon: Users },
+    { id: "staff", label: "Staff", icon: Shield },
     { id: "djsociety", label: "DJ Society", icon: Lightbulb },
   ];
 
   if (user?.isAdmin || user?.isGrandAdmin || user?.isSuperAdmin) {
-    navItems.push({ id: "staff", label: "Staff", icon: Shield });
     navItems.splice(4, 0, {
       id: "admin_users",
       label: "Utilisateurs",
@@ -1008,6 +1008,13 @@ export default function App() {
         notification={notification}
         onClose={() => setNotification(null)}
         onClick={(groupId) => {
+          if (groupId.startsWith('staff-help-')) {
+            updateState({ activeGroup: groupId });
+            setView('staff');
+            setNotification(null);
+            return;
+          }
+          
           updateState({
             activeGroup: groupId,
             discussionTab: groupId.startsWith("sms_")

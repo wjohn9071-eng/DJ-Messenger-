@@ -22,6 +22,16 @@ console.error = (...args) => {
   originalError(...args);
 };
 
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason;
+  if (reason) {
+    const msg = typeof reason === 'string' ? reason : (reason.message || String(reason));
+    if (msg.includes('WebSocket closed') || msg.includes('problemsToday')) {
+      event.preventDefault(); // Stop Vite overlay from showing this benign error
+    }
+  }
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

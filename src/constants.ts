@@ -2,6 +2,14 @@ import { AppState } from './types';
 
 export const APP_UPDATES = [
   {
+    version: '3.2.7',
+    date: '21/06/2026',
+    desc: 'Correction des erreurs d\'écran (messages rouges) liées au WebSocket, et restriction de test appliquée au canal de communication du Staff.',
+    adminDesc: 'Résolution des interruptions Unhandled Rejections ("WebSocket closed without opened"). Ajout du pattern de fallback global pour empêcher "Cannot read properties of undefined (reading \'problemsToday\')" sur l\'espace Staff pour les nouveaux comptes ou profils asynchrones. Affichage du RestrictedActionPopup pour isTest.',
+    manual: '### Guide d\'utilisation v3.2.7\n\n1. **Stabilité** : Vous ne verrez plus d\'écran d\'erreur intempestif concernant le réseau ("WebSocket").\n2. **Support** : L\'onglet Staff avertit désormais correctement les utilisateurs du Mode Test qu\'ils doivent se connecter pour déposer une plainte ou demander de l\'aide.',
+    adminManual: '### Guide d\'utilisation v3.2.7 (Admin)\n\n1. **Bugs Résolus** : L\'objet currentUser est désormais correctement backé par un fallback lors de son invocation dans l\'onglet Staff, prévenant les soft-locks.'
+  },
+  {
     version: '3.2.6',
     date: '21/06/2026',
     desc: 'Amélioration de la méthode d\'upload: Routage intelligent des fichiers entre le mode instantané (Firebase) et le mode Cloud (Supabase) selon le poids total de l\'envoi.',

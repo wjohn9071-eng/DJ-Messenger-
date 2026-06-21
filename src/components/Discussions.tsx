@@ -624,40 +624,29 @@ export function Discussions({
         // DJ Bot Response Logic for Groups
         if (
           group?.members?.includes("dj-bot") &&
-          state.currentUser !== "dj-bot"
+          state.currentUser !== "dj-bot" &&
+          (msgText.toLowerCase().includes("dj") || msgText.toLowerCase().includes("bot") || msgText.toLowerCase().includes("aide"))
         ) {
           setTimeout(async () => {
-            const text = msgText.toLowerCase();
-            let botText = "";
-
-            if (
-              text.includes("aide") ||
-              text.includes("comment") ||
-              text.includes("help")
-            ) {
-              botText =
-                "Besoin d'un coup de main ? 🎧 Je suis là ! Pose-moi une question sur les groupes, les SMS ou les réglages. Tu peux aussi me parler en privé pour plus de détails !";
-            } else if (
-              text.includes("bienvenue") ||
-              text.includes("salut") ||
-              text.includes("bonjour")
-            ) {
-              botText =
-                "Bienvenue dans le mix ! 🚀 Je suis DJ Bot. Ravi de voir de l'activité ici !";
-            } else if (text.includes("merci")) {
-              botText = "Pas de souci, on est une équipe ! 🤝";
-            } else if (text.includes("bot") || text.includes("dj bot")) {
-              botText =
-                "On parle de moi ? 😉 Je suis toujours à l'écoute pour aider la communauté !";
-            } else if (
-              text.startsWith("dj bot") ||
-              text.startsWith("@dj bot")
-            ) {
-              botText =
-                "Je t'écoute ! Pose-moi ta question ou demande-moi de l'aide. 🎧";
+            const tempResponse = "Je réfléchis...";
+            let botText = "On parle de moi ? 😉 Je suis à la fois DJ et assistant expert de DJ Messenger. Viens en message privé si tu as besoin d'aide !";
+            try {
+              const res = await fetch("/api/bot", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: "Je suis dans un groupe de discussion et quelqu'un a écrit ce message. Si ça t'est adressé ou si ça parle de questions d'aide sur l'application, réponds de manière brève et amicale. Sinon retourne juste une phrase vide. Voici le message : " + msgText })
+              });
+              if (res.ok) {
+                 const data = await res.json();
+                 if (data.response && data.response.trim().length > 5) {
+                   botText = data.response;
+                 }
+              }
+            } catch(e) {
+               console.error("DJ Bot API error:", e);
             }
 
-            if (botText) {
+            if (botText && botText !== "") {
               await addDoc(msgRef, {
                 text: botText,
                 user: "dj-bot",
